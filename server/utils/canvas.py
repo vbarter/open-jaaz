@@ -27,13 +27,9 @@ class CanvasLayoutConfig:
         """根据画布宽度和图片尺寸计算最大列数"""
         if self.max_columns is not None:
             return self.max_columns
-            
-        # 计算能容纳的最大列数
-        available_width = self.canvas_width - (2 * self.margin_left)
-        column_width = self.standard_width + self.horizontal_spacing
-        max_cols = max(1, available_width // column_width)
-        
-        return min(max_cols, 6)  # 最多6列，避免过于密集
+
+        # 固定使用5列网格布局
+        return 5
     
     def set_layout_strategy(self, preserve_aspect_ratio: bool = True, use_original_size: bool = True):
         """
@@ -176,63 +172,113 @@ def _grid_row_to_pos(row: int) -> int:
 
 def _calculate_flow_position(media_elements: list, element_width: int, element_height: int) -> tuple[int, int]:
     """
-    计算流式布局位置 - 适用于不同尺寸的元素
-    
+    计算5列智能瀑布流布局 - 保持原始尺寸且避免重叠
+
+    策略：
+    1. 5个固定列起始位置
+    2. 总是选择最矮的列
+    3. 智能检测重叠，确保不冲突
+
     Args:
         media_elements: 现有媒体元素列表
         element_width: 新元素宽度
         element_height: 新元素高度
-        
+
     Returns:
         tuple[int, int]: (x, y) 坐标
     """
-    print(f"   🌊 [FLOW_LAYOUT] 开始流式布局计算:")
+    print(f"   🎯 [SMART_LAYOUT] 智能5列布局计算:")
     print(f"      新元素尺寸: {element_width} x {element_height}")
-    
-    if not media_elements:
-        return layout_config.margin_left, layout_config.margin_top
-    
-    # 按行分组现有元素
-    rows = _group_elements_by_rows(media_elements)
-    print(f"      现有行数: {len(rows)}")
-    
-    # 尝试在现有行中找到合适的位置
-    for row_index, row_elements in enumerate(rows):
-        print(f"      检查第 {row_index + 1} 行 (元素数: {len(row_elements)}):")
-        
-        # 计算行的Y范围
-        row_top = min(e.get("y", 0) for e in row_elements)
-        row_bottom = max(e.get("y", 0) + e.get("height", 0) for e in row_elements)
-        row_height = row_bottom - row_top
-        
-        print(f"         行Y范围: {row_top} - {row_bottom} (高度: {row_height})")
-        
-        # 检查新元素是否可以放在这一行
-        if element_height <= row_height + layout_config.vertical_spacing:
-            # 找到行中最右边的位置
-            rightmost_x = max(e.get("x", 0) + e.get("width", 0) for e in row_elements)
-            candidate_x = rightmost_x + layout_config.horizontal_spacing
-            
-            # 检查是否超出画布宽度
-            if candidate_x + element_width <= layout_config.canvas_width - layout_config.margin_left:
-                result_y = row_top  # 与行顶部对齐
-                print(f"         ✅ 可以放在第 {row_index + 1} 行，位置: ({candidate_x}, {result_y})")
-                return candidate_x, result_y
-            else:
-                print(f"         ❌ 第 {row_index + 1} 行宽度不足")
-    
-    # 如果所有现有行都放不下，创建新行
-    if rows:
-        # 找到最下方的元素
-        bottom_most_y = max(e.get("y", 0) + e.get("height", 0) for e in media_elements)
-        new_y = bottom_most_y + layout_config.vertical_spacing
-    else:
-        new_y = layout_config.margin_top
-    
-    new_x = layout_config.margin_left
-    print(f"      📍 创建新行，位置: ({new_x}, {new_y})")
-    
+
+    # 定义5列的固定起始X坐标
+    column_x_positions = [
+        layout_config.margin_left,  # 第1列
+        layout_config.margin_left + 320,   # 第2列
+        layout_config.margin_left + 640,   # 第3列
+        layout_config.margin_left + 960,   # 第4列
+        layout_config.margin_left + 1280,  # 第5列
+    ]
+
+    print(f"      列X坐标: {column_x_positions}")
+
+    # 计算每列当前的最低点
+    column_bottoms = [layout_config.margin_top] * 5
+
+    # 遍历现有元素，更新每列的最低点
+    for element in media_elements:
+        if element.get("isDeleted"):
+            continue
+
+        elem_x = element.get("x", 0)
+        elem_y = element.get("y", 0)
+        elem_height = element.get("height", 0)
+
+        # 找到元素属于哪一列（最接近的列）
+        column_index = _find_closest_column(elem_x, column_x_positions)
+        element_bottom = elem_y + elem_height
+
+        # 更新该列的最低点
+        if element_bottom > column_bottoms[column_index]:
+            column_bottoms[column_index] = element_bottom
+
+    print(f"      各列底部高度: {column_bottoms}")
+
+    # 找到最矮的列
+    min_height_column = column_bottoms.index(min(column_bottoms))
+
+    # 计算新位置
+    new_x = column_x_positions[min_height_column]
+    new_y = column_bottoms[min_height_column]
+
+    # 如果不是第一个元素，添加垂直间距
+    if new_y > layout_config.margin_top:
+        new_y += layout_config.vertical_spacing
+
+    print(f"      选择第 {min_height_column + 1} 列（最矮列）")
+    print(f"      新位置: ({new_x}, {new_y})")
+
+    # 最终重叠检查，如果有重叠就向下调整
+    new_x, new_y = _ensure_no_overlap(media_elements, new_x, new_y, element_width, element_height)
+
     return new_x, new_y
+
+def _find_closest_column(x: int, column_x_positions: list) -> int:
+    """找到X坐标最接近的列"""
+    distances = [abs(x - col_x) for col_x in column_x_positions]
+    return distances.index(min(distances))
+
+def _ensure_no_overlap(media_elements: list, x: int, y: int, width: int, height: int) -> tuple[int, int]:
+    """确保新元素不与现有元素重叠，如有重叠则向下调整"""
+    max_attempts = 10
+    attempts = 0
+
+    while attempts < max_attempts:
+        # 检查是否与现有元素重叠
+        overlaps = False
+        for element in media_elements:
+            if element.get("isDeleted"):
+                continue
+
+            ex_x = element.get("x", 0)
+            ex_y = element.get("y", 0)
+            ex_width = element.get("width", 0)
+            ex_height = element.get("height", 0)
+
+            # 检查矩形重叠
+            if not (x + width <= ex_x or x >= ex_x + ex_width or
+                   y + height <= ex_y or y >= ex_y + ex_height):
+                overlaps = True
+                # 向下移动到重叠元素下方
+                y = ex_y + ex_height + layout_config.vertical_spacing
+                print(f"      🔧 检测到重叠，向下调整到: ({x}, {y})")
+                break
+
+        if not overlaps:
+            break
+
+        attempts += 1
+
+    return x, y
 
 def _group_elements_by_rows(media_elements: list) -> list[list]:
     """

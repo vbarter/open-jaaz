@@ -119,7 +119,7 @@ async def generate_new_image_element(
     fileid: str,
     image_data: Dict[str, Any],
     canvas_data: Optional[Dict[str, Any]] = None,
-    use_standard_size: bool = False,  # 改为默认False，保持原始尺寸
+    use_standard_size: bool = False,  # 保持原始尺寸，避免图片变形
 ) -> Dict[str, Any]:
     """
     Generate new image element for canvas with improved layout
@@ -207,7 +207,7 @@ async def generate_new_image_element(
     }
 
 
-async def save_image_to_canvas(session_id: str, canvas_id: str, filename: str, mime_type: str, width: int, height: int, cos_url: Optional[str] = None) -> str:
+async def save_image_to_canvas(session_id: str, canvas_id: str, filename: str, mime_type: str, width: int, height: int, cos_url: Optional[str] = None, user_info: Optional[Dict[str, Any]] = None) -> str:
     """Save image to canvas with proper locking and positioning"""
     try:
         print(f"💾 [SAVE_IMAGE] 开始保存图片到画布:")
@@ -216,18 +216,26 @@ async def save_image_to_canvas(session_id: str, canvas_id: str, filename: str, m
         print(f"   📐 尺寸: {width}x{height}")
         print(f"   🔗 COS URL: {cos_url[:50] + '...' if cos_url and len(cos_url) > 50 else cos_url}")
         
+        # 提取用户信息
+        user_email = None
+        user_uuid = None
+        if user_info:
+            user_email = user_info.get('email')
+            user_uuid = user_info.get('uuid')
+            print(f"👤 [SAVE_IMAGE] 用户信息: email={user_email}, uuid={user_uuid}")
+
         # Use lock to ensure atomicity of the save process
         async with canvas_lock_manager.lock_canvas(canvas_id):
             print(f"🔒 [SAVE_IMAGE] 获得画布锁: {canvas_id}")
-            
-            # Fetch canvas data once inside the lock
-            canvas: Optional[Dict[str, Any]] = await db_service.get_canvas_data(canvas_id)
+
+            # Fetch canvas data once inside the lock with user authentication
+            canvas: Optional[Dict[str, Any]] = await db_service.get_canvas_data(canvas_id, user_uuid=user_uuid, user_email=user_email)
             if canvas is None:
                 canvas = {'data': {}}
                 print(f"📄 [SAVE_IMAGE] 创建新画布数据")
             else:
                 print(f"📄 [SAVE_IMAGE] 加载现有画布数据")
-                
+
             canvas_data: Dict[str, Any] = canvas.get('data', {})
 
         # Ensure 'elements' and 'files' keys exist

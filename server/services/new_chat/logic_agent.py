@@ -162,7 +162,7 @@ async def create_local_response(messages: List[Dict[str, Any]],
 
                 # 🔧 [CHAT_FIX_V2] 恢复画布保存逻辑，确保图片被正确保存和发送
                 # 保存图片到画布，传递已有的腾讯云URL避免重复上传
-                image_url = await save_image_to_canvas(session_id, canvas_id, filename, mime_type, width, height, cos_url)
+                image_url = await save_image_to_canvas(session_id, canvas_id, filename, mime_type, width, height, cos_url, user_info)
                 print(f"✨ 图片已保存到画布: {filename}")
             except Exception as e:
                 print(f"❌ 保存图片到画布失败: {e}")
