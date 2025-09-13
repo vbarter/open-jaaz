@@ -338,7 +338,9 @@ class TuziLLMService:
                 if not self._is_text_model(model_name,provider):
                     text_model = "gpt-5-2025-08-07"
                     logger.info(f"⚠️ 模型 {model_name} 不支持文本对话，切换到同provider的文本模型: {text_model}")
-                return await self._handle_text_conversation(model_name, 
+                else:
+                    text_model = model_name
+                return await self._handle_text_conversation(text_model, 
                                                             user_prompt, 
                                                             user_info, 
                                                             stream=stream,
