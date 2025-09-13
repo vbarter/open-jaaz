@@ -696,6 +696,7 @@ class TuziLLMService:
             if len(file_path) == 1:
                 # 只有目标图片，不使用模板
                 logger.info(f"📝 [DEBUG] 使用单图片模式（无模板）")
+                logger.info(f"   - 目标图片 (image): {file_path[0]}")
                 with open(file_path[0], 'rb') as image_file:
                     result = await client.images.edit(
                         model=model,
