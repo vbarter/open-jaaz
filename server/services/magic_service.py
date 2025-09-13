@@ -250,13 +250,42 @@ async def _process_magic_generation(
                                                         template_id=template_id, 
                                                         user_info=user_info)
         
-        # 🎯 画图成功后扣除积分
-        if user_info and user_info.get('id') and user_info.get('uuid'):
-            logger.info(f"🎯 [DEBUG] 魔法画图成功，开始积分扣除流程: user_id={user_info.get('id')}")
+        # 🎯 检查是否真正生成成功，只有成功时才扣除积分
+        def is_generation_successful(response: Dict[str, Any]) -> bool:
+            """检查魔法生成是否真正成功"""
+            content = response.get('content', '')
+            if not content:
+                return False
+
+            # 检查是否包含失败相关的消息
+            failure_indicators = [
+                'Magic generation failed',
+                'Failed to generate magic image',
+                'No result URL',
+                'generation failed',
+                'time out',
+                'not found input image',
+                'Cloud API Key not configured'
+            ]
+
+            content_lower = content.lower()
+            for indicator in failure_indicators:
+                if indicator.lower() in content_lower:
+                    return False
+
+            # 检查是否包含成功生成的标志（包含图片链接）
+            return '![' in content and '](' in content
+
+        # 只有真正成功生成图片时才扣除积分
+        user_id = user_info.get('id') if user_info else None
+        user_uuid = user_info.get('uuid') if user_info else None
+
+        if is_generation_successful(ai_response) and user_id and user_uuid:
+            logger.info(f"🎯 [DEBUG] 魔法画图成功，开始积分扣除流程: user_id={user_id}")
             try:
                 deduction_result = await points_service.deduct_image_generation_points(
-                    user_id=user_info.get('id'),
-                    user_uuid=user_info.get('uuid'),
+                    user_id=int(user_id),
+                    user_uuid=str(user_uuid),
                     session_id=session_id
                 )
                 if deduction_result['success']:
@@ -269,13 +298,15 @@ async def _process_magic_generation(
                         'message': f"画图完成，扣除{deduction_result['points_deducted']}积分，剩余{deduction_result['balance_after']}积分"
                     }
                     logger.info(f"📡 [DEBUG] 准备发送魔法画图积分扣除通知: {notification_message}")
-                    
+
                     await send_to_websocket(session_id, notification_message)
                     logger.info(f"📡 [DEBUG] 魔法画图积分扣除通知已发送到session: {session_id}")
                 else:
                     logger.error(f"❌ 魔法画图积分扣除失败: {deduction_result['message']}")
             except Exception as e:
                 logger.error(f"❌ 扣除魔法画图积分时发生错误: {e}")
+        elif not is_generation_successful(ai_response):
+            logger.info(f"⚠️ [DEBUG] 魔法画图失败，不扣除积分: response_content={ai_response.get('content', '')[:100]}...")
         else:
             logger.warning(f"⚠️ [DEBUG] 魔法画图完成但用户信息不完整，跳过积分扣除: user_info={user_info}")
         
