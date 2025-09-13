@@ -47,7 +47,7 @@
   },
   "toast": {
     "loginExpired": "Login has expired, please login again",
-    "crossTabLogout": "You have been logged out in another tab",
+    "crossTabLogout": "Successfully logged out",
     "loginSuccess": "Login successful!",
     "loginError": "Error occurred during login",
     "loginFailed": "Login failed",

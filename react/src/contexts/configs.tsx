@@ -3,6 +3,7 @@ import useConfigsStore from '@/stores/configs'
 import { useQuery } from '@tanstack/react-query'
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { toast } from 'sonner'
 
 export const ConfigsContext = createContext<{
   configsStore: typeof useConfigsStore
@@ -204,9 +205,59 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
 
     setSelectedTools(currentSelectedTools)
 
-    // 如果文本模型或工具模型为空，则显示登录对话框
-    if (llmModels.length === 0 || toolList.length === 0) {
+    // 只有在明确需要认证时才显示登录对话框，避免网络问题误触发
+    const shouldShowLogin = (llmModels.length === 0 || toolList.length === 0) &&
+                           modelList?.errorType === 'auth'
+
+    if (shouldShowLogin) {
+      console.log('需要认证，显示登录对话框:', modelList.errorMessage)
       setShowLoginDialog(true)
+    } else if (modelList?.hasError) {
+      // 非认证问题的错误，提供用户友好的错误提示和重试选项
+      console.warn('模型加载错误 (非认证问题):', {
+        errorType: modelList.errorType,
+        errorMessage: modelList.errorMessage,
+        modelsCount: llmModels.length,
+        toolsCount: toolList.length
+      })
+
+      // 根据错误类型显示不同的提示
+      if (modelList.errorType === 'network') {
+        toast.error('网络连接失败', {
+          description: '请检查网络连接后重试',
+          action: {
+            label: '重试',
+            onClick: () => {
+              console.log('用户手动重试加载模型')
+              refreshModels()
+            }
+          },
+          duration: 8000
+        })
+      } else if (modelList.errorType === 'server') {
+        toast.error('服务器暂时不可用', {
+          description: '服务器正在维护中，请稍后重试',
+          action: {
+            label: '重试',
+            onClick: () => {
+              console.log('用户手动重试加载模型')
+              refreshModels()
+            }
+          },
+          duration: 8000
+        })
+      } else if (modelList.errorType === 'unknown' && (llmModels.length === 0 || toolList.length === 0)) {
+        toast.warning('模型加载异常', {
+          description: '部分功能可能不可用，可尝试刷新页面',
+          action: {
+            label: '刷新',
+            onClick: () => {
+              window.location.reload()
+            }
+          },
+          duration: 6000
+        })
+      }
     }
 
     // 标记初始化完成，释放锁

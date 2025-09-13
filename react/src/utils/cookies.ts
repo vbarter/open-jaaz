@@ -104,9 +104,9 @@ export function getAllCookies(): Record<string, string> {
 
 // 认证相关的Cookie名称常量
 export const AUTH_COOKIES = {
-  ACCESS_TOKEN: 'jaaz_access_token',
-  USER_INFO: 'jaaz_user_info',
-  TOKEN_EXPIRES: 'jaaz_token_expires'
+  ACCESS_TOKEN: 'magicart_access_token',
+  USER_INFO: 'magicart_user_info',
+  TOKEN_EXPIRES: 'magicart_token_expires'
 } as const
 
 /**
@@ -222,7 +222,7 @@ export function clearAuthCookies(): void {
     const keysToRemove = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key && key.startsWith('backup_jaaz_')) {
+      if (key && key.startsWith('backup_magicart_')) {
         keysToRemove.push(key)
       }
     }

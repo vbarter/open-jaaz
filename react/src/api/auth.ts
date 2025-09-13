@@ -486,7 +486,7 @@ export async function clearAuthData(): Promise<void> {
 
   // 🧹 清理localStorage中所有可能的认证数据（包括备份数据）
   console.log('📦 Clearing localStorage...')
-  const authKeys = [
+  const knownAuthKeys = [
     'jaaz_access_token',
     'jaaz_user_info',
     'jaaz_refresh_token',
@@ -496,28 +496,28 @@ export async function clearAuthData(): Promise<void> {
     'user_uuid',
     'user_email',
     // 🔄 清理所有备份数据
-    'backup_jaaz_access_token',
-    'backup_jaaz_user_info', 
-    'backup_jaaz_token_expires',
-    'backup_jaaz_access_token_expires',
-    'backup_jaaz_user_info_expires',
+    'backup_magicart_access_token',
+    'backup_magicart_user_info',
+    'backup_magicart_token_expires',
+    'backup_magicart_access_token_expires',
+    'backup_magicart_user_info_expires',
   ]
 
   // 记录清理前的状态
   console.log('📋 localStorage before clearing:')
-  authKeys.forEach((key) => {
+  knownAuthKeys.forEach((key) => {
     const value = localStorage.getItem(key)
     console.log(`  ${key}: ${value ? value.substring(0, 20) + '...' : 'null'}`)
   })
 
-  authKeys.forEach((key) => {
+  knownAuthKeys.forEach((key) => {
     localStorage.removeItem(key)
     console.log(`🗑️ Removed localStorage key: ${key}`)
   })
 
   // 验证清理结果
   console.log('📋 localStorage after clearing:')
-  authKeys.forEach((key) => {
+  knownAuthKeys.forEach((key) => {
     const value = localStorage.getItem(key)
     if (value) {
       console.error(`❌ Failed to clear localStorage key: ${key}`)
@@ -528,12 +528,12 @@ export async function clearAuthData(): Promise<void> {
 
   // 🧹 清理sessionStorage中可能的认证数据
   console.log('📝 Clearing sessionStorage...')
-  authKeys.forEach((key) => {
+  knownAuthKeys.forEach((key) => {
     sessionStorage.removeItem(key)
   })
   
-  // 🧹 清理所有以jaaz_或backup_开头的localStorage项
-  console.log('🔍 Scanning for remaining jaaz/backup data in localStorage...')
+  // 🧹 清理所有以jaaz_、magicart_或backup_开头的localStorage项
+  console.log('🔍 Scanning for remaining jaaz/magicart/backup data in localStorage...')
   const allLocalStorageKeys = []
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i)
@@ -541,18 +541,19 @@ export async function clearAuthData(): Promise<void> {
       allLocalStorageKeys.push(key)
     }
   }
-  
-  const jaazKeys = allLocalStorageKeys.filter(key => 
-    key.startsWith('jaaz_') || 
-    key.startsWith('backup_jaaz_') || 
+
+  const authKeys = allLocalStorageKeys.filter(key =>
+    key.startsWith('jaaz_') ||
+    key.startsWith('magicart_') ||
+    key.startsWith('backup_magicart_') ||
     key.startsWith('backup_auth') ||
     key.includes('auth') ||
     key.includes('token') ||
     key.includes('user')
   )
   
-  console.log(`🎯 Found ${jaazKeys.length} potential auth keys:`, jaazKeys)
-  jaazKeys.forEach(key => {
+  console.log(`🎯 Found ${authKeys.length} potential auth keys:`, authKeys)
+  authKeys.forEach(key => {
     localStorage.removeItem(key)
     console.log(`🗑️ Removed additional key: ${key}`)
   })
@@ -563,7 +564,8 @@ export async function clearAuthData(): Promise<void> {
   for (let i = 0; i < sessionStorage.length; i++) {
     const key = sessionStorage.key(i)
     if (key && !key.includes('logout') && (
-      key.startsWith('jaaz_') || 
+      key.startsWith('jaaz_') ||
+      key.startsWith('magicart_') ||
       key.includes('auth') ||
       key.includes('token') ||
       key.includes('user')
