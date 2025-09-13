@@ -14,6 +14,7 @@ export type TCanvasMagicGenerateEvent = {
   width: number
   height: number
   timestamp: string
+  canvasElementId?: string // 添加canvas元素ID用于定位
 }
 
 export type TMaterialAddImagesToChatEvent = {

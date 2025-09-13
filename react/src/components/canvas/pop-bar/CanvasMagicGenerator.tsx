@@ -124,10 +124,10 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
       })
 
       if (remoteFileIds.length > 0) {
-        console.log(`[CanvasMagicGenerator] 检测到 ${remoteFileIds.length} 个远程图片，开始下载...`)
-        toast.loading(`正在下载 ${remoteFileIds.length} 个远程图片...`, {
-          id: 'download-images',
-        })
+        // console.log(`[CanvasMagicGenerator] 检测到 ${remoteFileIds.length} 个远程图片，开始下载...`)
+        // toast.loading(`正在下载 ${remoteFileIds.length} 个远程图片...`, {
+        //   id: 'download-images',
+        // })
 
         try {
           for (let i = 0; i < remoteFileIds.length; i++) {
@@ -319,6 +319,8 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
         width: width,
         height: height,
         timestamp: new Date().toISOString(),
+        // 暂不设置canvasElementId，因为图片还未生成到画布
+        // 将在图片生成后通过其他方式关联
       }
       console.log(
         '[CanvasMagicGenerator] 准备发送事件:',

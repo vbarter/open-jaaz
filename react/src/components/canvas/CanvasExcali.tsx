@@ -190,6 +190,14 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({
         elements: [...(currentElements || []), unlockedImageElement],
       })
 
+      // 🎯 Auto-focus: Use the same scrollToContent method as chat goto functionality
+      setTimeout(() => {
+        if (excalidrawAPI) {
+          console.log('🎯 Auto-focusing on new image using scrollToContent:', unlockedImageElement.id)
+          excalidrawAPI.scrollToContent(unlockedImageElement.id, { animate: true })
+        }
+      }, 100) // Small delay to ensure the image is rendered
+
       localStorage.setItem(
         'excalidraw-last-image-position',
         JSON.stringify(lastImagePosition.current)
@@ -268,6 +276,128 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({
         excalidrawAPI.updateScene({
           elements: newElements,
         })
+
+        // 🎯 Auto-focus: Center the view on the newly added video within canvas viewport
+        setTimeout(() => {
+          if (excalidrawAPI && videoElements.length > 0) {
+            const videoElement = videoElements[0]
+            // Calculate the center point of the newly added video
+            const videoCenterX = videoElement.x + videoElement.width / 2
+            const videoCenterY = videoElement.y + videoElement.height / 2
+
+            console.log('🎯 Auto-focusing on new video at center:', {
+              x: videoCenterX,
+              y: videoCenterY,
+              videoId: videoElement.id
+            })
+
+            // Get current app state to preserve other settings
+            const currentAppState = excalidrawAPI.getAppState()
+
+            // 🎯 视频精确居中算法（与图片算法一致）
+            console.log('🎯 === 视频精确居中算法开始 ===')
+
+            // 1. 获取画布DOM的真实尺寸（与图片算法一致）
+            const canvasContainer = document.querySelector('.excalidraw')
+            if (!canvasContainer) {
+              console.error('❌ 视频：无法找到画布容器，使用备用方案')
+              return
+            }
+
+            const rect = canvasContainer.getBoundingClientRect()
+            const zoom = currentAppState.zoom.value
+
+            // 2. 计算真实的画布中心偏移
+            const realCenterOffsetX = rect.width / 2
+            const realCenterOffsetY = rect.height / 2
+
+            console.log('视频步骤1 - 画布真实信息:', {
+              domWidth: rect.width,
+              domHeight: rect.height,
+              realCenterOffsetX: realCenterOffsetX,
+              realCenterOffsetY: realCenterOffsetY,
+              currentZoom: zoom
+            })
+
+            console.log('视频步骤2 - 视频信息:', {
+              videoPosition: { x: videoElement.x, y: videoElement.y },
+              videoSize: { width: videoElement.width, height: videoElement.height },
+              videoCenterX: videoCenterX,
+              videoCenterY: videoCenterY
+            })
+
+            // 3. 使用真实画布尺寸计算精确滚动位置
+            const newScrollX = videoCenterX - realCenterOffsetX / zoom
+            const newScrollY = videoCenterY - realCenterOffsetY / zoom
+
+            console.log('视频步骤3 - 精确滚动计算:', {
+              计算公式: 'scrollX = videoCenterX - realCenterOffsetX / zoom',
+              计算过程X: `${videoCenterX} - ${realCenterOffsetX}/${zoom} = ${newScrollX}`,
+              计算过程Y: `${videoCenterY} - ${realCenterOffsetY}/${zoom} = ${newScrollY}`,
+              newScrollX: newScrollX,
+              newScrollY: newScrollY
+            })
+
+            // 4. 应用精确居中位置
+            excalidrawAPI.updateScene({
+              appState: {
+                ...currentAppState,
+                scrollX: newScrollX,
+                scrollY: newScrollY,
+              }
+            })
+
+            console.log('视频步骤4 - 应用精确居中位置:', {
+              应用的scrollX: newScrollX,
+              应用的scrollY: newScrollY,
+              videoId: videoElement.id,
+              算法类型: '精确居中法'
+            })
+
+            // 5. 最终验证：使用真实画布尺寸验证居中效果
+            setTimeout(() => {
+              try {
+                const verifyState = excalidrawAPI.getAppState()
+
+                // 验证：新的scroll位置 + realCenterOffset/zoom = 视频中心
+                const verifyViewCenterX = verifyState.scrollX + realCenterOffsetX / verifyState.zoom.value
+                const verifyViewCenterY = verifyState.scrollY + realCenterOffsetY / verifyState.zoom.value
+
+                console.log('视频步骤5 - 精确居中验证:', {
+                  实际应用的scrollX: verifyState.scrollX,
+                  实际应用的scrollY: verifyState.scrollY,
+                  预期scrollX: newScrollX,
+                  预期scrollY: newScrollY,
+                  scrollX误差: Math.abs(verifyState.scrollX - newScrollX),
+                  scrollY误差: Math.abs(verifyState.scrollY - newScrollY),
+                  scrollX匹配: Math.abs(verifyState.scrollX - newScrollX) < 0.1,
+                  scrollY匹配: Math.abs(verifyState.scrollY - newScrollY) < 0.1,
+                  计算出的视图中心X: verifyViewCenterX,
+                  计算出的视图中心Y: verifyViewCenterY,
+                  视频中心X: videoCenterX,
+                  视频中心Y: videoCenterY,
+                  X轴居中误差: Math.abs(verifyViewCenterX - videoCenterX),
+                  Y轴居中误差: Math.abs(verifyViewCenterY - videoCenterY),
+                  精确居中成功: Math.abs(verifyViewCenterX - videoCenterX) < 1 && Math.abs(verifyViewCenterY - videoCenterY) < 1,
+                  使用的真实画布尺寸: { width: rect.width, height: rect.height }
+                })
+
+                console.log('🎯 === 视频精确居中算法结束 ===')
+              } catch (error) {
+                console.error('视频精确居中验证失败:', error)
+              }
+            }, 50)
+
+            console.log('🎯 视频精确居中完成 for video:', {
+              videoId: videoElement.id,
+              algorithm: 'PreciseCenter',
+              newScrollX,
+              newScrollY,
+              realCanvasSize: { width: rect.width, height: rect.height },
+              realCenterOffset: { x: realCenterOffsetX, y: realCenterOffsetY }
+            })
+          }
+        }, 100) // Small delay to ensure the video element is rendered
 
         console.log(
           '👇 Added video embed element:',

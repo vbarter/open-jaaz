@@ -61,7 +61,9 @@ const ChatMagicGenerator: React.FC<ChatMagicGeneratorProps> = ({
                                 url: data.base64
                             }
                         },
-                    ]
+                    ],
+                    // 如果有canvas元素ID，将其添加到消息中
+                    ...(data.canvasElementId && { canvas_element_id: data.canvasElementId })
                 }
                 console.log('[ChatMagicGenerator] 创建魔法消息:', {
                     role: magicMessage.role,
