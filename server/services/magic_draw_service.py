@@ -276,7 +276,7 @@ class MagicDrawService:
                     # 分析图片意图
                     # analysis_result = await analyser.analyze_image_base64(system_prompt, image_content)
                     # analysis_result = "帮我将图片中的内容进行合成处理，生成一张新的图片"
-                    magic_prompt = "帮我将图片中的内容进行合成处理，生成一张新的图片"
+                    magic_prompt = "帮我将图片中的内容进行合成处理，生成一张新的图片, 留意细节，比如正反面等"
                     # if analysis_result:
                     #     logger.info(f"[Magic Draw] 图片分析返回结果: {analysis_result[:200]}...")
                     #     try:
