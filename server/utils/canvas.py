@@ -172,12 +172,12 @@ def _grid_row_to_pos(row: int) -> int:
 
 def _calculate_flow_position(media_elements: list, element_width: int, element_height: int) -> tuple[int, int]:
     """
-    计算5列智能瀑布流布局 - 保持原始尺寸且避免重叠
+    计算5列防重叠网格布局 - 基于实际图片尺寸累加计算
 
     策略：
-    1. 5个固定列起始位置
-    2. 总是选择最矮的列
-    3. 智能检测重叠，确保不冲突
+    1. X坐标：基于同行前面图片的实际宽度累加
+    2. Y坐标：基于上面所有行的最大高度累加
+    3. 严格5列换行，完全避免重叠
 
     Args:
         media_elements: 现有媒体元素列表
@@ -187,98 +187,74 @@ def _calculate_flow_position(media_elements: list, element_width: int, element_h
     Returns:
         tuple[int, int]: (x, y) 坐标
     """
-    print(f"   🎯 [SMART_LAYOUT] 智能5列布局计算:")
+    print(f"   🎯 [ADAPTIVE_LAYOUT] 自适应5列防重叠布局:")
     print(f"      新元素尺寸: {element_width} x {element_height}")
 
-    # 定义5列的固定起始X坐标
-    column_x_positions = [
-        layout_config.margin_left,  # 第1列
-        layout_config.margin_left + 320,   # 第2列
-        layout_config.margin_left + 640,   # 第3列
-        layout_config.margin_left + 960,   # 第4列
-        layout_config.margin_left + 1280,  # 第5列
-    ]
+    # 统计当前图片数量
+    current_image_count = len(media_elements)
+    print(f"      当前图片数量: {current_image_count}")
 
-    print(f"      列X坐标: {column_x_positions}")
+    # 计算新图片的行列位置
+    row_index = current_image_count // 5  # 行号（从0开始）
+    col_index = current_image_count % 5   # 列号（从0开始）
 
-    # 计算每列当前的最低点
-    column_bottoms = [layout_config.margin_top] * 5
+    print(f"      新图片位置: 第{row_index + 1}行第{col_index + 1}列")
 
-    # 遍历现有元素，更新每列的最低点
-    for element in media_elements:
-        if element.get("isDeleted"):
-            continue
+    # 计算X坐标 - 基于同行前面图片的实际宽度累加
+    new_x = layout_config.margin_left
 
-        elem_x = element.get("x", 0)
-        elem_y = element.get("y", 0)
-        elem_height = element.get("height", 0)
+    if col_index > 0:
+        # 计算当前行前面所有图片的累计宽度
+        current_row_start = row_index * 5
+        current_row_elements = media_elements[current_row_start:current_row_start + col_index]
 
-        # 找到元素属于哪一列（最接近的列）
-        column_index = _find_closest_column(elem_x, column_x_positions)
-        element_bottom = elem_y + elem_height
+        print(f"      计算前{col_index}张图片的累计宽度:")
+        cumulative_width = 0
+        for i, elem in enumerate(current_row_elements):
+            elem_width = elem.get("width", 0)
+            cumulative_width += elem_width
+            print(f"         图片{i+1}: 宽度{elem_width}px")
 
-        # 更新该列的最低点
-        if element_bottom > column_bottoms[column_index]:
-            column_bottoms[column_index] = element_bottom
+        # 加上间距（前面有几张图片就有几个间距）
+        total_spacing = col_index * layout_config.horizontal_spacing
+        new_x = layout_config.margin_left + cumulative_width + total_spacing
 
-    print(f"      各列底部高度: {column_bottoms}")
+        print(f"      累计宽度: {cumulative_width}px + 间距: {total_spacing}px")
 
-    # 找到最矮的列
-    min_height_column = column_bottoms.index(min(column_bottoms))
+    print(f"      计算X坐标: {new_x}")
 
-    # 计算新位置
-    new_x = column_x_positions[min_height_column]
-    new_y = column_bottoms[min_height_column]
+    # 计算Y坐标 - 基于前面所有行的最大高度累加
+    new_y = layout_config.margin_top
 
-    # 如果不是第一个元素，添加垂直间距
-    if new_y > layout_config.margin_top:
-        new_y += layout_config.vertical_spacing
+    if row_index > 0:
+        print(f"      计算前{row_index}行的累计高度:")
+        cumulative_height = 0
 
-    print(f"      选择第 {min_height_column + 1} 列（最矮列）")
-    print(f"      新位置: ({new_x}, {new_y})")
+        for prev_row in range(row_index):
+            row_start_index = prev_row * 5
+            row_end_index = min((prev_row + 1) * 5, len(media_elements))
 
-    # 最终重叠检查，如果有重叠就向下调整
-    new_x, new_y = _ensure_no_overlap(media_elements, new_x, new_y, element_width, element_height)
+            # 获取该行的所有图片
+            row_elements = media_elements[row_start_index:row_end_index]
+
+            if row_elements:
+                # 计算该行的最大高度
+                max_height_in_row = max(elem.get("height", 0) for elem in row_elements)
+                cumulative_height += max_height_in_row
+                print(f"         第{prev_row + 1}行最大高度: {max_height_in_row}px")
+
+        # 加上垂直间距（前面有几行就有几个间距）
+        total_vertical_spacing = row_index * layout_config.vertical_spacing
+        new_y = layout_config.margin_top + cumulative_height + total_vertical_spacing
+
+        print(f"      累计高度: {cumulative_height}px + 间距: {total_vertical_spacing}px")
+
+    print(f"      计算Y坐标: {new_y}")
+    print(f"      最终位置: ({new_x}, {new_y})")
 
     return new_x, new_y
 
-def _find_closest_column(x: int, column_x_positions: list) -> int:
-    """找到X坐标最接近的列"""
-    distances = [abs(x - col_x) for col_x in column_x_positions]
-    return distances.index(min(distances))
-
-def _ensure_no_overlap(media_elements: list, x: int, y: int, width: int, height: int) -> tuple[int, int]:
-    """确保新元素不与现有元素重叠，如有重叠则向下调整"""
-    max_attempts = 10
-    attempts = 0
-
-    while attempts < max_attempts:
-        # 检查是否与现有元素重叠
-        overlaps = False
-        for element in media_elements:
-            if element.get("isDeleted"):
-                continue
-
-            ex_x = element.get("x", 0)
-            ex_y = element.get("y", 0)
-            ex_width = element.get("width", 0)
-            ex_height = element.get("height", 0)
-
-            # 检查矩形重叠
-            if not (x + width <= ex_x or x >= ex_x + ex_width or
-                   y + height <= ex_y or y >= ex_y + ex_height):
-                overlaps = True
-                # 向下移动到重叠元素下方
-                y = ex_y + ex_height + layout_config.vertical_spacing
-                print(f"      🔧 检测到重叠，向下调整到: ({x}, {y})")
-                break
-
-        if not overlaps:
-            break
-
-        attempts += 1
-
-    return x, y
+# 旧的瀑布流辅助函数已移除，现在使用严格网格布局
 
 def _group_elements_by_rows(media_elements: list) -> list[list]:
     """
