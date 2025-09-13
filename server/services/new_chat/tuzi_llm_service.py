@@ -417,7 +417,6 @@ class TuziLLMService:
 回答:"""
 
             logger.info(f"🤖 使用大模型进行意图理解...")
-            logger.info(f"🤖 使用大模型进行意图理解... {self.api_url} {self.api_token}")
             intent_client = AsyncOpenAI(
                 api_key="sk-l3f6rcO4mZ3EZBLlUr6Gw7UHAszGOTQClJInVpUa6cgGezjp",
                 base_url="https://yunwu.ai/v1",
@@ -688,10 +687,10 @@ class TuziLLMService:
             logger.info(f"   api_key: {self.api_token[:10]}***") 
             logger.info(f"🚀 [DEBUG] 调用 client.images.edit...")
 
-            prompt = f"""
-According to user needs, read the image content and complete the new image output
-User needs: {prompt}
-"""
+#             prompt = f"""
+# According to user needs, read the image content and complete the new image output
+# User needs: {prompt}
+# """
            
             # 根据文件数量决定调用方式
             if len(file_path) == 1:
