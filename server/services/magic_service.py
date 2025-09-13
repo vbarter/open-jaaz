@@ -244,7 +244,11 @@ async def _process_magic_generation(
         
         # 原来是基于云端生成
         # ai_response = await create_jaaz_response(messages, session_id, canvas_id)
-        ai_response = await create_local_magic_response(messages, session_id, canvas_id, template_id=template_id, user_info=user_info)
+        ai_response = await create_local_magic_response(messages, 
+                                                        session_id, 
+                                                        canvas_id, 
+                                                        template_id=template_id, 
+                                                        user_info=user_info)
         
         # 🎯 画图成功后扣除积分
         if user_info and user_info.get('id') and user_info.get('uuid'):
