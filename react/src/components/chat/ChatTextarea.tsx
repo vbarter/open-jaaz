@@ -1,6 +1,12 @@
 import { cancelChat } from '@/api/chat'
 import { cancelMagicGenerate } from '@/api/magic'
-import { uploadImage, uploadImageFast, FastUploadResult, getBestImageUrl, getDisplayImageUrl } from '@/api/upload'
+import {
+  uploadImage,
+  uploadImageFast,
+  FastUploadResult,
+  getBestImageUrl,
+  getDisplayImageUrl,
+} from '@/api/upload'
 import { Button } from '@/components/ui/button'
 import { useConfigs } from '@/contexts/configs'
 import { eventBus, TCanvasAddImagesToChatEvent, TMaterialAddImagesToChatEvent } from '@/lib/event'
@@ -270,8 +276,8 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
 
       // 所有重试都失败，显示错误并移除该图片
       console.error(`❌ 图片获取最终失败: ${image.file_id}`, lastError)
-      toast.error(`图片获取失败: ${image.file_id}`, {
-        description: `请检查网络连接或稍后重试`,
+      toast.error(`Failed to fetch image: ${image.file_id}`, {
+        description: `Please check your network connection or try again later`,
       })
 
       // 从images列表中移除失败的图片
@@ -507,10 +513,10 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
                 <img
                   key={image.file_id}
                   src={
-                    image.localPreviewUrl || 
-                    image.directUrl || 
-                    image.redirectUrl || 
-                    image.serverUrl || 
+                    image.localPreviewUrl ||
+                    image.directUrl ||
+                    image.redirectUrl ||
+                    image.serverUrl ||
                     `/api/file/${image.file_id}`
                   }
                   alt='Uploaded image'
@@ -523,9 +529,14 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
                     // 降级处理：本地预览 -> 直链 -> 重定向 -> 代理
                     const target = e.target as HTMLImageElement
                     if (image.localPreviewUrl && target.src === image.localPreviewUrl) {
-                      target.src = image.directUrl || image.redirectUrl || image.serverUrl || `/api/file/${image.file_id}`
+                      target.src =
+                        image.directUrl ||
+                        image.redirectUrl ||
+                        image.serverUrl ||
+                        `/api/file/${image.file_id}`
                     } else if (image.directUrl && target.src === image.directUrl) {
-                      target.src = image.redirectUrl || image.serverUrl || `/api/file/${image.file_id}`
+                      target.src =
+                        image.redirectUrl || image.serverUrl || `/api/file/${image.file_id}`
                     } else if (image.redirectUrl && target.src === image.redirectUrl) {
                       target.src = image.serverUrl || `/api/file/${image.file_id}`
                     }
