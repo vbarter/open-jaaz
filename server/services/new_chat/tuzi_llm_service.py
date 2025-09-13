@@ -11,6 +11,7 @@ from services.config_service import config_service
 from utils.image_analyser import ImageAnalyser
 from log import get_logger
 from openai import AsyncOpenAI
+from services.config_service import ProviderConfig
 
 logger = get_logger(__name__)
 
@@ -335,10 +336,14 @@ class TuziLLMService:
                 # 步骤3: 不是画图，直接走用户设定的大模型调用
                 # 检查当前模型是否支持文本对话，如果不支持则选择同provider的文本模型
                 if not self._is_text_model(model_name,provider):
-                    text_model = self._get_text_model_for_provider(model_name,provider)
+                    text_model = "gpt-5-2025-08-07"
                     logger.info(f"⚠️ 模型 {model_name} 不支持文本对话，切换到同provider的文本模型: {text_model}")
-                    model_name = text_model
-                return await self._handle_text_conversation(model_name, user_prompt, user_info, stream=stream)
+                return await self._handle_text_conversation(model_name, 
+                                                            user_prompt, 
+                                                            user_info, 
+                                                            stream=stream,
+                                                            api_token="sk-T5GzBCTpRm92Po9G9WU9B19w1p1pxHJ8qwfcAcZ47MdZCzEM",
+                                                            api_url="https://yunwu.ai/v1")
                 
         except Exception as e:
             error_msg = f"Error in generate: {str(e)}"
@@ -490,10 +495,20 @@ class TuziLLMService:
                 
             return {"error": error_msg, "user_message": user_message}
 
-    async def _handle_text_conversation(self, model_name: str, user_prompt: str, user_info: Optional[Dict[str, Any]], stream: bool = False) -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None], str]:
+    async def _handle_text_conversation(self, 
+                                        model_name: str, 
+                                        user_prompt: str, 
+                                        user_info: Optional[Dict[str, Any]], 
+                                        stream: bool = False,
+                                        api_token: str = "",
+                                        api_url: str = "") -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None], str]:
         """处理文本对话流程"""
         try:
-            text_response = await self._chat_with_tuzi(user_prompt, model_name, stream=stream) 
+            if not api_token:
+                api_token = self.api_token
+            if not api_url:
+                api_url = self.api_url
+            text_response = await self._chat_with_tuzi(user_prompt, model_name, stream=stream, api_token=api_token, api_url=api_url) 
             if stream:
                 # 流式输出，直接返回异步生成器
                 return text_response
@@ -516,7 +531,12 @@ class TuziLLMService:
             else:
                 return {"error": error_msg}
 
-    async def _chat_with_tuzi(self, prompt: str, model: str, stream: bool = False) -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None]]:
+    async def _chat_with_tuzi(self, 
+                              prompt: str, 
+                              model: str, 
+                              stream: bool = False,
+                              api_token: str="",
+                              api_url: str="") -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None]]:
         """GPT 文本对话
         
         Args:
@@ -537,8 +557,8 @@ class TuziLLMService:
         logger.info(f"🚀 [DEBUG] 调用 client.chat.completions.create...")
 
         client = AsyncOpenAI(
-                api_key=self.api_token,
-                base_url=self.api_url,
+                api_key=api_token,
+                base_url=api_url,
                 timeout=60.0,  # 设置60秒超时
                 max_retries=0   # 禁用重试，避免重复调用
             )
@@ -1161,7 +1181,7 @@ User needs: {prompt}
             # 出错时默认认为是文本模型
             return False
 
-    def _get_text_model_for_provider(self, model_name: str, provider: str) -> str:
+    def _get_text_model_for_provider(self, model_name: str, provider: str) -> ProviderConfig:
         """
         为给定模型获取同provider的文本模型
         
@@ -1171,20 +1191,7 @@ User needs: {prompt}
         Returns:
             str: 同provider的文本模型名称，如果找不到则返回默认模型
         """
-        try:     
-            # 1. 如果找到了provider，寻找该provider下的文本模型
-            if provider in config_service.app_config:
-                provider_config = config_service.app_config[provider]
-                models = provider_config.get('models', {})
-                for model, config in models.items():
-                    if config.get('type', 'text') == 'text':
-                        return model
-            # 2. 最后的备选方案，返回原模型名称（让上层处理）
-            logger.warning(f"⚠️ 无法找到合适的文本模型，返回原模型: {model_name}")
-            raise Exception(f"无法找到合适的文本模型: {model_name}")
-        except Exception as e:
-            logger.error(f"❌ 获取文本模型失败: {e}")
-            return "gpt-4o-mini"  # 最终备选方案
+        return config_service.app_config["openai"]
 
 
     def is_configured(self) -> bool:

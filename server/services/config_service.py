@@ -56,8 +56,7 @@ DEFAULT_PROVIDERS_CONFIG: AppConfig = {
     },
     'doubao': {
         'models': {
-            'seedream-4.0': {'type': 'image'},
-            'gpt-5-2025-08-07': {'type': 'text'}
+            'seedream-4.0': {'type': 'image'}
         },
         'url': 'https://yunwu.ai/v1',
         'api_key': 'sk-T5GzBCTpRm92Po9G9WU9B19w1p1pxHJ8qwfcAcZ47MdZCzEM',
