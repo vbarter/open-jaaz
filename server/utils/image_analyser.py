@@ -270,6 +270,8 @@ class ImageAnalyser:
             if images["mask"] == "" and images["image"] != "":
                 # 只有目标图片，不使用模板
                 logger.info(f"📝 [DEBUG] 使用单图片模式（无模板）")
+                logger.info(f"   - 目标图片 (image): {images["image"]}")
+                logger.info(f"   - 提示词 (prompt): {prompt}")
                 # 异步读取文件
                 with open(images["image"], 'rb') as image_file:
                     result = await client.images.edit(

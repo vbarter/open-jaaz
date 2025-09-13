@@ -673,8 +673,8 @@ class TuziLLMService:
             client = AsyncOpenAI(
                 base_url=self.api_url,
                 api_key=self.api_token,
-                timeout=180.0,  # 增加到3分钟，确保足够的时间
-                max_retries=0   # 禁用重试，保持一致性
+                # timeout=180.0,  # 增加到3分钟，确保足够的时间
+                # max_retries=0   # 禁用重试，保持一致性
             )
             
             # 打印详细的调试信息
