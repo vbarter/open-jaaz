@@ -299,6 +299,7 @@ class ImageAnalyser:
             if result.data and len(result.data) > 0:
                 image_data = result.data[0]
                 # 返回结果字典
+                logger.info(f"✅ Image generated: {image_data}")
                 response_data: Dict[str, str] = {}    
                 if hasattr(image_data, 'url') and image_data.url:
                     response_data['result_url'] = image_data.url
