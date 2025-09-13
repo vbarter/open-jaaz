@@ -288,7 +288,13 @@ class TuziLLMService:
             logger.error(f"❌ {error_msg}")
             return {"error": error_msg}
 
-    async def generate(self, model_name:str, user_prompt: str, image_content: str, user_info: Optional[Dict[str, Any]] = None, stream: bool = False) -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None], str]:
+    async def generate(self, 
+                       model_name:str, 
+                       user_prompt: str, 
+                       image_content: str, 
+                       user_info: Optional[Dict[str, Any]] = None, 
+                       stream: bool = False,
+                       provider: str = 'openai') -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None], str]:
         """
         生成魔法图像的完整流程
 
@@ -327,6 +333,11 @@ class TuziLLMService:
             else:
                 logger.info("💬 检测到文本对话意图，执行文本对话流程")
                 # 步骤3: 不是画图，直接走用户设定的大模型调用
+                # 检查当前模型是否支持文本对话，如果不支持则选择同provider的文本模型
+                if not self._is_text_model(model_name,provider):
+                    text_model = self._get_text_model_for_provider(model_name,provider)
+                    logger.info(f"⚠️ 模型 {model_name} 不支持文本对话，切换到同provider的文本模型: {text_model}")
+                    model_name = text_model
                 return await self._handle_text_conversation(model_name, user_prompt, user_info, stream=stream)
                 
         except Exception as e:
@@ -414,7 +425,7 @@ class TuziLLMService:
                 temperature=0.1
             )
             
-            intent_result = intent_completion.choices[0].message.content.strip().upper()
+            intent_result = (intent_completion.choices[0].message.content or "").strip().upper()
             logger.info(f"🤖 意图理解结果: {intent_result}")
             
             return intent_result == "YES"
@@ -1124,6 +1135,57 @@ User needs: {prompt}
         result = task_result.get('result')
         logger.info(f"✅ Midjourney image generated successfully: {result}")
         return result or {}
+
+    def _is_text_model(self, model_name: str, provider: str) -> bool:
+        """
+        检查指定模型是否支持文本对话
+        
+        Args:
+            model_name: 模型名称
+            
+        Returns:
+            bool: True if model supports text, False otherwise
+        """
+        try:
+            # 遍历所有provider配置，查找模型类型
+            # 直接检查指定provider的配置
+            if provider in config_service.app_config:
+                provider_config = config_service.app_config[provider]
+                models = provider_config.get('models', {})
+                if model_name in models:
+                    model_type = models[model_name].get('type', 'text')  # 默认为text
+                    return model_type == 'text'
+            return False   
+        except Exception as e:
+            logger.error(f"❌ 检查模型类型失败: {e}")
+            # 出错时默认认为是文本模型
+            return False
+
+    def _get_text_model_for_provider(self, model_name: str, provider: str) -> str:
+        """
+        为给定模型获取同provider的文本模型
+        
+        Args:
+            model_name: 原始模型名称
+            
+        Returns:
+            str: 同provider的文本模型名称，如果找不到则返回默认模型
+        """
+        try:     
+            # 1. 如果找到了provider，寻找该provider下的文本模型
+            if provider in config_service.app_config:
+                provider_config = config_service.app_config[provider]
+                models = provider_config.get('models', {})
+                for model, config in models.items():
+                    if config.get('type', 'text') == 'text':
+                        return model
+            # 2. 最后的备选方案，返回原模型名称（让上层处理）
+            logger.warning(f"⚠️ 无法找到合适的文本模型，返回原模型: {model_name}")
+            raise Exception(f"无法找到合适的文本模型: {model_name}")
+        except Exception as e:
+            logger.error(f"❌ 获取文本模型失败: {e}")
+            return "gpt-4o-mini"  # 最终备选方案
+
 
     def is_configured(self) -> bool:
         """

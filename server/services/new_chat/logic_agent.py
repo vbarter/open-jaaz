@@ -61,7 +61,7 @@ async def create_local_response(messages: List[Dict[str, Any]],
 
       
         
-        result = await llm_service.generate(model_name, user_prompt, image_content, user_info)
+        result = await llm_service.generate(model_name, user_prompt, image_content, user_info, provider=provider)
         if not result:
             # 导入错误消息工具
             from utils.error_messages import ErrorMessages
