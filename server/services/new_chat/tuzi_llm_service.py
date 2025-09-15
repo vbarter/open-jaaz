@@ -288,7 +288,12 @@ class TuziLLMService:
             logger.error(f"❌ {error_msg}")
             return {"error": error_msg}
 
-    async def generate(self, model_name:str, user_prompt: str, image_content: str, user_info: Optional[Dict[str, Any]] = None, stream: bool = False) -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None], str]:
+    async def generate(self, 
+                       model_name:str, 
+                       user_prompt: str, 
+                       image_content: List[str], 
+                       user_info: Optional[Dict[str, Any]] = None, 
+                       stream: bool = False) -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None], str]:
         """
         生成魔法图像的完整流程
 
@@ -306,10 +311,8 @@ class TuziLLMService:
             失败时: 返回包含 error 信息的字典
         """
         try:
-            # 步骤1: 判断用户是否有图片上传，如果有肯定是画图
-            has_image = bool(image_content and image_content.strip() and image_content.startswith('data:image/'))
-            
-            if has_image:
+            # 步骤1: 判断用户是否有图片上传，如果有肯定是画图 
+            if len(image_content) > 0:
                 logger.info("🖼️ 检测到图片上传，执行图片编辑流程")
                 # 如果不能画图, 也设置成系统默认的
                 image_model = self._get_image_generation_model(model_name)
@@ -334,12 +337,15 @@ class TuziLLMService:
             logger.error(f"❌ {error_msg}")
             return {"error": error_msg}
 
-    async def _handle_image_editing(self, model_name: str, user_prompt: str, image_content: str, user_info: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    async def _handle_image_editing(self, 
+                                    model_name: str, 
+                                    user_prompt: str, 
+                                    image_content: List[str], 
+                                    user_info: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """处理图片编辑流程"""
         try:
             logger.info(f"🔍 [DEBUG] _handle_image_editing 开始")
-            logger.info(f"🔍 [DEBUG] 输入参数: model_name='{model_name}', user_prompt='{user_prompt[:100]}...', image_content='{image_content[:50] if image_content else 'None'}...'")
-
+            
             from services.config_service import get_user_files_dir
 
             # 注释掉错误的模型映射，直接使用用户选择的模型
@@ -348,33 +354,43 @@ class TuziLLMService:
                 model_name = "doubao-seedream-4-0-250828"
             logger.info(f"🔍 [DEBUG] 使用模型: '{model_name}' (无映射)")
                 
-            # 生成唯一文件名
-            file_id = str(uuid.uuid4())
+            
             
             # 获取用户文件目录
             user_email = user_info.get('email') if user_info else None
             user_id = user_info.get('uuid') if user_info else None
             user_files_dir = get_user_files_dir(user_email=user_email, user_id=user_id)
     
-            if image_content.startswith('data:image/'):
-                # 从data URL中提取格式和数据
-                header, encoded = image_content.split(',', 1)
-                image_format = header.split(';')[0].split('/')[1]  # 获取图片格式(jpeg, png等)
-                image_data = base64.b64decode(encoded)
-                file_path = os.path.join(user_files_dir, f"{file_id}.{image_format}")
-            else:
-                # 假设是其他格式，默认保存为jpg
-                image_data = image_content.encode() if isinstance(image_content, str) else image_content
-                file_path = os.path.join(user_files_dir, f"{file_id}.jpg")
-    
-            # 写入文件
-            with open(file_path, 'wb') as f:
-                f.write(image_data)
-    
-            logger.info(f"✅ 图片已保存到: {file_path}")
+
+            # 处理多个图片文件，生成file_path列表
+            file_paths: List[str] = []
+            
+            for i, image_item in enumerate(image_content):
+                # 为每个图片生成唯一文件名
+                file_id = str(uuid.uuid4())
+                
+                if image_item.startswith('data:image/'):
+                    # 从data URL中提取格式和数据
+                    header, encoded = image_item.split(',', 1)
+                    image_format = header.split(';')[0].split('/')[1]  # 获取图片格式(jpeg, png等)
+                    image_data = base64.b64decode(encoded)
+                    file_path = os.path.join(user_files_dir, f"{file_id}.{image_format}")
+                else:
+                    # 假设是其他格式，默认保存为jpg
+                    image_data = image_item.encode() if isinstance(image_item, str) else image_item
+                    file_path = os.path.join(user_files_dir, f"{file_id}.jpg")
+        
+                # 写入文件
+                with open(file_path, 'wb') as f:
+                    f.write(image_data)
+        
+                file_paths.append(file_path)
+                logger.info(f"✅ 图片 {i+1} 已保存到: {file_path}")
+            
+            logger.info(f"✅ 总共保存了 {len(file_paths)} 个图片文件")
             
             # 使用gemini进行图片编辑
-            result = await self.gemini_edit_image_by_tuzi([file_path], user_prompt, model=model_name)
+            result = await self.gemini_edit_image_by_tuzi(file_paths, user_prompt, model=model_name)
             
             if result:
                 logger.info(f"✅ 图片编辑成功: {result.get('result_url')}")
