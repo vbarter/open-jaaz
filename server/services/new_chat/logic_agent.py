@@ -29,14 +29,12 @@ async def create_local_response(messages: List[Dict[str, Any]],
     try:
         # 获取图片内容
         user_message: Dict[str, Any] = messages[-1]
-        image_content: str = ""
-
+        image_content: List[str] = []
         if isinstance(user_message.get('content'), list):
             for content_item in user_message['content']:
                 if content_item.get('type') == 'image_url':
-                    image_content = content_item.get(
-                        'image_url', {}).get('url', "")
-                    break
+                    image_content.append(content_item.get(
+                        'image_url', {}).get('url', ""))
 
         # 创建 LLM 服务实例
         try:
@@ -59,7 +57,6 @@ async def create_local_response(messages: List[Dict[str, Any]],
         elif isinstance(user_message.get('content'), str):
             user_prompt = user_message.get('content', '')
 
-      
         
         result = await llm_service.generate(model_name, user_prompt, image_content, user_info)
         if not result:
