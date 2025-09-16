@@ -16,6 +16,15 @@ export type TCanvasMagicGenerateEvent = {
   timestamp: string
 }
 
+export type TCanvasChatEvent = {
+  fileId: string
+  base64: string
+  width: number
+  height: number
+  timestamp: string
+  userText: string
+}
+
 export type TMaterialAddImagesToChatEvent = {
   filePath: string
   fileName: string
@@ -64,6 +73,7 @@ export type TEvents = {
   // ********** Canvas events - Start **********
   'Canvas::AddImagesToChat': TCanvasAddImagesToChatEvent
   'Canvas::MagicGenerate': TCanvasMagicGenerateEvent
+  'Canvas::Chat': TCanvasChatEvent
   // ********** Canvas events - End **********
 
   // ********** Material events - Start **********

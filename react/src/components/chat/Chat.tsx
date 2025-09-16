@@ -3,6 +3,7 @@ import Blur from '@/components/common/Blur'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { eventBus, TEvents } from '@/lib/event'
 import ChatMagicGenerator from './ChatMagicGenerator'
+import ChatCanvasHandler from './ChatCanvasHandler'
 import { AssistantMessage, Message, Model, PendingType, Session } from '@/types/types'
 import { useSearch } from '@tanstack/react-router'
 import { produce } from 'immer'
@@ -1254,6 +1255,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
           {/* 魔法生成组件 */}
           <ChatMagicGenerator
+            sessionId={sessionId || sessionIdRef.current || nanoid()}
+            canvasId={canvasId}
+            messages={messages}
+            setMessages={setMessages}
+            setPending={setPending}
+            scrollToBottom={scrollToBottom}
+          />
+          {/* Canvas聊天处理组件 */}
+          <ChatCanvasHandler
             sessionId={sessionId || sessionIdRef.current || nanoid()}
             canvasId={canvasId}
             messages={messages}

@@ -1,10 +1,10 @@
 import { useCanvas } from '@/contexts/canvas'
 import { TCanvasAddImagesToChatEvent } from '@/lib/event'
 import { motion } from 'motion/react'
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { OrderedExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import CanvasMagicGenerator from './CanvasMagicGenerator'
-import CanvasPopbar from './CanvasPopbar'
+import CanvasInlineChat from './CanvasInlineChat'
 
 type CanvasPopbarContainerProps = {
     pos: { x: number; y: number }
@@ -12,15 +12,18 @@ type CanvasPopbarContainerProps = {
     selectedElements: OrderedExcalidrawElement[]
     showAddToChat: boolean
     showMagicGenerate: boolean
+    showChat: boolean
 }
 
 const CanvasPopbarContainer = ({
     pos,
     selectedImages,
     selectedElements,
-    showAddToChat,
-    showMagicGenerate
+    showAddToChat, // 保留参数以免破坏接口兼容性
+    showMagicGenerate,
+    showChat
 }: CanvasPopbarContainerProps) => {
+    const [isChatExpanded, setIsChatExpanded] = useState(false)
 
     return (
         <motion.div
@@ -34,11 +37,16 @@ const CanvasPopbarContainer = ({
                 top: `${pos.y + 5}px`,
             }}
         >
-            <div className="flex items-center gap-1 bg-white/85 backdrop-blur-md rounded-xl p-1.5 shadow-lg border border-white/40 pointer-events-auto">
-                {showAddToChat && (
-                    <CanvasPopbar selectedImages={selectedImages} />
+            {/* Chat展开时隐藏白色背景容器，但保持同一个CanvasInlineChat实例 */}
+            <div className={`flex items-center gap-1 ${!isChatExpanded ? 'bg-white/85 backdrop-blur-md rounded-xl p-1.5 shadow-lg border border-white/40' : ''} pointer-events-auto`}>
+                {showChat && (
+                    <CanvasInlineChat
+                        selectedImages={selectedImages}
+                        selectedElements={selectedElements}
+                        onExpandedChange={setIsChatExpanded}
+                    />
                 )}
-                {showMagicGenerate && (
+                {showMagicGenerate && !isChatExpanded && (
                     <CanvasMagicGenerator selectedImages={selectedImages} selectedElements={selectedElements} />
                 )}
             </div>
