@@ -423,7 +423,7 @@ class TuziLLMService:
             logger.info(f"🤖 使用大模型进行意图理解...")
             intent_client = AsyncOpenAI(
                 api_key="sk-T5GzBCTpRm92Po9G9WU9B19w1p1pxHJ8qwfcAcZ47MdZCzEM",
-                base_url="https://yunwu.ai/v1",
+                base_url="https://api.apiplus.org/v1",
                 timeout=30.0,
                 max_retries=0
             )
