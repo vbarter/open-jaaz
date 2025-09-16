@@ -63,7 +63,19 @@
   },
   "popbar": {
     "addToChat": "Add to chat",
-    "magicGenerate": "✨ Magic Generate"
+    "magicGenerate": "✨ Magic Generate",
+    "chat": "Chat",
+    "chatPlaceholder": "Ask something about this...",
+    "chatSubmit": "Send",
+    "chatEmptyWarning": "Please enter chat content",
+    "chatProcessingWarning": "Processing, please wait...",
+    "chatFrequentWarning": "Please don't submit too frequently",
+    "canvasApiError": "Canvas API unavailable, please refresh the page",
+    "selectElementsError": "Please select elements to chat about",
+    "selectImagesError": "Please select elements with images",
+    "chatSubmitted": "Chat request sent",
+    "chatSubmitting": "Sending...",
+    "chatShortcuts": "⌘+Enter to send • Esc to close"
   },
   "myAssets": "My Assets",
   "selectAFolder": "Select a folder",

@@ -6,6 +6,7 @@ import { useKeyPress } from 'ahooks'
 import { motion } from 'motion/react'
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { MessageSquarePlus } from 'lucide-react'
 
 type CanvasPopbarProps = {
   selectedImages: TCanvasAddImagesToChatEvent
@@ -25,7 +26,8 @@ const CanvasPopbar = ({ selectedImages }: CanvasPopbarProps) => {
   useKeyPress(['meta.enter', 'ctrl.enter'], handleAddToChat)
 
   return (
-    <Button variant="ghost" size="sm" onClick={handleAddToChat}>
+    <Button variant="ghost" size="sm" onClick={handleAddToChat} className="flex items-center gap-1.5">
+      <MessageSquarePlus size={14} />
       {t('canvas:popbar.addToChat')} <Hotkey keys={['⌘', '↩︎']} />
     </Button>
   )

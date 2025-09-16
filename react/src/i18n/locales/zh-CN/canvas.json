@@ -63,7 +63,19 @@
   },
   "popbar": {
     "addToChat": "添加到聊天",
-    "magicGenerate": "✨ 魔法生成"
+    "magicGenerate": "✨ 魔法生成",
+    "chat": "聊天",
+    "chatPlaceholder": "问一些关于这个的问题...",
+    "chatSubmit": "发送",
+    "chatEmptyWarning": "请输入聊天内容",
+    "chatProcessingWarning": "正在处理中，请稍候...",
+    "chatFrequentWarning": "请不要频繁提交",
+    "canvasApiError": "Canvas API不可用，请刷新页面重试",
+    "selectElementsError": "请先选中要聊天的元素",
+    "selectImagesError": "请选中包含图片的元素",
+    "chatSubmitted": "聊天请求已发送",
+    "chatSubmitting": "发送中...",
+    "chatShortcuts": "⌘+Enter 发送 • Esc 关闭"
   },
   "myAssets": "我的素材",
   "selectAFolder": "选择文件夹",
