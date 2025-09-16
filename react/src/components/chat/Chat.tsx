@@ -363,9 +363,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [pending, forceScrollToBottom])
 
-  // 清理函数
+  // 组件挂载时立即滚动到底部
   useEffect(() => {
+    // 组件首次加载时滚动到底部
+    const mountScrollTimer = setTimeout(() => {
+      console.log('[debug] 组件挂载，滚动到底部')
+      forceScrollToBottom()
+    }, 200)
+
+    // 清理函数
     return () => {
+      clearTimeout(mountScrollTimer)
       if (pendingTimeoutRef.current) {
         clearTimeout(pendingTimeoutRef.current)
       }
@@ -996,6 +1004,29 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     initChat()
   }, [sessionId, initChat])
 
+  // 组件初始化和消息加载完成后自动滚动到底部
+  useEffect(() => {
+    // 延迟执行以确保DOM已完全渲染
+    const scrollTimer = setTimeout(() => {
+      if (messages.length > 0) {
+        console.log('[debug] 初始化或消息更新，自动滚动到底部')
+        forceScrollToBottom()
+      }
+    }, 100)
+
+    // 多次尝试滚动以确保成功
+    const scrollTimer2 = setTimeout(() => {
+      if (messages.length > 0) {
+        forceScrollToBottom()
+      }
+    }, 300)
+
+    return () => {
+      clearTimeout(scrollTimer)
+      clearTimeout(scrollTimer2)
+    }
+  }, [messages.length, forceScrollToBottom])
+
   const onSelectSession = (sessionId: string) => {
     console.log('[debug] 切换session:', sessionId)
     
@@ -1073,10 +1104,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   return (
     <PhotoProvider>
-      <div className='flex flex-col h-screen relative'>
+      <div className='flex flex-col h-full relative'>
         {/* Chat messages */}
 
-        <header className='flex items-center p-4 absolute top-0 z-1 w-full'>
+        <header className='flex items-center p-4 absolute top-0 z-10 w-full'>
           <div className='flex-1 min-w-0'>
             <SessionSelector
               session={session}
@@ -1087,9 +1118,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </div>
         </header>
 
-        <ScrollArea className='h-[78vh]' viewportRef={scrollRef}>
+        <ScrollArea className='flex-1 min-h-0' viewportRef={scrollRef}>
           {messages.length > 0 ? (
-            <div className='flex flex-col flex-1 px-4 pt-20 pb-24'>
+            <div className='flex flex-col flex-1 px-4 pt-20 pb-6'>
               {/* Messages */}
               {messages.map((message, idx) => {
                 return (
@@ -1204,7 +1235,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
               {/* Thinking状态显示 */}
               {pending && (
-                <div className="flex flex-col gap-2 mt-6 mb-4">
+                <div className="flex flex-col gap-2 mt-3 sm:mt-4 md:mt-6 mb-3 sm:mb-4">
                   <ChatSpinner pending={pending} />
                   {sessionId && <ToolcallProgressUpdate sessionId={sessionId} />}
                 </div>
@@ -1243,7 +1274,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           )}
         </ScrollArea>
 
-        <div className='p-2 gap-2 sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-border/50'>
+        <div className='p-2 gap-2 bg-background/95 backdrop-blur-sm border-t border-border/50 flex-shrink-0'>
           <ChatTextarea
             sessionId={sessionId!}
             pending={!!pending}
