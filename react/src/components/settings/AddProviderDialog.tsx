@@ -133,7 +133,7 @@ const PROVIDER_OPTIONS = [
     value: 'doubao',
     label: 'Doubao',
     data: {
-      apiUrl: 'https://yunwu.ai/v1',
+      apiUrl: 'https://api.apiplus.org/v1',
       models: {
         'seedream-4.0': { type: 'image' },
         // not supported yet!
