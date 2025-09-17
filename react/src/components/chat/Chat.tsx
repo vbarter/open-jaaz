@@ -1,17 +1,15 @@
 import { sendMessages } from '@/api/chat'
-import Blur from '@/components/common/Blur'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { eventBus, TEvents } from '@/lib/event'
 import ChatMagicGenerator from './ChatMagicGenerator'
 import ChatCanvasHandler from './ChatCanvasHandler'
-import { AssistantMessage, Message, Model, PendingType, Session } from '@/types/types'
-import { useSearch } from '@tanstack/react-router'
+import { AssistantMessage, Message, MessageContent, PendingType, Session } from '@/types/types'
 import { produce } from 'immer'
 import { motion } from 'motion/react'
 import { nanoid } from 'nanoid'
 import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { PhotoProvider } from 'react-photo-view'
+import { PhotoProvider, PhotoView } from 'react-photo-view'
 import { toast } from 'sonner'
 import ShinyText from '../ui/shiny-text'
 import ChatTextarea from './ChatTextarea'
@@ -23,16 +21,16 @@ import ChatSpinner from './Spinner'
 import ToolcallProgressUpdate from './ToolcallProgressUpdate'
 import ShareTemplateDialog from './ShareTemplateDialog'
 import { generateChatSessionTitle } from '@/utils/formatDate'
+import { Button } from '@/components/ui/button'
+import { useCanvas } from '@/contexts/canvas'
 
 import { useConfigs } from '@/contexts/configs'
 import 'react-photo-view/dist/react-photo-view.css'
 import { DEFAULT_SYSTEM_PROMPT } from '@/constants'
 import { ModelInfo, ToolInfo } from '@/api/model'
-import { Button } from '@/components/ui/button'
-import { Share2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useQueryClient } from '@tanstack/react-query'
-import MixedContent, { MixedContentImages, MixedContentText } from './Message/MixedContent'
+import { MixedContentText } from './Message/MixedContent'
 import Timestamp from './Message/Timestamp'
 
 type ChatInterfaceProps = {
@@ -50,10 +48,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 }) => {
   const { t } = useTranslation(['chat', 'common'])
   const [session, setSession] = useState<Session | null>(null)
-  const { initCanvas, setInitCanvas, textModel } = useConfigs()
+  const { setInitCanvas, textModel } = useConfigs()
   const { authStatus } = useAuth()
   const [showShareDialog, setShowShareDialog] = useState(false)
   const queryClient = useQueryClient()
+  const { excalidrawAPI } = useCanvas()
 
   const [messages, setMessages] = useState<Message[]>([])
   const [pending, setPending] = useState<PendingType>(false) // 不再基于initCanvas设置初始状态
@@ -378,7 +377,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         clearTimeout(pendingTimeoutRef.current)
       }
     }
-  }, [])
+  }, [forceScrollToBottom])
 
   const mergeToolCallResult = (messages: Message[]) => {
     // 修复：基于消息ID去重，而不是内容去重，避免误删相同内容的不同消息
@@ -512,7 +511,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         })
       )
     },
-    [sessionId]
+    [sessionId, messages]
   )
 
   const handleToolCallPendingConfirmation = useCallback(
@@ -565,7 +564,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         })
       )
     },
-    [sessionId]
+    [sessionId, messages]
   )
 
   const handleToolCallConfirmed = useCallback(
@@ -676,40 +675,85 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         )
       }
     },
-    [canvasId, sessionId]
+    [sessionId]
   )
 
   const handleImageGenerated = useCallback(
     (data: TEvents['Socket::Session::ImageGenerated']) => {
-      if (data.canvas_id && data.canvas_id !== canvasId && data.session_id !== sessionId) {
-        return
+      // 修复判断逻辑：只要canvas_id或session_id有一个匹配就处理
+      if (data.canvas_id && data.canvas_id !== canvasId) {
+        // 如果有canvas_id但不匹配，再检查session_id
+        if (!data.session_id || data.session_id !== sessionId) {
+          return
+        }
       }
 
       console.log('⭐️dispatching image_generated', data)
+      console.log('📍 Canvas element:', data.element)
+      console.log('📍 Canvas element ID:', data.element?.id)
+      console.log('📍 File info:', data.file)
+      console.log('🖼️ Image URL:', data.image_url)
+
+      // 立即检查canvas files
+      if (excalidrawAPI) {
+        const currentFiles = excalidrawAPI.getFiles()
+        console.log('📁 当前Canvas files:', Object.keys(currentFiles || {}))
+        console.log('🔍 查找element.fileId:', data.element?.fileId, '是否在files中')
+        if (data.element?.fileId && currentFiles) {
+          const found = Object.keys(currentFiles).includes(data.element.fileId)
+          console.log(found ? '✅ 找到了!' : '❌ 没找到!')
+        }
+
+        // 也检查file.id
+        if (data.file?.id && currentFiles) {
+          const foundFile = Object.keys(currentFiles).includes(data.file.id)
+          console.log('🔍 查找file.id:', data.file.id, foundFile ? '✅ 找到了!' : '❌ 没找到!')
+        }
+
+        // 延迟检查，看看canvas files是否会更新
+        setTimeout(() => {
+          if (excalidrawAPI) {
+            const updatedFiles = excalidrawAPI.getFiles()
+            console.log('⏰ 500ms后重新检查Canvas files:', Object.keys(updatedFiles || {}))
+            if (data.element?.fileId && updatedFiles) {
+              const foundLater = Object.keys(updatedFiles).includes(data.element.fileId)
+              console.log('⏰ 延迟查找element.fileId:', data.element.fileId, foundLater ? '✅ 找到了!' : '❌ 还是没找到!')
+            }
+          }
+        }, 500)
+      }
 
       // 添加图片消息到聊天记录
       const imageMessage: Message = {
         role: 'assistant',
         content: [
           {
-            type: 'text',
+            type: 'text' as const,
             text: t('chat:generation.imageGenerated'),
           },
           {
-            type: 'image_url',
+            type: 'image_url' as const,
             image_url: {
               url: data.image_url,
             },
           },
-        ] as MessageContent[],
+        ],
       }
 
       // 添加canvas定位信息到消息（用于点击定位功能）
+      // 优先使用fileId（这是files对象的key），其次是file.id，最后是element.id
+      const canvasFileId = data.element?.fileId || data.file?.id || data.element?.id
       const messageWithCanvasInfo = {
         ...imageMessage,
-        canvas_element_id: data.element.id, // 添加canvas元素ID
-        canvas_id: data.canvas_id, // 添加canvas ID
+        canvas_element_id: canvasFileId,
+        canvas_id: data.canvas_id,
       }
+
+      console.log('✅ 创建的消息包含canvas_element_id:', messageWithCanvasInfo.canvas_element_id)
+      console.log('   使用的是:',
+        data.element?.fileId ? 'element.fileId' :
+        data.file?.id ? 'file.id' :
+        data.element?.id ? 'element.id' : 'none')
 
       setMessages(
         produce((prev) => {
@@ -736,7 +780,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         forceScrollToBottom()
       }, 1200)
     },
-    [canvasId, sessionId, forceScrollToBottom, t]
+    [canvasId, sessionId, forceScrollToBottom, t, excalidrawAPI]
   )
 
   const handleUserImages = useCallback(
@@ -752,7 +796,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         produce((prev) => {
           prev.push({
             role: 'user',
-            content: data.message.content,
+            content: data.message.content as MessageContent[] | string,
           })
         })
       )
@@ -1049,12 +1093,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     const newSession: Session = {
       id: nanoid(),
-      title: generateChatSessionTitle(),
+      title: newSessionName, // 使用newSessionName作为title
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       model: textModel?.model || session?.model || 'gpt-4o',
       provider: textModel?.provider || session?.provider || 'openai',
-      name: newSessionName, // 设置明确的session名称
       messages: []
     }
 
@@ -1074,14 +1117,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       toolList: ToolInfo[]
       modelName: string
     }) => {
-      const startTime = performance.now()
       setPending('text')
       setMessages(data)
 
       // Ensure we have a valid sessionId
       const effectiveSessionId = sessionId || sessionIdRef.current || nanoid()
 
-      const sendStart = performance.now()
       sendMessages({
         sessionId: effectiveSessionId,
         canvasId: canvasId,
@@ -1101,6 +1142,106 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const handleCancelChat = useCallback(() => {
     setPending(false)
   }, [])
+
+  // 图片定位处理函数
+  const handleImagePositioning = useCallback((elementId: string) => {
+    if (excalidrawAPI && elementId) {
+      excalidrawAPI.scrollToContent(elementId, { animate: true })
+    }
+  }, [excalidrawAPI])
+
+  // 渲染图片组件 - 简化版本，先确保按钮显示
+  const renderImageWithPhotoView = useCallback((
+    imageUrl: string,
+    canvasElementId?: string,
+    isUserMessage: boolean = false
+  ) => {
+    console.log('🎨 开始渲染图片组件:', {
+      imageUrl: imageUrl.substring(0, 50),
+      canvasElementId,
+      isUserMessage
+    })
+
+    // 先强制显示按钮，不管ID匹配
+    const showButton = true  // 临时强制显示
+
+    // 获取files用于后续匹配
+    const files = excalidrawAPI?.getFiles()
+    const filesArray = Object.keys(files || {}).map((key) => ({
+      id: key,
+      url: files![key].dataURL,
+    }))
+
+    console.log('📁 Canvas files数量:', filesArray.length)
+
+    // 尝试多种匹配方式
+    let elementId = canvasElementId  // 先用传入的ID
+
+    if (!elementId && filesArray.length > 0) {
+      // 尝试URL匹配
+      const found = filesArray.find((file) => {
+        // 检查多种匹配可能
+        if (imageUrl.includes(file.url)) {
+          console.log('✅ 方式1: imageUrl包含file.url')
+          return true
+        }
+        if (file.url.includes(imageUrl)) {
+          console.log('✅ 方式2: file.url包含imageUrl')
+          return true
+        }
+        // 尝试提取文件名匹配
+        const urlFilename = imageUrl.split('/').pop()?.split('?')[0]
+        if (urlFilename && file.url.includes(urlFilename)) {
+          console.log('✅ 方式3: 文件名匹配:', urlFilename)
+          return true
+        }
+        return false
+      })
+
+      if (found) {
+        elementId = found.id
+        console.log('🎯 找到匹配的ID:', elementId)
+      } else {
+        console.log('❌ 没有找到匹配，使用第一个file作为测试')
+        elementId = filesArray[0]?.id  // 临时使用第一个ID测试
+      }
+    }
+
+    // 暂时不使用PhotoView，直接渲染看看按钮是否出现
+    return (
+      <div className="relative inline-block my-2">
+        <img
+          className={`cursor-pointer w-full h-auto rounded-md border border-border ${
+            isUserMessage ? 'max-h-[140px] object-cover' : 'object-contain'
+          }`}
+          src={imageUrl}
+          alt="Image"
+        />
+
+        {/* 强制显示按钮，使用最简单的样式 */}
+        <button
+          className="absolute top-2 right-2 px-3 py-1 bg-white text-black rounded shadow-lg"
+          style={{
+            zIndex: 9999,
+            border: '2px solid red',  // 红色边框更明显
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+          onClick={(e) => {
+            e.stopPropagation()
+            e.preventDefault()
+            console.log('🚀 点击定位按钮，elementId:', elementId)
+            alert('按钮被点击了！elementId: ' + elementId)  // 添加alert确认点击
+            if (elementId) {
+              handleImagePositioning(elementId)
+            }
+          }}
+        >
+          🎯 Go to Image
+        </button>
+      </div>
+    )
+  }, [excalidrawAPI, handleImagePositioning])
 
   return (
     <PhotoProvider>
@@ -1123,6 +1264,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <div className='flex flex-col flex-1 px-4 pt-20 pb-6'>
               {/* Messages */}
               {messages.map((message, idx) => {
+                // 调试：打印每条消息的类型
+                console.log(`📨 消息${idx}:`, {
+                  role: message.role,
+                  contentType: typeof message.content,
+                  isArray: Array.isArray(message.content),
+                  contentLength: Array.isArray(message.content) ? message.content.length : 0,
+                  hasImages: Array.isArray(message.content) ?
+                    message.content.some(c => c.type === 'image_url') : false
+                })
+
                 return (
                   <div key={`${idx}`} className='flex flex-col gap-4 mb-2'>
                     {/* 根据消息类型选择合适的渲染方式 */}
@@ -1149,31 +1300,117 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           align={message.role === 'user' ? 'right' : 'left'}
                         />
                         {/* 混合内容区域 - 根据角色决定顺序 */}
-                        {message.role === 'user' ? (
-                          // 用户消息：图片在上，文字在下
-                          <>
-                            <div className="mb-3">
-                              <MixedContentImages
-                                contents={message.content}
-                                canvasElementId={(message as any).canvas_element_id}
-                                messageRole={message.role}
-                              />
-                            </div>
-                            <MixedContentText message={message} contents={message.content} hideTimestamp={true} />
-                          </>
-                        ) : (
-                          // AI消息：文字在上，图片在下
-                          <>
-                            <div className="mb-3">
-                              <MixedContentText message={message} contents={message.content} hideTimestamp={true} />
-                            </div>
-                            <MixedContentImages
-                              contents={message.content}
-                              canvasElementId={(message as any).canvas_element_id}
-                              messageRole={message.role}
-                            />
-                          </>
-                        )}
+                        {(() => {
+                          // 提取文本和图片内容
+                          const textContents = message.content.filter((c) => c.type === 'text')
+                          const imageContents = message.content.filter((c) => c.type === 'image_url')
+                          const canvasElementId = (message as Message & { canvas_element_id?: string }).canvas_element_id
+
+                          // 调试日志
+                          if (imageContents.length > 0) {
+                            console.log('🎨 渲染图片消息:', {
+                              role: message.role,
+                              imageCount: imageContents.length,
+                              canvasElementId,
+                              hasCanvasElementId: !!canvasElementId
+                            })
+                          }
+
+                          if (message.role === 'user') {
+                            // 用户消息：图片在上，文字在下 - 用户上传的图片不需要定位按钮
+                            return (
+                              <>
+                                {/* 渲染用户上传的图片 - 不需要定位按钮 */}
+                                {imageContents.length > 0 && (
+                                  <div className="px-4">
+                                    <div className="flex justify-end">
+                                      {imageContents.length === 1 ? (
+                                        // 单张图片
+                                        <div className="max-w-[140px]">
+                                          <img
+                                            className="max-h-[140px] object-cover w-full h-auto rounded-md border border-border"
+                                            src={imageContents[0].image_url.url}
+                                            alt="User uploaded image"
+                                          />
+                                        </div>
+                                      ) : (
+                                        // 多张图片
+                                        <div className="flex gap-2 flex-row-reverse">
+                                          {imageContents.map((img, index) => (
+                                            <div key={index} className="max-w-[140px]">
+                                              <img
+                                                className="max-h-[140px] object-cover w-full h-auto rounded-md border border-border"
+                                                src={img.image_url.url}
+                                                alt={`User uploaded image ${index + 1}`}
+                                              />
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {/* 渲染文本 */}
+                                {textContents.length > 0 && (
+                                  <MixedContentText message={message} contents={message.content} hideTimestamp={true} />
+                                )}
+                              </>
+                            )
+                          } else {
+                            // AI消息：文字在上，图片在下 - AI生成的图片需要定位按钮！
+                            return (
+                              <>
+                                {/* 渲染文本 */}
+                                {textContents.length > 0 && (
+                                  <div className="mb-3">
+                                    <MixedContentText message={message} contents={message.content} hideTimestamp={true} />
+                                  </div>
+                                )}
+                                {/* 渲染AI生成的图片 - 需要定位按钮！ */}
+                                {imageContents.length > 0 && (
+                                  <div className="px-4">
+                                    {console.log('🤖 [AI生成的图片] 准备渲染，需要定位按钮！', {
+                                      数量: imageContents.length,
+                                      canvasElementId,
+                                      消息: message
+                                    })}
+                                    <div className="flex justify-start">
+                                      {imageContents.map((img, imgIndex) => (
+                                        <div key={imgIndex} className="relative inline-block mr-2">
+                                          <PhotoView src={img.image_url.url}>
+                                            <span className="group block relative overflow-hidden rounded-md">
+                                              <img
+                                                className="cursor-pointer group-hover:scale-105 transition-transform duration-300 w-full h-auto rounded-md border border-border"
+                                                src={img.image_url.url}
+                                                alt="AI generated image"
+                                                style={{ maxWidth: '400px' }}
+                                              />
+
+                                              {/* 为AI生成的图片添加定位按钮 */}
+                                              {canvasElementId && (
+                                                <Button
+                                                  variant="secondary"
+                                                  className="group-hover:opacity-100 opacity-0 absolute top-2 right-2 z-10"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    console.log('🎯 点击AI图片定位按钮，跳转到:', canvasElementId)
+                                                    handleImagePositioning(canvasElementId)
+                                                  }}
+                                                >
+                                                  {t('chat:messages:imagePositioning')}
+                                                </Button>
+                                              )}
+                                            </span>
+                                          </PhotoView>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )
+                          }
+                        })()}
                       </div>
                     ) : null}
 
@@ -1181,7 +1418,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     {message.role === 'assistant' &&
                       message.tool_calls &&
                       message.tool_calls.at(-1)?.function.name != 'finish' &&
-                      message.tool_calls.map((toolCall, i) => {
+                      message.tool_calls.map((toolCall) => {
                         return (
                           <ToolCallTag
                             key={toolCall.id}
