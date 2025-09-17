@@ -10,7 +10,6 @@ import { exportToCanvas, exportToBlob, exportToSvg } from '@excalidraw/excalidra
 import { OrderedExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import { toast } from 'sonner'
 import { useUserInfo } from '@/hooks/use-user-info'
-import { processRemoteImage } from '@/utils/remoteImageProcessor'
 
 type CanvasMagicGeneratorProps = {
   selectedImages: TCanvasAddImagesToChatEvent
@@ -70,39 +69,54 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
         return
       }
 
-      const files = excalidrawAPI.getFiles()
-      console.log('[CanvasMagicGenerator] 获取到的文件:', Object.keys(files).length, '个')
+      const allFiles = excalidrawAPI.getFiles()
+      console.log('[CanvasMagicGenerator] ==========开始处理==========')
+      console.log('[CanvasMagicGenerator] 画布上的总文件数:', Object.keys(allFiles).length, '个')
       console.log('[CanvasMagicGenerator] 选中的元素数量:', selectedElements.length)
 
-      // 详细分析files对象结构
-      const fileIds = Object.keys(files)
-      fileIds.forEach((fileId, index) => {
-        const file = files[fileId]
-        console.log(`[CanvasMagicGenerator] 文件${index + 1} (${fileId}):`, {
-          type: typeof file,
-          isDataURL: file && typeof file === 'object' && 'dataURL' in file,
-          hasUrl: file && typeof file === 'object' && 'url' in file,
-          keys: file && typeof file === 'object' ? Object.keys(file) : 'not object',
-          dataURLPreview:
-            file && file.dataURL ? file.dataURL.substring(0, 50) + '...' : 'no dataURL',
-        })
-
-        // 检查是否是远程URL
-        if (file && file.dataURL && file.dataURL.startsWith('http')) {
-          console.log(`[CanvasMagicGenerator] ⚠️ 检测到远程图片URL: ${file.dataURL}`)
-        }
-      })
-
-      // 分析选中的图片元素
+      // 分析选中的图片元素，获取它们的文件ID
       const imageElements = selectedElements.filter((element) => element.type === 'image')
+      const selectedFileIds = new Set<string>()
+
       imageElements.forEach((element, index) => {
+        if (element.fileId) {
+          selectedFileIds.add(element.fileId)
+        }
         console.log(`[CanvasMagicGenerator] 图片元素${index + 1}:`, {
           id: element.id,
           fileId: element.fileId,
           width: element.width,
           height: element.height,
           hasFileId: !!element.fileId,
-          fileExists: element.fileId ? !!files[element.fileId] : false,
+          fileExists: element.fileId ? !!allFiles[element.fileId] : false,
+        })
+      })
+
+      // 只处理选中元素相关的文件
+      const files: typeof allFiles = {}
+      selectedFileIds.forEach(fileId => {
+        if (allFiles[fileId]) {
+          files[fileId] = allFiles[fileId]
+        }
+      })
+
+      console.log('[CanvasMagicGenerator] ✅ 优化后：选中元素关联的文件数:', Object.keys(files).length, '个')
+      console.log('[CanvasMagicGenerator] ✅ 减少的API请求数:', Object.keys(allFiles).length - Object.keys(files).length, '个')
+
+      // 详细分析选中的files对象结构
+      const fileIds = Object.keys(files)
+      fileIds.forEach((fileId, index) => {
+        const file = files[fileId]
+        const urlType = file && file.dataURL ?
+          file.dataURL.startsWith('data:') ? 'base64' :
+          file.dataURL.startsWith('http') ? 'remote' :
+          file.dataURL.startsWith('/api/file/') ? 'api' :
+          'other' : 'none'
+
+        console.log(`[CanvasMagicGenerator] 选中的文件${index + 1} (${fileId}):`, {
+          urlType,
+          dataURLPreview:
+            file && file.dataURL ? file.dataURL.substring(0, 80) + '...' : 'no dataURL',
         })
       })
 
@@ -111,89 +125,135 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
       console.log('[CanvasMagicGenerator] Canvas安全检测:', {
         hasImages,
         imageElementsCount: imageElements.length,
-        fileCount: fileIds.length,
-        fileIds: fileIds.slice(0, 3), // 只显示前3个文件ID
+        selectedFileCount: fileIds.length,
+        selectedFileIds: fileIds.slice(0, 3), // 只显示前3个文件ID
       })
 
 
-      // 预处理所有远程图片
+      // 预处理选中的图片（只有存在图片元素时才处理）
       const processedFiles = { ...files }
-      const remoteFileIds = fileIds.filter((fileId) => {
-        const file = files[fileId]
-        return file && file.dataURL && file.dataURL.startsWith('http')
-      })
 
-      if (remoteFileIds.length > 0) {
-        console.log(`[CanvasMagicGenerator] 检测到 ${remoteFileIds.length} 个远程图片，开始智能处理...`)
-
-        // 首先快速检查哪些文件真的需要下载
-        const filesToDownload: string[] = []
-
-        for (const fileId of remoteFileIds) {
-          const file = files[fileId]
-          const { extractFileIdentifier, checkLocalFile } = await import('@/utils/remoteImageProcessor')
-          const filename = extractFileIdentifier(file.dataURL)
-          const localUrl = await checkLocalFile(filename, userInfo)
-
-          if (!localUrl) {
-            filesToDownload.push(fileId)
-          } else {
-            console.log(`[CanvasMagicGenerator] 文件已存在本地，直接使用: ${filename}`)
-            // 直接从本地URL获取数据
-            try {
-              const response = await fetch(localUrl, { credentials: 'include' })
-              const blob = await response.blob()
-              const reader = new FileReader()
-              const dataURL = await new Promise<string>((resolve, reject) => {
-                reader.onload = () => resolve(reader.result as string)
-                reader.onerror = reject
-                reader.readAsDataURL(blob)
-              })
-
-              processedFiles[fileId] = {
-                ...file,
-                dataURL: dataURL as typeof file.dataURL,
-              }
-            } catch (error) {
-              console.warn(`[CanvasMagicGenerator] 读取本地文件失败，将重新下载: ${filename}`, error)
-              filesToDownload.push(fileId)
-            }
-          }
-        }
-
-        // 只有真正需要下载的文件才显示下载提示
-        if (filesToDownload.length > 0) {
-          console.log(`[CanvasMagicGenerator] 需要下载 ${filesToDownload.length} 个远程图片`)
-          toast.loading(`正在下载 ${filesToDownload.length} 个远程图片...`, {
-            id: 'download-images',
-          })
-
-          try {
-            for (const fileId of filesToDownload) {
-              const file = files[fileId]
-              const localDataURL = await processRemoteImage(file.dataURL, userInfo)
-              processedFiles[fileId] = {
-                ...file,
-                dataURL: localDataURL as typeof file.dataURL,
-              }
-              console.log(`[CanvasMagicGenerator] 远程图片已转换为本地: ${fileId}`)
-            }
-
-            console.log(`[CanvasMagicGenerator] 所有需要的图片已准备完成，开始导出Canvas`)
-          } catch (error) {
-            console.error(`[CanvasMagicGenerator] 批量下载远程图片失败:`, error)
-            toast.error(`图片下载失败: ${error instanceof Error ? error.message : '未知错误'}`, {
-              id: 'download-images',
-            })
-            setIsGenerating(false)
-            return
-          }
-        } else {
-          console.log(`[CanvasMagicGenerator] 所有图片都已存在本地，无需下载`)
-        }
+      // 如果没有图片元素，跳过文件处理
+      if (!hasImages) {
+        console.log('[CanvasMagicGenerator] 没有图片元素，跳过文件处理')
       } else {
-        console.log(`[CanvasMagicGenerator] 未检测到远程图片，直接进行Canvas导出`)
+        // 识别需要处理的图片（非base64格式的）
+        const needProcessFileIds = fileIds.filter((fileId) => {
+          const file = files[fileId]
+          if (!file || !file.dataURL) return false
+
+          // 如果是base64格式（data:开头），不需要处理
+          if (file.dataURL.startsWith('data:')) {
+            console.log(`[CanvasMagicGenerator] 文件 ${fileId} 已是base64格式，无需处理`)
+            return false
+          }
+
+          // 其他格式（http/https或/api/file/）都需要处理
+          console.log(`[CanvasMagicGenerator] 文件 ${fileId} 需要处理: ${file.dataURL.substring(0, 50)}...`)
+          return true
+        })
+
+        if (needProcessFileIds.length > 0) {
+          console.log(`[CanvasMagicGenerator] 检测到 ${needProcessFileIds.length} 个需要处理的图片`)
+
+          // 处理所有需要获取数据的图片
+          for (const fileId of needProcessFileIds) {
+            const file = files[fileId]
+            const url = file.dataURL
+
+            try {
+              let processedDataURL: string
+
+              if (url.startsWith('http')) {
+                // 处理远程URL
+                console.log(`[CanvasMagicGenerator] 处理远程图片: ${url.substring(0, 50)}...`)
+
+                // 检查是否已缓存
+                const { extractFileIdentifier, checkLocalFile } = await import('@/utils/remoteImageProcessor')
+                const filename = extractFileIdentifier(url)
+                const localUrl = await checkLocalFile(filename, userInfo)
+
+                if (localUrl) {
+                  console.log(`[CanvasMagicGenerator] 远程图片已缓存，从本地获取: ${filename}`)
+                  const response = await fetch(localUrl, { credentials: 'include' })
+                  const blob = await response.blob()
+                  const reader = new FileReader()
+                  processedDataURL = await new Promise<string>((resolve, reject) => {
+                    reader.onload = () => resolve(reader.result as string)
+                    reader.onerror = reject
+                    reader.readAsDataURL(blob)
+                  })
+                } else {
+                  console.log(`[CanvasMagicGenerator] 下载远程图片: ${filename}`)
+                  const { processRemoteImage: processImg } = await import('@/utils/remoteImageProcessor')
+                  processedDataURL = await processImg(url, userInfo)
+                }
+              } else if (url.startsWith('/api/file/')) {
+                // 处理本地API路径
+                console.log(`[CanvasMagicGenerator] 处理本地API图片: ${url}`)
+
+                // 构建完整的URL
+                const fullUrl = `${window.location.origin}${url}`
+                console.log(`[CanvasMagicGenerator] 完整URL: ${fullUrl}`)
+
+                // 获取图片数据
+                const response = await fetch(fullUrl, { credentials: 'include' })
+                if (!response.ok) {
+                  throw new Error(`Failed to fetch image: ${response.status}`)
+                }
+
+                const blob = await response.blob()
+                const reader = new FileReader()
+                processedDataURL = await new Promise<string>((resolve, reject) => {
+                  reader.onload = () => resolve(reader.result as string)
+                  reader.onerror = reject
+                  reader.readAsDataURL(blob)
+                })
+
+                console.log(`[CanvasMagicGenerator] 本地API图片获取成功，大小: ${blob.size} bytes`)
+              } else {
+                // 其他路径（可能是相对路径）
+                console.log(`[CanvasMagicGenerator] 处理其他类型路径: ${url}`)
+
+                // 尝试作为相对路径获取
+                const response = await fetch(url, { credentials: 'include' })
+                if (!response.ok) {
+                  throw new Error(`Failed to fetch image: ${response.status}`)
+                }
+
+                const blob = await response.blob()
+                const reader = new FileReader()
+                processedDataURL = await new Promise<string>((resolve, reject) => {
+                  reader.onload = () => resolve(reader.result as string)
+                  reader.onerror = reject
+                  reader.readAsDataURL(blob)
+                })
+              }
+
+              // 更新处理后的文件
+              processedFiles[fileId] = {
+                ...file,
+                dataURL: processedDataURL as typeof file.dataURL,
+              }
+              console.log(`[CanvasMagicGenerator] ✅ 图片处理成功: ${fileId}`)
+
+            } catch (error) {
+              console.error(`[CanvasMagicGenerator] ❌ 处理图片失败 ${fileId}:`, error)
+              toast.error(`图片处理失败: ${error instanceof Error ? error.message : '未知错误'}`)
+              setIsGenerating(false)
+              return
+            }
+          }
+
+          console.log(`[CanvasMagicGenerator] 所有图片处理完成，开始导出Canvas`)
+        } else {
+          console.log(`[CanvasMagicGenerator] 所有图片都是base64格式，无需额外处理`)
+        }
       }
+
+      // 对于非图片元素（如形状、文字等），我们也需要导出，所以不需要额外的files
+      // 但对于图片元素，只导出选中的files
+      const exportFiles = hasImages ? processedFiles : {}
 
       let base64: string
       let width: number
@@ -202,6 +262,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
       if (hasImages && fileIds.length > 0) {
         // 有图片时使用更安全的Blob导出方案
         console.log('[CanvasMagicGenerator] 检测到图片元素，使用Blob导出方案...')
+        console.log('[CanvasMagicGenerator] 导出的文件数:', Object.keys(exportFiles).length)
 
         try {
           const blob = await exportToBlob({
@@ -210,7 +271,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
               ...appState,
               selectedElementIds: selectedIds,
             },
-            files: processedFiles, // 使用处理后的files对象
+            files: exportFiles, // 只使用选中元素的files
             mimeType: 'image/png',
             quality: 0.8,
             exportPadding: 10,
@@ -248,7 +309,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
               ...appState,
               selectedElementIds: selectedIds,
             },
-            files: processedFiles, // 使用处理后的files对象
+            files: exportFiles, // 只使用选中元素的files
             exportPadding: 10,
           })
           console.log('[CanvasMagicGenerator] SVG导出成功，长度:', svgString.outerHTML.length)
@@ -325,7 +386,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
               ...appState,
               selectedElementIds: selectedIds,
             },
-            files: processedFiles, // 使用处理后的files对象
+            files: exportFiles, // 只使用选中元素的files
             mimeType: 'image/png',
             quality: 0.8,
             exportPadding: 10,
