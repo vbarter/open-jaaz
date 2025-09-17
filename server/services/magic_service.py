@@ -44,6 +44,8 @@ async def handle_magic(data: Dict[str, Any]) -> None:
     system_prompt: str = data.get('system_prompt', '')
     template_id: str = data.get('template_id', '')
     user_info: Dict[str, Any] = data.get('user_info', {})
+    aspect_ratio: str = data.get('aspect_ratio', 'auto')
+    quantity: int = data.get('quantity', 1)
     
     logger.info(f"[Magic Service] 解析请求参数: session_id={session_id}, canvas_id={canvas_id}, messages_count={len(messages)}, user_info={bool(user_info)}")
     
@@ -127,7 +129,7 @@ async def handle_magic(data: Dict[str, Any]) -> None:
     # Create and start magic generation task
     # 从data中获取用户信息，如果有的话
     user_info = data.get('user_info')
-    task = asyncio.create_task(_process_magic_generation(messages, session_id, canvas_id, system_prompt, template_id, user_uuid, user_info))
+    task = asyncio.create_task(_process_magic_generation(messages, session_id, canvas_id, system_prompt, template_id, user_uuid, user_info, aspect_ratio, quantity))
 
     # Register the task in stream_tasks (for possible cancellation)
     add_stream_task(session_id, task)
@@ -226,7 +228,9 @@ async def _process_magic_generation(
     system_prompt: str = "",
     template_id: str = "",
     user_uuid: Optional[str] = None,
-    user_info: Optional[Dict[str, Any]] = None
+    user_info: Optional[Dict[str, Any]] = None,
+    aspect_ratio: str = "auto",
+    quantity: int = 1
 ) -> None:
     """
     Process magic generation in a separate async task.
@@ -257,7 +261,7 @@ async def _process_magic_generation(
         
         # 原来是基于云端生成
         # ai_response = await create_jaaz_response(messages, session_id, canvas_id)
-        ai_response = await create_local_magic_response(messages, session_id, canvas_id, template_id=template_id, user_info=user_info)
+        ai_response = await create_local_magic_response(messages, session_id, canvas_id, template_id=template_id, user_info=user_info, aspect_ratio=aspect_ratio, quantity=quantity)
 
         # 🔍 检查Magic Generation是否真正成功
         is_generation_successful = False

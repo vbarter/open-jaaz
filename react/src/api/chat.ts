@@ -13,6 +13,8 @@ export const sendMessages = async (payload: {
   newMessages: Message[]
   modelName: string
   systemPrompt: string | null
+  aspectRatio?: string
+  quantity?: number
 }) => {
   const response = await fetch(`/api/chat`, {
     method: 'POST',
@@ -25,6 +27,8 @@ export const sendMessages = async (payload: {
       session_id: payload.sessionId,
       model_name: payload.modelName,
       system_prompt: payload.systemPrompt,
+      aspect_ratio: payload.aspectRatio,
+      quantity: payload.quantity,
     }),
   })
   const data = await response.json()

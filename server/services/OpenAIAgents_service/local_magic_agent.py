@@ -17,12 +17,14 @@ from log import get_logger
 logger = get_logger(__name__)
 
 
-async def create_local_magic_response(messages: List[Dict[str, Any]], 
-                                      session_id: str = "", 
+async def create_local_magic_response(messages: List[Dict[str, Any]],
+                                      session_id: str = "",
                                       canvas_id: str = "",
                                       system_prompt: str = "",
                                       template_id: str = "",
-                                      user_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                                      user_info: Optional[Dict[str, Any]] = None,
+                                      aspect_ratio: str = "auto",
+                                      quantity: int = 1) -> Dict[str, Any]:
     """
     本地的魔法生成功能
     实现和 magic_agent 相同的功能
@@ -67,7 +69,7 @@ async def create_local_magic_response(messages: List[Dict[str, Any]],
 
         # 调用tuzi服务生成魔法图像
         if not template_id:
-            result = await magic_draw_service.generate_magic_image(system_prompt, image_content, user_info)
+            result = await magic_draw_service.generate_magic_image(system_prompt, image_content, user_info, aspect_ratio, quantity)
         else:
             # 如果有template_id，从TEMPLATES获取对应的prompt
             template_prompt = ""
@@ -102,7 +104,7 @@ async def create_local_magic_response(messages: List[Dict[str, Any]],
             else:
                 final_prompt = str(template_prompt if template_prompt else "")
                 logger.info(f"✅ 使用模版提示词: {final_prompt}")
-            result = await magic_draw_service.generate_template_image(final_prompt, image_content, template_image, user_info, use_mask, is_image, session_id)
+            result = await magic_draw_service.generate_template_image(final_prompt, image_content, template_image, user_info, use_mask, is_image, session_id, aspect_ratio, quantity)
         if not result:
             return {
                 'role': 'assistant',

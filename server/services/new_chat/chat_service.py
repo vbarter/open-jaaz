@@ -128,6 +128,8 @@ async def handle_chat(data: Dict[str, Any]) -> None:
     user_info: Dict[str, Any] = data.get('user_info', {})
     model_name: str = data.get('model_name', '')
     text_model_data = data.get('text_model')
+    aspect_ratio: str = data.get('aspect_ratio', 'auto')
+    quantity: int = data.get('quantity', 1)
     
     # 🌐 [I18N] 检测用户语言偏好
     user_language = 'en'  # 默认英文
@@ -419,16 +421,18 @@ async def handle_chat(data: Dict[str, Any]) -> None:
         await _push_user_images_to_frontend(messages, session_id, template_id)
 
     # Create and start magic generation task
-    task = asyncio.create_task(_process_generation(messages, 
-                                                   session_id, 
-                                                   canvas_id, 
-                                                   model_name, 
-                                                   user_uuid, 
-                                                   user_info, 
-                                                   enhanced_user_message, 
-                                                   user_has_drawing_intent, 
+    task = asyncio.create_task(_process_generation(messages,
+                                                   session_id,
+                                                   canvas_id,
+                                                   model_name,
+                                                   user_uuid,
+                                                   user_info,
+                                                   enhanced_user_message,
+                                                   user_has_drawing_intent,
                                                    user_language,
-                                                   provider))
+                                                   provider,
+                                                   aspect_ratio,
+                                                   quantity))
 
     # Register the task in stream_tasks (for possible cancellation)
     add_stream_task(session_id, task)
@@ -527,7 +531,9 @@ async def _process_generation(
     enhanced_user_message: Optional[Dict[str, Any]] = None,
     user_has_drawing_intent: bool = False,
     user_language: str = 'en',
-    provider: str = 'openai'
+    provider: str = 'openai',
+    aspect_ratio: str = 'auto',
+    quantity: int = 1
 ) -> None:
     """
     Process generation in a separate async task.
@@ -553,12 +559,14 @@ async def _process_generation(
         # 3. 执行AI生成
         # 原来是基于云端生成
         # ai_response = await create_jaaz_response(messages, session_id, canvas_id)
-        ai_response = await create_local_response(messages, 
-                                                  session_id, 
-                                                  canvas_id, 
-                                                  model_name, 
+        ai_response = await create_local_response(messages,
+                                                  session_id,
+                                                  canvas_id,
+                                                  model_name,
                                                   user_info,
-                                                  provider=provider)
+                                                  provider=provider,
+                                                  aspect_ratio=aspect_ratio,
+                                                  quantity=quantity)
         
         # 4. 检查生成结果是否包含图片，或者检查用户是否有画图意图
         logger.info(f"🔍 [DEBUG] 检查AI响应内容: {str(ai_response.get('content', ''))[:200]}...")
