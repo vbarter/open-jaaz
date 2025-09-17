@@ -288,12 +288,14 @@ class TuziLLMService:
             logger.error(f"❌ {error_msg}")
             return {"error": error_msg}
 
-    async def generate(self, 
-                       model_name:str, 
-                       user_prompt: str, 
-                       image_content: List[str], 
-                       user_info: Optional[Dict[str, Any]] = None, 
-                       stream: bool = False) -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None], str]:
+    async def generate(self,
+                       model_name:str,
+                       user_prompt: str,
+                       image_content: List[str],
+                       user_info: Optional[Dict[str, Any]] = None,
+                       stream: bool = False,
+                       aspect_ratio: str = 'auto',
+                       quantity: int = 1) -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None], str]:
         """
         生成魔法图像的完整流程
 
@@ -316,7 +318,7 @@ class TuziLLMService:
                 logger.info("🖼️ 检测到图片上传，执行图片编辑流程")
                 # 如果不能画图, 也设置成系统默认的
                 image_model = self._get_image_generation_model(model_name)
-                return await self._handle_image_editing(image_model, user_prompt, image_content, user_info)
+                return await self._handle_image_editing(image_model, user_prompt, image_content, user_info, aspect_ratio, quantity)
             
             # 步骤2: 没有图片上传，进行画图语义理解
             logger.info("📝 无图片上传，进行语义理解...")
@@ -326,7 +328,7 @@ class TuziLLMService:
                 logger.info("🎨 检测到画图意图，执行图片生成流程")
                 # 步骤4: 检查用户设置的model是否是画图模型，如果不是默认使用gemini-2.5-flash-image
                 image_model = self._get_image_generation_model(model_name)
-                return await self._handle_image_generation(image_model, user_prompt, user_info)
+                return await self._handle_image_generation(image_model, user_prompt, user_info, aspect_ratio, quantity)
             else:
                 logger.info("💬 检测到文本对话意图，执行文本对话流程")
                 # 步骤3: 不是画图，直接走用户设定的大模型调用
@@ -337,11 +339,13 @@ class TuziLLMService:
             logger.error(f"❌ {error_msg}")
             return {"error": error_msg}
 
-    async def _handle_image_editing(self, 
-                                    model_name: str, 
-                                    user_prompt: str, 
-                                    image_content: List[str], 
-                                    user_info: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    async def _handle_image_editing(self,
+                                    model_name: str,
+                                    user_prompt: str,
+                                    image_content: List[str],
+                                    user_info: Optional[Dict[str, Any]],
+                                    aspect_ratio: str = 'auto',
+                                    quantity: int = 1) -> Dict[str, Any]:
         """处理图片编辑流程"""
         try:
             logger.info(f"🔍 [DEBUG] _handle_image_editing 开始")
@@ -389,8 +393,9 @@ class TuziLLMService:
             
             logger.info(f"✅ 总共保存了 {len(file_paths)} 个图片文件")
             
-            # 使用gemini进行图片编辑
-            result = await self.gemini_edit_image_by_tuzi(file_paths, user_prompt, model=model_name)
+            # 使用gemini进行图片编辑，传递aspect_ratio和quantity
+            result = await self.gemini_edit_image_by_tuzi(file_paths, user_prompt, model=model_name,
+                                                          aspect_ratio=aspect_ratio, quantity=quantity)
             
             if result:
                 logger.info(f"✅ 图片编辑成功: {result.get('result_url')}")
@@ -464,7 +469,8 @@ class TuziLLMService:
             logger.info(f"⚠️ 用户选择的模型 '{user_model}' 不支持图片编辑，使用默认模型 'gemini-2.5-flash-image'")
             return "gemini-2.5-flash-image"
 
-    async def _handle_image_generation(self, model_name: str, user_prompt: str, user_info: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    async def _handle_image_generation(self, model_name: str, user_prompt: str, user_info: Optional[Dict[str, Any]],
+                                       aspect_ratio: str = 'auto', quantity: int = 1) -> Dict[str, Any]:
         """处理图片生成流程（带重试和状态反馈）"""
         try:
             logger.info(f"🎨 开始图片生成流程: model={model_name}")
@@ -474,7 +480,7 @@ class TuziLLMService:
             if model_name == "seedream-4.0":
                 model_name = "doubao-seedream-4-0-250828"
             logger.info(f"🔍 [DEBUG] _handle_image_generation 使用模型: '{model_name}' (无映射)")
-            result = await self.gemini_generate_by_tuzi(user_prompt, model_name)
+            result = await self.gemini_generate_by_tuzi(user_prompt, model_name, aspect_ratio=aspect_ratio, quantity=quantity)
             
             if result:
                 logger.info(f"🎉 图片生成成功: {result.get('result_url', 'base64_data')}")
@@ -638,7 +644,9 @@ class TuziLLMService:
         file_path: list[str],
         prompt: str,
         model: str = "gemini-2.5-flash-image",
-        response_format: Literal["url", "b64_json"] = "url"
+        response_format: Literal["url", "b64_json"] = "url",
+        aspect_ratio: str = "auto",
+        quantity: int = 1
     ) -> Optional[Dict[str, str]]:
         """
         使用模板编辑图片
@@ -712,6 +720,18 @@ class TuziLLMService:
 Generate images based on user input
 user input: {prompt}
 """
+                # 将aspect_ratio转换为size参数（用于图片编辑）
+                size_map = {
+                    "1:1": "1024x1024",
+                    "4:3": "1024x1024",  # 近似
+                    "3:4": "1024x1024",  # 近似
+                    "16:9": "1792x1024",
+                    "9:16": "1024x1792",
+                    "auto": "1024x1024"  # 默认
+                }
+                size = size_map.get(aspect_ratio, "1024x1024")
+                logger.info(f"📐 [Image Edit] aspect_ratio: {aspect_ratio} -> size: {size}, quantity: {quantity}")
+
                 with open(file_path[0], 'rb') as image_file:
                     # 检查是否需要其他参数
                     edit_params = {
@@ -719,16 +739,20 @@ user input: {prompt}
                         'image': image_file,
                         'prompt': prompt,
                         'response_format': response_format,
+                        'size': size,
+                        'n': min(quantity, 10),
                         'base_url': self.api_url,
                         'api_key': self.api_token
                     }
-                    logger.info(f"🎯 [DEBUG] 完整调用参数: {edit_params}")
+                    logger.info(f"🎯 [DEBUG] 完整调用参数: {list(edit_params.keys())}")
 
                     result = await client.images.edit(
                         model=model,
                         image=image_file,
                         prompt=prompt,
-                        response_format=response_format
+                        response_format=response_format,
+                        size=size,  # type: ignore
+                        n=min(quantity, 10)
                     )
             else:
                 # 同时使用目标图片和模板
@@ -747,6 +771,17 @@ user input: {prompt}
 Generate images based on user input
 user input: {prompt}
 """
+                # 使用与单图片模式相同的size映射
+                size_map = {
+                    "1:1": "1024x1024",
+                    "4:3": "1024x1024",  # 近似
+                    "3:4": "1024x1024",  # 近似
+                    "16:9": "1792x1024",
+                    "9:16": "1024x1792",
+                    "auto": "1024x1024"  # 默认
+                }
+                size = size_map.get(aspect_ratio, "1024x1024")
+                logger.info(f"📐 [Image Edit with Mask] aspect_ratio: {aspect_ratio} -> size: {size}, quantity: {quantity}")
 
                 with open(file_path[0], 'rb') as image_file, open(file_path[1], 'rb') as mask_file:
 
@@ -757,6 +792,8 @@ user input: {prompt}
                         'mask': mask_file,
                         'prompt': prompt,
                         'response_format': response_format,
+                        'size': size,
+                        'n': min(quantity, 10),
                         'base_url': self.api_url,
                         'api_key': self.api_token
                     }
@@ -767,7 +804,9 @@ user input: {prompt}
                         image=image_file,
                         mask=mask_file,
                         prompt=prompt,
-                        response_format=response_format
+                        response_format=response_format,
+                        size=size,  # type: ignore
+                        n=min(quantity, 10)
                     )
             
             logger.info(f"📥 [DEBUG] API 响应成功，处理结果...")
@@ -839,6 +878,8 @@ user input: {prompt}
         self,
         prompt: str,
         model: str = "gemini-2.5-flash-image",
+        aspect_ratio: str = "auto",
+        quantity: int = 1
     ) -> Optional[Dict[str, str]]:
         """
         生成魔法图片（带重试机制）
@@ -881,11 +922,25 @@ user input: {prompt}
                 image_model = model
                 logger.info(f"🎯 [DEBUG] 最终使用的图像生成模型: {image_model}")
                 
+                # 将aspect_ratio转换为size参数
+                size_map = {
+                    "1:1": "1024x1024",
+                    "4:3": "1024x1024",  # 近似，OpenAI不支持精确的4:3
+                    "3:4": "1024x1024",  # 近似，OpenAI不支持精确的3:4
+                    "16:9": "1536x1024",
+                    "9:16": "1024x1536",
+                    "auto": "1024x1024"  # 默认
+                }
+                size = size_map.get(aspect_ratio, "1024x1024")
+                logger.info(f"📐 [Image Generation] aspect_ratio: {aspect_ratio} -> size: {size}, quantity: {quantity}")
+
                 # 使用 asyncio.wait_for 添加额外的超时保护
                 result = await asyncio.wait_for(
                     client.images.generate(
                         model=image_model,
-                        prompt=prompt
+                        prompt=prompt,
+                        size=size,  # type: ignore  # OpenAI SDK接受字符串形式的size
+                        n=min(quantity, 10)  # OpenAI最多支持10张
                     ),
                     timeout=timeout_seconds
                 )

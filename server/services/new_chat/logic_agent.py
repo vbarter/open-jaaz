@@ -15,13 +15,15 @@ from log import get_logger
 
 logger = get_logger(__name__)
 
-async def create_local_response(messages: List[Dict[str, Any]], 
-                                      session_id: str = "", 
+async def create_local_response(messages: List[Dict[str, Any]],
+                                      session_id: str = "",
                                       canvas_id: str = "",
                                       model_name: str = "gpt-4o",
                                       user_info: Optional[Dict[str, Any]] = None,
                                       user_language: str = 'en',
-                                      provider: str = 'openai') -> Dict[str, Any]:
+                                      provider: str = 'openai',
+                                      aspect_ratio: str = 'auto',
+                                      quantity: int = 1) -> Dict[str, Any]:
     """
     本地的魔法生成功能
     实现和 magic_agent 相同的功能
@@ -57,8 +59,9 @@ async def create_local_response(messages: List[Dict[str, Any]],
         elif isinstance(user_message.get('content'), str):
             user_prompt = user_message.get('content', '')
 
-        
-        result = await llm_service.generate(model_name, user_prompt, image_content, user_info)
+
+        result = await llm_service.generate(model_name, user_prompt, image_content, user_info,
+                                           aspect_ratio=aspect_ratio, quantity=quantity)
         if not result:
             # 导入错误消息工具
             from utils.error_messages import ErrorMessages

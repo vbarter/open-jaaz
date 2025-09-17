@@ -3,6 +3,7 @@ import { useCanvas } from '@/contexts/canvas'
 import useDebounce from '@/hooks/use-debounce'
 import { useTheme } from '@/hooks/use-theme'
 import { eventBus } from '@/lib/event'
+import { ImageLayoutManager } from '@/lib/image-layout-manager'
 import * as ISocket from '@/types/socket'
 import { CanvasData } from '@/types/types'
 import { Excalidraw, convertToExcalidrawElements } from '@excalidraw/excalidraw'
@@ -26,14 +27,6 @@ import { VideoElement } from './VideoElement'
 
 import '@/assets/style/canvas.css'
 
-type LastImagePosition = {
-  x: number
-  y: number
-  width: number
-  height: number
-  col: number // col index
-}
-
 type CanvasExcaliProps = {
   canvasId: string
   initialData?: ExcalidrawInitialDataState
@@ -44,6 +37,9 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({
   initialData,
 }) => {
   const { excalidrawAPI, setExcalidrawAPI } = useCanvas()
+
+  // 创建图片布局管理器实例
+  const imageLayoutManagerRef = useRef(new ImageLayoutManager())
 
   const { i18n } = useTranslation()
 
@@ -121,11 +117,6 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({
     handleSave(elements, appState, files)
   }
 
-  const lastImagePosition = useRef<LastImagePosition | null>(
-    localStorage.getItem('excalidraw-last-image-position')
-      ? JSON.parse(localStorage.getItem('excalidraw-last-image-position')!)
-      : null
-  )
   const { theme } = useTheme()
 
   // 添加自定义类名以便应用我们的CSS修复
@@ -160,40 +151,87 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({
     async (imageElement: ExcalidrawImageElement, file: BinaryFileData) => {
       if (!excalidrawAPI) return
 
-      // 获取当前画布元素以便添加新元素
+      console.log('========== 开始添加新图片 ==========')
+      console.log('👇 新图片ID:', imageElement.id)
+
+      // 获取当前画布元素
       const currentElements = excalidrawAPI.getSceneElements()
+      console.log('👇 画布当前元素数量:', currentElements.length)
 
-      excalidrawAPI.addFiles([file])
+      // 筛选出所有图片元素
+      const imageElements = currentElements.filter(el => el.type === 'image' && !el.isDeleted)
+      console.log('👇 画布当前图片数量:', imageElements.length)
 
-      console.log('👇 Adding new image element to canvas:', imageElement.id)
-      console.log('👇 Image element properties:', {
-        id: imageElement.id,
-        type: imageElement.type,
-        locked: imageElement.locked,
-        groupIds: imageElement.groupIds,
-        isDeleted: imageElement.isDeleted,
-        x: imageElement.x,
-        y: imageElement.y,
-        width: imageElement.width,
-        height: imageElement.height,
+      // 同步现有图片到布局管理器（只同步，不重置）
+      console.log('👇 同步现有图片到布局管理器...')
+
+      // 如果布局管理器是空的，先初始化
+      if (imageLayoutManagerRef.current.getAllImages().length === 0 && imageElements.length > 0) {
+        console.log('👇 布局管理器为空，初始化现有图片...')
+        imageLayoutManagerRef.current.initializeFromElements(currentElements)
+      } else {
+        console.log('👇 布局管理器已有数据，同步新图片...')
+        imageLayoutManagerRef.current.syncWithElements(currentElements)
+      }
+
+      // 打印当前布局管理器状态
+      const existingImages = imageLayoutManagerRef.current.getAllImages()
+      console.log('👇 布局管理器中的图片:', existingImages.length)
+      existingImages.forEach((img, index) => {
+        console.log(`  [${index}] 位置(${img.row},${img.col}) 坐标(${img.x},${img.y}) 尺寸(${img.width}x${img.height})`)
       })
 
-      // Ensure image is not locked and can be manipulated
+      // 检查新图片是否已存在
+      if (imageLayoutManagerRef.current.hasImage(imageElement.id)) {
+        console.log('⚠️ 图片已存在，跳过添加')
+        return
+      }
+
+      // 添加文件
+      excalidrawAPI.addFiles([file])
+
+      // 计算新图片的位置
+      const position = imageLayoutManagerRef.current.calculateNextPosition(
+        imageElement.width,
+        imageElement.height
+      )
+
+      console.log('👇 计算出的新图片位置:', {
+        x: position.x,
+        y: position.y,
+        row: position.row,
+        col: position.col
+      })
+
+      // 创建新的图片元素
       const unlockedImageElement = {
         ...imageElement,
+        x: position.x,
+        y: position.y,
         locked: false,
         groupIds: [],
         isDeleted: false,
       }
 
+      // 更新画布
       excalidrawAPI.updateScene({
         elements: [...(currentElements || []), unlockedImageElement],
       })
 
-      localStorage.setItem(
-        'excalidraw-last-image-position',
-        JSON.stringify(lastImagePosition.current)
-      )
+      // 将新图片添加到布局管理器
+      imageLayoutManagerRef.current.addImage({
+        id: imageElement.id,
+        x: position.x,
+        y: position.y,
+        width: imageElement.width,
+        height: imageElement.height,
+        row: position.row,
+        col: position.col
+      })
+
+      console.log('✅ 图片添加完成，当前总图片数:',
+        imageLayoutManagerRef.current.getAllImages().length)
+      console.log('========== 添加图片结束 ==========\n')
     },
     [excalidrawAPI]
   )
@@ -396,6 +434,13 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({
       eventBus.off('Socket::Session::VideoGenerated', handleVideoGenerated)
     }
   }, [handleImageGenerated, handleVideoGenerated])
+
+  // 初始化时从现有元素加载布局管理器
+  useEffect(() => {
+    if (excalidrawAPI && initialData?.elements) {
+      imageLayoutManagerRef.current.initializeFromElements(initialData.elements)
+    }
+  }, [excalidrawAPI, initialData])
 
   return (
     <Excalidraw

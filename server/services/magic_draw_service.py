@@ -242,7 +242,7 @@ class MagicDrawService:
 
             raise Exception(f"Task polling timeout after {max_attempts} attempts")
 
-    async def generate_magic_image(self, system_prompt: str, image_content: str, user_info: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    async def generate_magic_image(self, system_prompt: str, image_content: str, user_info: Optional[Dict[str, Any]] = None, aspect_ratio: str = "auto", quantity: int = 1) -> Optional[Dict[str, Any]]:
         """
         生成魔法图像的完整流程
 
@@ -345,14 +345,16 @@ class MagicDrawService:
             logger.error(f"❌ {error_msg}")
             return {"error": error_msg}
 
-    async def generate_template_image(self, 
-                             user_prompt: str, 
-                             image_content: str, 
-                             template_image: str, 
+    async def generate_template_image(self,
+                             user_prompt: str,
+                             image_content: str,
+                             template_image: str,
                              user_info: Optional[Dict[str, Any]] = None,
                              use_mask: int = 0,
                              is_image: int = 0,
-                             session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+                             session_id: Optional[str] = None,
+                             aspect_ratio: str = "auto",
+                             quantity: int = 1) -> Optional[Dict[str, Any]]:
         """
         生成魔法图像的完整流程
 
@@ -424,7 +426,7 @@ class MagicDrawService:
             else:
                 images["image"] = file_path
 
-            result = await analyser.generate_magic_image(images, magic_prompt, session_id=session_id)
+            result = await analyser.generate_magic_image(images, magic_prompt, session_id=session_id, aspect_ratio=aspect_ratio, quantity=quantity)
             if result:
                 logger.info(f"✅ Magic image generated successfully: {result.get('result_url')}")
             else:

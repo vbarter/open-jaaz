@@ -235,7 +235,9 @@ class ImageAnalyser:
         images: Dict[str, str],
         prompt: str,
         model: str = "gemini-2.5-flash-image",
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
+        aspect_ratio: str = "auto",
+        quantity: int = 1
     ) -> Optional[Dict[str, str]]:
         """
         生成魔法图片
@@ -266,7 +268,21 @@ class ImageAnalyser:
                 base_url=self.api_url,
                 api_key=self.api_token
             )
-            
+
+            # 将aspect_ratio转换为OpenAI的size参数
+            # OpenAI支持的尺寸: 256x256, 512x512, 1024x1024, 1024x1792, 1792x1024
+            size_map = {
+                "1:1": "1024x1024",
+                "4:3": "1024x1024",  # 近似
+                "3:4": "1024x1024",  # 近似
+                "16:9": "1792x1024",
+                "9:16": "1024x1792",
+                "auto": "1024x1024"  # 默认
+            }
+            size = size_map.get(aspect_ratio, "1024x1024")
+
+            logger.info(f"📐 [Image Generation] aspect_ratio: {aspect_ratio} -> size: {size}")
+
             # 根据文件数量决定调用方式
             if images["mask"] == "" and images["image"] != "":
                 # 只有目标图片，不使用模板
@@ -281,7 +297,9 @@ class ImageAnalyser:
                         model=model,
                         image=image_file,
                         prompt=prompt,
-                        response_format="url"
+                        response_format="url",
+                        size=size,
+                        n=min(quantity, 10)  # OpenAI最多支持10张
                     )
             else:
                 # 同时使用目标图片和模板
@@ -296,17 +314,28 @@ class ImageAnalyser:
                         image=image_file,
                         mask=mask_file,
                         prompt=prompt,
-                        response_format="url"
+                        response_format="url",
+                        size=size,
+                        n=min(quantity, 10)  # OpenAI最多支持10张
                     )
 
             if result.data and len(result.data) > 0:
+                # 如果生成了多张图片，目前先返回第一张
+                # TODO: 后续可以优化为返回所有图片
                 image_data = result.data[0]
-                logger.info(f"✅ Image generated: {image_data}")
+                logger.info(f"✅ Generated {len(result.data)} image(s), returning first one")
+
                 # 返回结果字典
-                response_data: Dict[str, str] = {}    
+                response_data: Dict[str, str] = {}
                 if hasattr(image_data, 'url') and image_data.url:
                     response_data['result_url'] = image_data.url
                     logger.info(f"✅ Image generated with URL: {image_data.url}")
+
+                    # 如果生成了多张，记录其他图片URL
+                    if len(result.data) > 1:
+                        additional_urls = [img.url for img in result.data[1:] if hasattr(img, 'url') and img.url]
+                        logger.info(f"📸 Additional {len(additional_urls)} image(s) generated but not returned")
+
                 if response_data:
                     return response_data
                 else:

@@ -14,6 +14,8 @@ export type TCanvasMagicGenerateEvent = {
   width: number
   height: number
   timestamp: string
+  aspectRatio?: string
+  quantity?: number
 }
 
 export type TCanvasChatEvent = {

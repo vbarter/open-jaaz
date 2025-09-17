@@ -49,6 +49,8 @@ type ChatTextareaProps = {
       textModel: ModelInfo | null
       toolList: ToolInfo[]
       modelName: string
+      aspectRatio?: string
+      quantity?: number
     }
   ) => void
   onCancelChat?: () => void
@@ -223,17 +225,7 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
     }
 
     // Add aspect ratio and quantity information if not default values
-    // let additionalInfo = ''
-    // if (selectedAspectRatio !== 'auto') {
-    //   additionalInfo += `<aspect_ratio>${selectedAspectRatio}</aspect_ratio>\n`
-    // }
-    // if (quantity !== 1) {
-    //   additionalInfo += `<quantity>${quantity}</quantity>\n`
-    // }
-
-    // if (additionalInfo) {
-    //   text_content = text_content + '\n\n' + additionalInfo
-    // }
+    // 注意：比例和数量参数通过metadata传递，不再添加到文本内容中
 
     // if (images.length > 0) {
     //   text_content += `\n\n<input_images count="${images.length}">`
@@ -339,11 +331,13 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
       }
     }
 
-    // 调用消息发送，触发pending状态
+    // 调用消息发送，触发pending状态，包含aspect_ratio和quantity参数
     onSendMessages(newMessage, {
       textModel: textModel ? { ...textModel, type: 'text' as const } : null,
       toolList: selectedTools || [],
       modelName,
+      aspectRatio: selectedAspectRatio,
+      quantity: quantity
     })
   }, [
     pending,

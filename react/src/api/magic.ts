@@ -4,16 +4,18 @@ import { ToolInfo } from './model'
 export const sendMagicGenerate = async (payload: {
   sessionId: string
   canvasId: string
-  newMessages: Array<{ 
-    role: string; 
-    content: string | Array<{ 
-      type: string; 
-      text?: string; 
-      image_url?: { url: string } 
-    }> 
+  newMessages: Array<{
+    role: string;
+    content: string | Array<{
+      type: string;
+      text?: string;
+      image_url?: { url: string }
+    }>
   }>
   systemPrompt: string | null
   templateId?: number
+  aspectRatio?: string
+  quantity?: number
 }) => {
   console.log('[API Magic] 开始发送Magic Generation请求:', {
     sessionId: payload.sessionId,
@@ -29,6 +31,8 @@ export const sendMagicGenerate = async (payload: {
     session_id: payload.sessionId,
     system_prompt: payload.systemPrompt,
     template_id: payload.templateId?.toString() || '',
+    aspect_ratio: payload.aspectRatio,
+    quantity: payload.quantity,
   };
 
   console.log('[API Magic] 请求体:', {

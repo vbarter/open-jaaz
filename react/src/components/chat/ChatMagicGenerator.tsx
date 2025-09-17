@@ -86,6 +86,8 @@ const ChatMagicGenerator: React.FC<ChatMagicGeneratorProps> = ({
                     canvasId: canvasId,
                     newMessages: newMessages,
                     systemPrompt: localStorage.getItem('system_prompt') || DEFAULT_SYSTEM_PROMPT,
+                    aspectRatio: data.aspectRatio,
+                    quantity: data.quantity
                 })
 
                 console.log('[ChatMagicGenerator] 魔法生成请求成功发送到后台，结果:', result);
