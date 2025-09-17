@@ -150,5 +150,13 @@
   "socket": {
     "connectionError": "Connection error ({{current}}/{{max}}): {{error}}",
     "maxRetriesReached": "Connection failed, please restart the application"
+  },
+  "footer": {
+    "title": "MagicArt AI Image Generator",
+    "subtitle": "Unleash your creativity with AI-powered image generation",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "contactSupport": "Contact Support",
+    "copyright": "© 2025 MagicArt AI Image Generator. All rights reserved."
   }
 }

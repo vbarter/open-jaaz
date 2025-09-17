@@ -156,5 +156,13 @@
   "socket": {
     "connectionError": "连接错误 ({{current}}/{{max}}): {{error}}",
     "maxRetriesReached": "连接失败，请重启应用重试"
+  },
+  "footer": {
+    "title": "MagicArt AI 图像生成器",
+    "subtitle": "用 AI 驱动的图像生成释放您的创造力",
+    "privacyPolicy": "隐私政策",
+    "termsOfService": "服务条款",
+    "contactSupport": "联系支持",
+    "copyright": "© 2025 MagicArt AI 图像生成器。保留所有权利。"
   }
 }
