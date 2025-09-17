@@ -69,7 +69,7 @@ export function FloatingChatPanel({
       {/* 浮动聊天窗口 - 只在桌面端显示，底部留出空间 */}
       <div
         className={cn(
-          'hidden md:block absolute top-4 right-4 bottom-8 z-50',
+          'hidden md:block absolute top-4 right-4 bottom-4 z-50',
           'w-[min(25vw,400px)] min-w-[280px] max-w-[400px]',
           'transition-transform duration-300 ease-out',
           isOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
@@ -105,7 +105,7 @@ export function FloatingChatPanel({
 
       {/* 移动端适配：小屏幕时的全屏模式 */}
       {isOpen && (
-        <div className="md:hidden absolute inset-0 z-50 bg-white flex flex-col pt-16">
+        <div className="md:hidden fixed inset-0 z-50 bg-white flex flex-col">
           {/* 移动端功能栏 */}
           <ChatPanelHeader
             sessionList={sessionList}

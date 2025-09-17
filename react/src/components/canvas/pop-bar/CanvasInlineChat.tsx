@@ -98,22 +98,37 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
       }
 
       // 检查是否有图片元素
-      const hasImageElements = selectedElements.some((element) => element.type === 'image')
-      if (!hasImageElements) {
+      const imageElements = selectedElements.filter((element) => element.type === 'image')
+      if (imageElements.length === 0) {
         console.warn('[CanvasInlineChat] 没有选中图片元素')
         toast.error(t('canvas:popbar.selectImagesError'))
         setIsSubmitting(false)
         return
       }
 
-      const files = excalidrawAPI.getFiles()
-      console.log('[CanvasInlineChat] 获取到的文件:', Object.keys(files).length, '个')
+      // 只获取选中的图片元素的文件
+      const allFiles = excalidrawAPI.getFiles()
+      const selectedFileIds = imageElements
+        .map((element: any) => element.fileId)
+        .filter((fileId): fileId is string => !!fileId)
 
-      // 复用Magic Generate的图片处理逻辑
-      const processedFiles = { ...files }
-      const fileIds = Object.keys(files)
+      console.log('[CanvasInlineChat] 选中的图片文件ID:', selectedFileIds)
+      console.log('[CanvasInlineChat] 画布上总文件数:', Object.keys(allFiles).length, '个')
+      console.log('[CanvasInlineChat] 选中的文件数:', selectedFileIds.length, '个')
+
+      // 只处理选中元素的文件
+      const selectedFiles: Record<string, any> = {}
+      selectedFileIds.forEach(fileId => {
+        if (allFiles[fileId]) {
+          selectedFiles[fileId] = allFiles[fileId]
+        }
+      })
+
+      // 复用Magic Generate的图片处理逻辑，但只处理选中的文件
+      const processedFiles = { ...selectedFiles }
+      const fileIds = selectedFileIds
       const remoteFileIds = fileIds.filter((fileId) => {
-        const file = files[fileId]
+        const file = selectedFiles[fileId]
         return file && file.dataURL && file.dataURL.startsWith('http')
       })
 
@@ -122,7 +137,7 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
 
         const filesToDownload: string[] = []
         for (const fileId of remoteFileIds) {
-          const file = files[fileId]
+          const file = selectedFiles[fileId]
           const { extractFileIdentifier, checkLocalFile } = await import('@/utils/remoteImageProcessor')
           const filename = extractFileIdentifier(file.dataURL)
           const localUrl = await checkLocalFile(filename, userInfo)
@@ -158,7 +173,7 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
 
           try {
             for (const fileId of filesToDownload) {
-              const file = files[fileId]
+              const file = selectedFiles[fileId]
               const localDataURL = await processRemoteImage(file.dataURL, userInfo)
               processedFiles[fileId] = {
                 ...file,
