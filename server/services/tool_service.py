@@ -49,7 +49,7 @@ from tools.generate_image_by_recraft_v3_replicate import (
     generate_image_by_recraft_v3_replicate,
 )
 from tools.generate_video_by_hailuo_02_jaaz import generate_video_by_hailuo_02_jaaz
-from tools.generate_video_by_veo3_fast_jaaz import generate_video_by_veo3_fast_jaaz
+from tools.generate_video_by_veo3_fast_yunwu import generate_video_by_veo3_fast_yunwu
 from tools.generate_image_by_midjourney_jaaz import generate_image_by_midjourney_jaaz
 from tools.generate_image_by_goolgle_nano_banana import generate_image_by_google_nano_banana
 from tools.generate_image_by_doubao_seedream_4 import generate_image_by_doubao_seedream_4_0
@@ -69,6 +69,7 @@ TOOL_MAPPING: Dict[str, ToolInfo] = {
         "provider": "doubao",
         "tool_function": generate_image_by_doubao_seedream_4_0,
     },
+    
     # "generate_image_by_imagen_4_jaaz": {
     #     "display_name": "Imagen 4",
     #     "type": "image",
@@ -165,12 +166,12 @@ TOOL_MAPPING: Dict[str, ToolInfo] = {
     #     "provider": "volces",
     #     "tool_function": generate_video_by_seedance_v1_lite_i2v,
     # },
-    # "generate_video_by_veo3_fast_jaaz": {
-    #     "display_name": "Veo3 Fast",
-    #     "type": "video",
-    #     "provider": "jaaz",
-    #     "tool_function": generate_video_by_veo3_fast_jaaz,
-    # },
+    "generate_video_by_veo3_fast_yunwu": {
+        "display_name": "veo3_fast",
+        "type": "video",
+        "provider": "google",
+        "tool_function": generate_video_by_veo3_fast_yunwu,
+    },
     # # ---------------
     # # Replicate Tools
     # # ---------------
