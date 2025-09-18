@@ -338,17 +338,17 @@ class TuziLLMService:
                 return await self._handle_text_conversation(model_name, user_prompt, user_info, stream=stream)
             elif user_has_drawing_intent == "image":
                 logger.info("💬 检测到画图意图，执行图片生成流程")
-                image_model = self._get_image_generation_model(model_name)
+                ##image_model = self._get_image_generation_model(model_name)
                 if len(image_content) > 0:
                     logger.info("🖼️ 检测到图片上传，执行图片编辑流程")
-                    return await self._handle_image_editing(image_model, user_prompt, image_content, user_info, aspect_ratio, quantity)
+                    return await self._handle_image_editing(model_name, user_prompt, image_content, user_info, aspect_ratio, quantity)
                 else:
                     logger.info("📝 无图片上传，执行文生图流程...")
-                    return await self._handle_image_generation(image_model, user_prompt, user_info, aspect_ratio, quantity)
+                    return await self._handle_image_generation(model_name, user_prompt, user_info, aspect_ratio, quantity)
             elif user_has_drawing_intent == "video":
-                video_model = self._get_video_generation_model(model_name)
+                #video_model = self._get_video_generation_model(model_name)
                 logger.info("🎥 检测到视频意图，执行视频生成流程")
-                return await self.generate_video(user_prompt, video_model)
+                return await self.generate_video(user_prompt, model_name)
         except Exception as e:
             error_msg = f"Error in generate: {str(e)}"
             logger.error(f"❌ {error_msg}")
@@ -1112,10 +1112,10 @@ user input: {prompt}
         self,
         prompt: str,
         model: str,
-        resolution: Optional[str] = None,
-        duration: Optional[int] = None,
-        aspect_ratio: Optional[str] = None,
-        input_images: Optional[List[str]] = None,
+        resolution: str = "480p",
+        duration: int = 5,
+        aspect_ratio: str = "9:16",
+        input_images: List[str] = [],
         **kwargs: Any
     ) -> Dict[str, Any]:
         """

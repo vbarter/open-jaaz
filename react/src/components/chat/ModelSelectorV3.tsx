@@ -17,6 +17,8 @@ import { Model } from '@/types/types'
 import { PROVIDER_NAME_MAPPING } from '@/constants'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import useConfigsStore from '@/stores/configs'
+import { userModelService } from '@/services/userModelService'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface ModelSelectorV3Props {
   onModelChange?: (modelId: string, type: 'text' | 'image' | 'video') => void
@@ -28,6 +30,10 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
 
   // Get new multi-selection states from store
   const { selectedImageTool, setSelectedImageTool, selectedVideoTool, setSelectedVideoTool } = useConfigsStore()
+
+  // Get auth context to check if user is logged in
+  const { authStatus } = useAuth()
+  const user = authStatus.is_logged_in ? authStatus.user_info : null
 
   const configsContext = React.useContext(ConfigsContext)
   const isModelInitialized = configsContext?.isModelInitialized || false
@@ -43,10 +49,64 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
     video?: ToolInfo
   }>({})
 
+  // Load user saved models on initialization
+  React.useEffect(() => {
+    if (!isModelInitialized || !user) {
+      console.log('🔄 [ModelSelectorV3] 等待初始化或用户登录...', {
+        isModelInitialized,
+        isLoggedIn: !!user,
+        userEmail: user?.email
+      })
+      return
+    }
+
+    const loadUserModels = async () => {
+      console.log('📥 [ModelSelectorV3] 开始加载用户保存的模型，用户:', user.email)
+      const savedModels = await userModelService.getUserModels()
+      if (savedModels) {
+        console.log('📥 [ModelSelectorV3] 成功加载用户保存的模型:', savedModels)
+
+        // Load text model
+        if (savedModels.text_model && textModels) {
+          const matchedModel = textModels.find(
+            m => m.model === savedModels.text_model!.model &&
+                m.provider === savedModels.text_model!.provider
+          )
+          if (matchedModel) {
+            setTextModel(matchedModel)
+          }
+        }
+
+        // Load image tool
+        if (savedModels.selected_image_tool) {
+          const matchedTool = allTools.find(
+            t => t.id === savedModels.selected_image_tool!.id &&
+                t.provider === savedModels.selected_image_tool!.provider
+          )
+          if (matchedTool) {
+            setSelectedImageTool(matchedTool)
+          }
+        }
+
+        // Load video tool
+        if (savedModels.selected_video_tool) {
+          const matchedTool = allTools.find(
+            t => t.id === savedModels.selected_video_tool!.id &&
+                t.provider === savedModels.selected_video_tool!.provider
+          )
+          if (matchedTool) {
+            setSelectedVideoTool(matchedTool)
+          }
+        }
+      }
+    }
+
+    loadUserModels()
+  }, [isModelInitialized, user, textModels, allTools])
+
   // Sync selected models from configs
   React.useEffect(() => {
     if (!isModelInitialized) {
-      console.log('🔄 [ModelSelectorV3] 等待模型初始化完成...')
       return
     }
 
@@ -126,7 +186,60 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
     return groupModelsByProvider(filteredTools)
   }
 
-  const handleModelSelect = (modelKey: string) => {
+  // Save models to backend immediately when selection changes
+  const saveModelsToBackend = React.useCallback(async (models: typeof selectedModels) => {
+    if (!user) {
+      console.log('❌ [ModelSelectorV3] 未登录，跳过保存')
+      return // Only save if user is logged in
+    }
+
+    console.log('💾 [ModelSelectorV3] 立即保存模型到后端:', {
+      userEmail: user.email,
+      models: models
+    })
+
+    const modelsToSave = {
+      text_model: models.text ? {
+        provider: models.text.provider,
+        model: models.text.model,
+        type: 'text'
+      } : undefined,
+      selected_image_tool: models.image ? {
+        provider: models.image.provider,
+        id: models.image.id,
+        display_name: models.image.display_name,
+        type: 'image'
+      } : undefined,
+      selected_video_tool: models.video ? {
+        provider: models.video.provider,
+        id: models.video.id,
+        display_name: models.video.display_name,
+        type: 'video'
+      } : undefined
+    }
+
+    try {
+      const success = await userModelService.saveUserModels(modelsToSave)
+      if (success) {
+        console.log('✅ [ModelSelectorV3] 模型保存成功')
+      } else {
+        console.log('❌ [ModelSelectorV3] 模型保存失败')
+      }
+    } catch (error) {
+      console.error('❌ [ModelSelectorV3] 保存模型时发生错误:', error)
+    }
+  }, [user])
+
+  const handleModelSelect = async (modelKey: string) => {
+    console.log('🔍 [ModelSelectorV3] handleModelSelect 被调用:', {
+      modelKey,
+      activeTab,
+      isLoggedIn: !!user,
+      userEmail: user?.email || 'not logged in'
+    })
+
+    let newModels = { ...selectedModels }
+
     if (activeTab === 'text') {
       // Select text model
       const model = textModels?.find((m) => m.provider + ':' + m.model === modelKey)
@@ -135,17 +248,24 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
         // Toggle text model selection
         if (selectedModels.text?.model === model.model) {
           // Deselect if already selected
+          console.log('➖ [ModelSelectorV3] 取消选择文本模型:', model.model)
           setTextModel(undefined)
           localStorage.removeItem('text_model')
-          setSelectedModels(prev => ({ ...prev, text: undefined }))
+          newModels = { ...newModels, text: undefined }
+          setSelectedModels(newModels)
         } else {
           // Select new text model
+          console.log('➕ [ModelSelectorV3] 选择文本模型:', model.model)
           setTextModel(model)
           localStorage.setItem('text_model', modelKey)
-          setSelectedModels(prev => ({ ...prev, text: model }))
+          newModels = { ...newModels, text: model }
+          setSelectedModels(newModels)
         }
 
-        console.log('✅ [ModelSelectorV3] 选择文本模型:', model.model)
+        // 立即保存到后端
+        console.log('🚀 [ModelSelectorV3] 立即调用保存接口')
+        await saveModelsToBackend(newModels)
+
         onModelChange?.(modelKey, 'text')
       }
     } else {
@@ -157,22 +277,26 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
 
         if (currentSelected?.id === tool.id) {
           // Deselect if already selected
+          console.log(`➖ [ModelSelectorV3] 取消选择${isImage ? '图片' : '视频'}模型:`, tool.id)
           if (isImage) {
             setSelectedImageTool(undefined)
-            setSelectedModels(prev => ({ ...prev, image: undefined }))
+            newModels = { ...newModels, image: undefined }
           } else {
             setSelectedVideoTool(undefined)
-            setSelectedModels(prev => ({ ...prev, video: undefined }))
+            newModels = { ...newModels, video: undefined }
           }
+          setSelectedModels(newModels)
         } else {
           // Select new tool
+          console.log(`➕ [ModelSelectorV3] 选择${isImage ? '图片' : '视频'}模型:`, tool.id)
           if (isImage) {
             setSelectedImageTool(tool)
-            setSelectedModels(prev => ({ ...prev, image: tool }))
+            newModels = { ...newModels, image: tool }
           } else {
             setSelectedVideoTool(tool)
-            setSelectedModels(prev => ({ ...prev, video: tool }))
+            newModels = { ...newModels, video: tool }
           }
+          setSelectedModels(newModels)
         }
 
         // Update selectedTools for backward compatibility
@@ -180,19 +304,22 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
         if (isImage) {
           if (currentSelected?.id !== tool.id) {
             newSelectedTools.push(tool)
-            if (selectedModels.video) newSelectedTools.push(selectedModels.video)
+            if (newModels.video) newSelectedTools.push(newModels.video)
           } else {
-            if (selectedModels.video) newSelectedTools.push(selectedModels.video)
+            if (newModels.video) newSelectedTools.push(newModels.video)
           }
         } else {
-          if (selectedModels.image) newSelectedTools.push(selectedModels.image)
+          if (newModels.image) newSelectedTools.push(newModels.image)
           if (currentSelected?.id !== tool.id) {
             newSelectedTools.push(tool)
           }
         }
         setSelectedTools(newSelectedTools)
 
-        console.log('✅ [ModelSelectorV3] 选择工具模型:', tool.display_name || tool.id)
+        // 立即保存到后端
+        console.log('🚀 [ModelSelectorV3] 立即调用保存接口')
+        await saveModelsToBackend(newModels)
+
         onModelChange?.(modelKey, activeTab)
       }
     }

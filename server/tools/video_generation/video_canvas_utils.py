@@ -80,50 +80,48 @@ async def save_video_to_canvas(
     video_url: str
 ) -> Tuple[str, Dict[str, Any], Dict[str, Any]]:
     """
-    Download video, save to files, create canvas element and return data
+    Create canvas element for video using the original URL directly
 
     Args:
         session_id: Session ID for notifications
         canvas_id: Canvas ID to add video element
-        video_url: URL to download video from
+        video_url: URL of the video (e.g., filesystem.site URL)
 
     Returns:
         Tuple of (filename, file_data, new_video_element)
     """
     # Use lock to ensure atomicity of the save process
     async with canvas_lock_manager.lock_canvas(canvas_id):
-        # Generate unique video ID
+        # Generate unique video ID for the element
         video_id = generate_video_file_id()
 
-        # Download and save video
-        print(f"🎥 Downloading video from: {video_url}")
-        mime_type, width, height, extension = await get_video_info_and_save(
-            video_url, os.path.join(FILES_DIR, f"{video_id}")
-        )
-        filename = f"{video_id}.{extension}"
+        # Extract filename from URL for display purposes
+        filename = video_url.split('/')[-1] if '/' in video_url else f"{video_id}.mp4"
 
-        print(f"🎥 Video saved as: {filename}, dimensions: {width}x{height}")
+        print(f"🎥 Using video directly from: {video_url}")
 
-        # Create file data
-        file_id = generate_video_file_id()
-        # 使用重定向URL，通过重定向机制尝试获取腾讯云文件
-        file_url = f"/api/file/{filename}?redirect=true"
+        # Use default dimensions for video (16:9 aspect ratio)
+        # These can be overridden by the actual video dimensions when loaded in frontend
+        width = 720
+        height = 1280  # Common vertical video dimensions
 
+        # Create file data using the original URL directly
         file_data: Dict[str, Any] = {
-            "mimeType": mime_type,
-            "id": file_id,
-            "dataURL": file_url,
+            "mimeType": "video/mp4",
+            "id": video_id,
+            "dataURL": video_url,  # Use the original URL directly
             "created": int(time.time() * 1000),
         }
 
         # Create new video element for canvas
         new_video_element: Dict[str, Any] = await generate_new_video_element(
             canvas_id,
-            file_id,
+            video_id,
             {
                 "width": width,
                 "height": height,
             },
+            video_url=video_url  # Pass the original video URL directly
         )
 
         # Update canvas data
@@ -139,7 +137,7 @@ async def save_video_to_canvas(
 
         canvas_data["data"]["elements"].append(
             new_video_element)  # type: ignore
-        canvas_data["data"]["files"][file_id] = file_data
+        canvas_data["data"]["files"][video_id] = file_data  # Use video_id instead of file_id
 
         # Save updated canvas data
         await db_service.save_canvas_data(canvas_id, json.dumps(canvas_data["data"]))
@@ -298,16 +296,18 @@ async def generate_new_video_element(
     video_data: Dict[str, Any],
     canvas_data: Optional[Dict[str, Any]] = None,
     use_standard_size: bool = True,
+    video_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Generate new video element for canvas with improved layout
-    
+
     Args:
         canvas_id: 画布ID
-        fileid: 文件ID  
+        fileid: 文件ID
         video_data: 视频数据
         canvas_data: 画布数据（可选）
         use_standard_size: 是否使用标准化尺寸（推荐）
+        video_url: 视频URL（用于embeddable元素的link属性）
     """
     if canvas_data is None:
         canvas = await db_service.get_canvas_data(canvas_id)
@@ -318,7 +318,7 @@ async def generate_new_video_element(
     # 获取视频原始尺寸
     original_width = video_data.get("width", layout_config.standard_width)
     original_height = video_data.get("height", layout_config.standard_height)
-    
+
     # 决定使用的尺寸（视频通常使用标准尺寸以保证一致性）
     if use_standard_size:
         display_width = layout_config.standard_width
@@ -335,8 +335,13 @@ async def generate_new_video_element(
         force_standard_size=use_standard_size
     )
 
+    # 使用提供的video_url，如果没有提供则生成默认URL
+    if not video_url:
+        # 备用：如果没有提供URL，使用本地文件URL
+        video_url = f"/api/file/{fileid}.mp4"
+
     return {
-        "type": "video",
+        "type": "embeddable",  # embeddable类型用于视频
         "id": fileid,
         "x": new_x,
         "y": new_y,
@@ -361,7 +366,7 @@ async def generate_new_video_element(
         "isDeleted": False,
         "index": None,
         "updated": 0,
-        "link": None,
+        "link": video_url,  # 使用传入的视频URL（filesystem.site或其他）
         "locked": False,
         "status": "saved",
         "scale": [1, 1],

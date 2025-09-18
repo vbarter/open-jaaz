@@ -75,10 +75,13 @@ async def broadcast_session_update(session_id: str, canvas_id: str | None, event
 # TODO: All Broadcast should have a canvas_id
 
 
-async def send_to_websocket(session_id: str, event: Dict[str, Any]):
+async def send_to_websocket(session_id: str, event: Dict[str, Any], canvas_id: Optional[str] = None):
     try:
-        logger.info(f"📡 [WEBSOCKET] send_to_websocket 被调用: session_id={session_id}, event_type={event.get('type', 'unknown')}")
-        await broadcast_session_update(session_id, None, event)
+        logger.info(f"📡 [WEBSOCKET] send_to_websocket 被调用: session_id={session_id}, canvas_id={canvas_id}, event_type={event.get('type', 'unknown')}")
+        # 🔥 关键修复：在事件中添加canvas_id以支持跨session消息接收
+        if canvas_id:
+            event['canvas_id'] = canvas_id
+        await broadcast_session_update(session_id, canvas_id, event)
     except Exception as e:
         logger.error(f"❌ [WEBSOCKET] send_to_websocket 失败: session_id={session_id}, error={e}")
         logger.error(f"❌ [WEBSOCKET] 错误类型: {type(e).__name__}")

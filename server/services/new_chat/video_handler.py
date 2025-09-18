@@ -37,9 +37,9 @@ async def handle_video_generation(
         video_result = await tuzi_service.generate_video(
             prompt=prompt,
             model="veo3-fast-frames",
-            resolution="720p",
+            resolution="480p",
             duration=5,
-            aspect_ratio="16:9"
+            aspect_ratio="9:16"
         )
 
         if not video_result or 'error' in video_result:
@@ -107,9 +107,9 @@ async def handle_video_generation(
 
         # 发送WebSocket事件（注意：send_to_websocket只需要2个参数）
         from services.websocket_service import send_to_websocket
+        logger.info(f"🎬 [VIDEO_DEBUG] 准备发送video_generated事件: session_id={session_id}, type={event_data.get('type')}")
         await send_to_websocket(session_id, event_data)
-
-        logger.info(f"📤 已发送视频生成事件到前端: session_id={session_id}")
+        logger.info(f"📤 [VIDEO_DEBUG] 已发送视频生成事件到前端: session_id={session_id}, video_url={video_url[:50]}...")
 
         # 返回聊天响应（包含type字段以便前端识别）
         from services.i18n_service import i18n_service

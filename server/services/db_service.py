@@ -1041,5 +1041,100 @@ class DatabaseService:
             logger.error(f"Error getting subscription info for user {user_uuid}: {e}")
             return None
 
+    async def get_user_models(self, user_uuid: str) -> Optional[Dict[str, Any]]:
+        """获取用户保存的模型配置"""
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                db.row_factory = sqlite3.Row
+                cursor = await db.execute("""
+                    SELECT model, mtime
+                    FROM tb_user_model
+                    WHERE user_uuid = ?
+                """, (user_uuid,))
+                row = await cursor.fetchone()
+
+                if row:
+                    return {
+                        'model': json.loads(row['model']),
+                        'mtime': row['mtime']
+                    }
+                return None
+
+        except Exception as e:
+            logger.error(f"Error getting user models for {user_uuid}: {e}")
+            return None
+
+    async def update_user_models(self, user_uuid: str, models: Dict[str, Any]) -> bool:
+        """更新用户的模型配置"""
+        try:
+            # 清理模型数据，移除不需要的字段
+            cleaned_models = {}
+
+            # 处理文本模型
+            if 'text_model' in models and models['text_model']:
+                text_model = models['text_model']
+                cleaned_models['text_model'] = {
+                    'provider': text_model.get('provider', ''),
+                    'model': text_model.get('model', ''),
+                    'type': 'text'
+                }
+
+            # 处理图像工具
+            if 'selected_image_tool' in models and models['selected_image_tool']:
+                image_tool = models['selected_image_tool']
+                cleaned_models['selected_image_tool'] = {
+                    'provider': image_tool.get('provider', ''),
+                    'id': image_tool.get('id', ''),
+                    'display_name': image_tool.get('display_name', ''),
+                    'type': 'image'
+                }
+
+            # 处理视频工具
+            if 'selected_video_tool' in models and models['selected_video_tool']:
+                video_tool = models['selected_video_tool']
+                cleaned_models['selected_video_tool'] = {
+                    'provider': video_tool.get('provider', ''),
+                    'id': video_tool.get('id', ''),
+                    'display_name': video_tool.get('display_name', ''),
+                    'type': 'video'
+                }
+
+            model_json = json.dumps(cleaned_models, ensure_ascii=False)
+
+            async with aiosqlite.connect(self.db_path) as db:
+                # 使用 UPSERT (INSERT OR REPLACE) 操作
+                await db.execute("""
+                    INSERT INTO tb_user_model (user_uuid, model, ctime, mtime)
+                    VALUES (?, ?, STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now'), STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now'))
+                    ON CONFLICT(user_uuid) DO UPDATE SET
+                        model = excluded.model,
+                        mtime = STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now')
+                """, (user_uuid, model_json))
+                await db.commit()
+
+                logger.info(f"Updated user models for {user_uuid}")
+                return True
+
+        except Exception as e:
+            logger.error(f"Error updating user models for {user_uuid}: {e}")
+            return False
+
+    async def delete_user_models(self, user_uuid: str) -> bool:
+        """删除用户的模型配置"""
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute("""
+                    DELETE FROM tb_user_model
+                    WHERE user_uuid = ?
+                """, (user_uuid,))
+                await db.commit()
+
+                logger.info(f"Deleted user models for {user_uuid}")
+                return True
+
+        except Exception as e:
+            logger.error(f"Error deleting user models for {user_uuid}: {e}")
+            return False
+
 # Create a singleton instance
 db_service = DatabaseService()

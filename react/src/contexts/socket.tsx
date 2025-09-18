@@ -10,7 +10,7 @@ interface SocketContextType {
   socketManager: SocketIOManager | null
 }
 
-const SocketContext = createContext<SocketContextType>({
+export const SocketContext = createContext<SocketContextType>({
   connected: false,
   connecting: false,
   socketManager: null,
