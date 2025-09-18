@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import ShinyText from '../ui/shiny-text'
 import ChatTextarea from './ChatTextarea'
 import MessageRegular from './Message/Regular'
+import MultiMediaMessage from './Message/MultiMediaMessage'
 import { ToolCallContent } from './Message/ToolCallContent'
 import ToolCallTag from './Message/ToolCallTag'
 import SessionSelector from './SessionSelector'
@@ -1404,6 +1405,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           message={message}
                         />
                       )
+                    ) : (message as any).media ? (
+                      // 🆕 多媒体消息（支持多个图片和视频）
+                      <MultiMediaMessage message={message as any} />
                     ) : (message as any).type === 'video' ||
                        ((message as any).video_url && typeof message.content === 'string') ? (
                       // 视频消息处理 - MessageRegular会自动处理视频显示和时间戳

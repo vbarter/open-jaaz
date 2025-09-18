@@ -13,8 +13,9 @@ from services.db_service import db_service
 from services.config_service import USER_DATA_DIR, DEFAULT_PROVIDERS_CONFIG
 # from services.OpenAIAgents_service import create_jaaz_response
 from services.new_chat import create_local_response
+from services.new_chat.message_media_manager import MessageMediaManager
 from services.websocket_service import (
-    send_to_websocket, 
+    send_to_websocket,
     send_ai_thinking_status,
     send_image_generation_status,
     send_image_upload_status,
@@ -604,19 +605,76 @@ async def _process_generation(
         )
         raise
 
-    # 为AI响应添加唯一时间戳和消息ID
-    ai_response_with_id = ai_response.copy()  # 创建副本
-    ai_response_with_id['timestamp'] = int(time.time() * 1000)  # 添加毫秒级时间戳
-    ai_response_with_id['message_id'] = f"{session_id}_{ai_response_with_id['timestamp']}_{str(uuid.uuid4())[:8]}"  # 添加唯一消息ID
+    # 🆕 使用MessageMediaManager处理媒体内容累积
+    # 先获取最新的assistant消息（如果存在）
+    existing_assistant_message = None
+    try:
+        recent_history = await db_service.get_chat_history(session_id, user_uuid or '', limit=5)
+        # 查找最近的assistant消息
+        for msg in reversed(recent_history):
+            if msg.get('role') == 'assistant':
+                # 检查是否是在同一个会话中的消息（时间差小于5分钟）
+                if 'timestamp' in msg:
+                    time_diff = int(time.time() * 1000) - msg.get('timestamp', 0)
+                    if time_diff < 300000:  # 5分钟内
+                        existing_assistant_message = msg
+                        logger.info(f"🔄 Found recent assistant message to merge media: {msg.get('message_id')}")
+                        break
+    except Exception as e:
+        logger.warning(f"Failed to get recent history for media merge: {e}")
+
+    # 确定媒体类型
+    media_type = None
+    media_url = None
+    media_metadata = None
+
+    if ai_response.get('type') == 'video' and ai_response.get('video_url'):
+        media_type = 'video'
+        media_url = ai_response.get('video_url')
+        media_metadata = ai_response.get('metadata')
+    elif ai_response.get('type') == 'image' or ('![' in ai_response.get('content', '')):
+        media_type = 'image'
+        # 从content中提取图片URL
+        content = ai_response.get('content', '')
+        import re
+        img_pattern = r'!\[.*?\]\((.*?)\)'
+        img_matches = re.findall(img_pattern, content)
+        if img_matches:
+            media_url = img_matches[0]
+
+    # 使用MessageMediaManager创建或更新消息
+    if existing_assistant_message and media_type and media_url:
+        # 合并到现有消息
+        ai_response_with_id = MessageMediaManager.merge_media_content(
+            base_message=existing_assistant_message,
+            new_media_type=media_type,
+            new_media_url=media_url,
+            new_media_metadata=media_metadata
+        )
+        # 更新content（追加新内容）
+        if ai_response.get('content'):
+            existing_content = ai_response_with_id.get('content', '')
+            new_content = ai_response.get('content', '')
+            # 避免重复的内容
+            if new_content not in existing_content:
+                ai_response_with_id['content'] = f"{existing_content}\n\n{new_content}".strip()
+        logger.info(f"✅ Merged {media_type} to existing message")
+    else:
+        # 创建新消息
+        ai_response_with_id = MessageMediaManager.create_media_message(
+            role='assistant',
+            content=ai_response.get('content', ''),
+            media_type=media_type,
+            media_url=media_url,
+            media_metadata=media_metadata
+        )
+        # 添加时间戳和ID
+        ai_response_with_id['timestamp'] = int(time.time() * 1000)
+        ai_response_with_id['message_id'] = f"{session_id}_{ai_response_with_id['timestamp']}_{str(uuid.uuid4())[:8]}"
+        logger.info(f"✅ Created new message with {media_type if media_type else 'text'}")
 
     # Save AI response to database
-    # 对于视频消息，保存完整对象；对于其他消息，只保存content
-    if ai_response.get('type') == 'video':
-        # 视频消息需要保存完整对象
-        await db_service.create_message(session_id, 'assistant', json.dumps(ai_response_with_id), user_uuid)
-    else:
-        # 其他消息只需要保存content
-        await db_service.create_message(session_id, 'assistant', json.dumps(ai_response_with_id), user_uuid)
+    await db_service.create_message(session_id, 'assistant', json.dumps(ai_response_with_id), user_uuid)
 
     # 🔥 关键修复：再次获取历史消息（包括刚才保存的AI响应），发送完整对话
     # 重新获取完整历史，包括刚保存的AI响应（get_chat_history返回已解析的消息列表）
