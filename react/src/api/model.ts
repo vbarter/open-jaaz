@@ -45,6 +45,8 @@ export async function listModels(): Promise<{
       throw new Error(`Failed to fetch tools: ${err.message}`)
     })
 
+  console.log('🔧 [listModels] 模型列表', modelsResp)
+  console.log('🔧 [listModels] 工具列表', toolsResp)
   return {
     llm: modelsResp || [],
     tools: toolsResp || [],
