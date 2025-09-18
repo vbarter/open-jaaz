@@ -30,7 +30,7 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
     placeholderData: (previousData) => previousData, // 关键：显示旧数据同时获取新数据
     refetchOnWindowFocus: false, // 🔧 避免过度频繁的重新获取
     refetchOnReconnect: true, // 网络重连时重新获取
-    refetchOnMount: false, // 🔧 避免每次挂载都重新获取
+    refetchOnMount: 'always', // 🔧 每次挂载都重新获取，确保刷新页面时调用API
     retry: (failureCount, error) => {
       // 🔧 智能重试：网络错误重试，认证错误不重试
       if (error.message.includes('401') || error.message.includes('403')) {
