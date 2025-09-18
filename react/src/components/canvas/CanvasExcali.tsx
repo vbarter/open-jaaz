@@ -330,13 +330,22 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({
           link.startsWith('blob:') ||
           link.includes('video'))
       ) {
-        // Return the VideoPlayer component
+        // Return the VideoPlayer component wrapped in a div that hides any hyperlinks
         return (
-          <VideoElement
-            src={link}
-            width={element.width}
-            height={element.height}
-          />
+          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            <style>{`
+              .excalidraw-hyperlinkContainer,
+              .excalidraw-hyperlinkContainer-link,
+              a[href="${link}"] {
+                display: none !important;
+              }
+            `}</style>
+            <VideoElement
+              src={link}
+              width={element.width}
+              height={element.height}
+            />
+          </div>
         )
       }
 
