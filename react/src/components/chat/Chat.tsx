@@ -27,6 +27,7 @@ import { generateChatSessionTitle } from '@/utils/formatDate'
 import { useConfigs } from '@/contexts/configs'
 import 'react-photo-view/dist/react-photo-view.css'
 import { DEFAULT_SYSTEM_PROMPT } from '@/constants'
+import { useSocket } from '@/hooks/useSocket'
 import { ModelInfo, ToolInfo } from '@/api/model'
 import { Button } from '@/components/ui/button'
 import { Share2 } from 'lucide-react'
@@ -54,6 +55,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const { authStatus } = useAuth()
   const [showShareDialog, setShowShareDialog] = useState(false)
   const queryClient = useQueryClient()
+  const { socketManager } = useSocket()
 
   const [messages, setMessages] = useState<Message[]>([])
   const [pending, setPending] = useState<PendingType>(false) // 不再基于initCanvas设置初始状态
@@ -688,6 +690,57 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     [canvasId, sessionId]
   )
 
+  const handleVideoGenerated = useCallback(
+    (data: TEvents['Socket::Session::VideoGenerated']) => {
+      console.log('🎬 [VIDEO_DEBUG] handleVideoGenerated received:', {
+        dataSessionId: data.session_id,
+        dataCanvasId: data.canvas_id,
+        currentSessionId: sessionId,
+        currentCanvasId: canvasId,
+        videoUrl: data.video_url,
+        rawData: data
+      })
+
+      // 修复判断逻辑：只要canvas_id或session_id有一个匹配就处理
+      if (data.canvas_id && data.canvas_id !== canvasId) {
+        // 如果有canvas_id但不匹配，再检查session_id
+        if (!data.session_id || data.session_id !== sessionId) {
+          console.log('❌ [VIDEO_DEBUG] VideoGenerated session/canvas mismatch')
+          return
+        }
+      }
+
+      console.log('✅ [VIDEO_DEBUG] Processing video_generated event')
+
+      // 添加视频消息到聊天记录
+      const videoMessage: Message = {
+        role: 'assistant',
+        content: t('chat:generation.videoGenerated', { defaultValue: '🎬 视频已生成并添加到画布' }),
+        type: 'video' as any,
+        video_url: data.video_url,
+        canvas_element_id: data.element?.id,
+        canvas_id: data.canvas_id,
+      } as any
+
+      console.log('📝 [VIDEO_DEBUG] Adding video message:', videoMessage)
+
+      setMessages(
+        produce((prev) => {
+          prev.push(videoMessage)
+        })
+      )
+
+      setPending(false) // 取消loading状态
+      forceScrollToBottom()
+
+      // 多次延迟滚动确保视频加载完成后正确显示
+      setTimeout(() => forceScrollToBottom(), 200)
+      setTimeout(() => forceScrollToBottom(), 600)
+      setTimeout(() => forceScrollToBottom(), 1200)
+    },
+    [canvasId, sessionId, forceScrollToBottom, t]
+  )
+
   const handleImageGenerated = useCallback(
     (data: TEvents['Socket::Session::ImageGenerated']) => {
       // 修复判断逻辑：只要canvas_id或session_id有一个匹配就处理
@@ -775,18 +828,79 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     [sessionId, scrollToBottom]
   )
 
+  // 添加一个 ref 来跟踪最后处理的 AllMessages 事件，防止重复处理
+  const lastAllMessagesRef = useRef<string>('')
+
   const handleAllMessages = useCallback(
     (data: TEvents['Socket::Session::AllMessages']) => {
-      if (data.session_id && data.session_id !== sessionId) {
+      // 生成消息的唯一标识符
+      const messageKey = `${data.session_id}_${data.canvas_id}_${JSON.stringify(data.messages?.map((m: any) => m.message_id || m.timestamp))}`
+
+      // 防止重复处理相同的消息
+      if (lastAllMessagesRef.current === messageKey) {
+        console.log('⚠️ [VIDEO_DEBUG] Duplicate AllMessages event ignored (same content)')
+        return
+      }
+      lastAllMessagesRef.current = messageKey
+
+      console.log('🎬 [VIDEO_DEBUG] handleAllMessages received:', {
+        dataSessionId: data.session_id,
+        dataCanvasId: data.canvas_id,
+        currentSessionId: sessionId,
+        currentCanvasId: canvasId,
+        messagesCount: data.messages?.length,
+        messageKey: messageKey.substring(0, 50) + '...'
+      })
+
+      // 🔥 关键修复：支持基于canvas_id的消息接收
+      // 如果是同一个canvas的消息，即使session_id不同也接收
+      const shouldAcceptMessage =
+        (data.session_id && data.session_id === sessionId) ||
+        (data.canvas_id && data.canvas_id === canvasId)
+
+      if (!shouldAcceptMessage) {
+        console.log('❌ [VIDEO_DEBUG] Message rejected - neither session nor canvas ID match')
+        console.log('🔍 [VIDEO_DEBUG] Match details:', {
+          sessionMatch: data.session_id === sessionId,
+          canvasMatch: data.canvas_id === canvasId,
+          dataIds: { session: data.session_id, canvas: data.canvas_id },
+          currentIds: { session: sessionId, canvas: canvasId }
+        })
         return
       }
 
-      console.log('🔍 [DEBUG] handleAllMessages called:', {
+      console.log('✅ [VIDEO_DEBUG] Message accepted via', {
+        viaSession: data.session_id === sessionId,
+        viaCanvas: data.canvas_id === canvasId
+      })
+
+      // 检查是否包含视频消息
+      const hasVideo = data.messages?.some((msg: any) => {
+        const hasVideoType = msg.type === 'video'
+        const hasVideoUrl = msg.video_url !== undefined
+        const hasVideoInContent = typeof msg.content === 'string' &&
+          (msg.content.includes('.mp4') || msg.content.includes('视频'))
+
+        if (hasVideoType || hasVideoUrl || hasVideoInContent) {
+          console.log('🎥 [VIDEO_DEBUG] Found video message:', {
+            role: msg.role,
+            type: msg.type,
+            video_url: msg.video_url,
+            content: typeof msg.content === 'string' ? msg.content.slice(0, 100) : msg.content
+          })
+        }
+
+        return hasVideoType || hasVideoUrl
+      })
+
+      console.log('🔍 [VIDEO_DEBUG] handleAllMessages processing:', {
         sessionId,
         currentMessagesCount: messages.length,
         newMessagesCount: data.messages.length,
+        hasVideoMessage: hasVideo,
         hasDisplayedInitialMessage,
         firstNewMessage: data.messages[0]?.role,
+        lastNewMessage: data.messages[data.messages.length - 1],
         currentMessages: messages.map((m) => ({
           role: m.role,
           content: typeof m.content === 'string' ? m.content.slice(0, 50) : 'mixed',
@@ -815,27 +929,97 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             mergedMessages.length
           )
           setMessages(mergedMessages)
-          scrollToBottom()
+
+          // 检查是否有视频消息，如果有则需要更长的延迟
+          const hasVideoMessage = mergedMessages.some(msg => {
+            const content = msg.content
+            return typeof content === 'string' &&
+                   (content.includes('.mp4') || content.includes('.webm') ||
+                    content.includes('.mov') || content.includes('视频'))
+          })
+
+          if (hasVideoMessage) {
+            // 视频消息需要更长时间渲染，等待500ms
+            setTimeout(() => {
+              scrollToBottom()
+            }, 500)
+          } else {
+            scrollToBottom()
+          }
           return
         }
       }
 
       console.log(
-        '🔍 [DEBUG] handleAllMessages: 完全替换消息列表，从',
+        '🔍 [VIDEO_DEBUG] handleAllMessages: 完全替换消息列表，从',
         messages.length,
         '条消息到',
         processedMessages.length,
         '条消息'
       )
+
+      // 打印最后一条消息的详细信息
+      if (processedMessages.length > 0) {
+        const lastMsg = processedMessages[processedMessages.length - 1]
+        console.log('📝 [VIDEO_DEBUG] Last message details:', {
+          role: lastMsg.role,
+          type: (lastMsg as any).type,
+          video_url: (lastMsg as any).video_url,
+          content: typeof lastMsg.content === 'string' ?
+            lastMsg.content.slice(0, 200) : lastMsg.content
+        })
+      }
+
       setMessages(processedMessages)
-      scrollToBottom()
+
+      // 检查是否有视频消息，如果有则需要更长的延迟
+      const hasVideoMessage = processedMessages.some(msg => {
+        const content = msg.content
+        return typeof content === 'string' &&
+               (content.includes('.mp4') || content.includes('.webm') ||
+                content.includes('.mov') || content.includes('视频'))
+      })
+
+      if (hasVideoMessage) {
+        // 视频消息需要更长时间渲染，等待500ms
+        setTimeout(() => {
+          scrollToBottom()
+        }, 500)
+      } else {
+        scrollToBottom()
+      }
     },
     [sessionId, scrollToBottom, messages, hasDisplayedInitialMessage]
   )
 
+  // 添加一个 ref 来跟踪最后处理的 done 事件时间戳，防止重复处理
+  const lastDoneTimestampRef = useRef<number>(0)
+
   const handleDone = useCallback(
     (data: TEvents['Socket::Session::Done']) => {
-      if (data.session_id && data.session_id !== sessionId) {
+      // 防止重复处理：如果在100ms内收到相同的done事件，忽略它
+      const now = Date.now()
+      if (now - lastDoneTimestampRef.current < 100) {
+        console.log('⚠️ [VIDEO_DEBUG] Duplicate done event ignored (within 100ms)')
+        return
+      }
+      lastDoneTimestampRef.current = now
+
+      console.log('✅ [VIDEO_DEBUG] handleDone received:', {
+        dataSessionId: data.session_id,
+        dataCanvasId: data.canvas_id,
+        currentSessionId: sessionId,
+        currentCanvasId: canvasId,
+        timestamp: now
+      })
+
+      // 同样支持基于canvas_id的done事件
+      const shouldAcceptMessage =
+        (data.session_id && data.session_id === sessionId) ||
+        (data.canvas_id && data.canvas_id === canvasId)
+
+      if (!shouldAcceptMessage) {
+        console.log('❌ [VIDEO_DEBUG] Done event rejected')
         return
       }
 
@@ -847,7 +1031,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         queryClient.invalidateQueries({ queryKey: ['balance'] })
       }
     },
-    [sessionId, scrollToBottom, authStatus.is_logged_in, queryClient]
+    [sessionId, canvasId, scrollToBottom, authStatus.is_logged_in, queryClient]
   )
 
   const handleError = useCallback(
@@ -940,6 +1124,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     eventBus.on('Socket::Session::ToolCallArguments', handleToolCallArguments)
     eventBus.on('Socket::Session::ToolCallResult', handleToolCallResult)
     eventBus.on('Socket::Session::ImageGenerated', handleImageGenerated)
+    // 注释掉VideoGenerated事件监听，因为视频已经在AllMessages中处理
+    // eventBus.on('Socket::Session::VideoGenerated', handleVideoGenerated)
     eventBus.on('Socket::Session::UserImages', handleUserImages)
     eventBus.on('Socket::Session::AllMessages', handleAllMessages)
     eventBus.on('Socket::Session::Done', handleDone)
@@ -960,13 +1146,31 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       eventBus.off('Socket::Session::ToolCallArguments', handleToolCallArguments)
       eventBus.off('Socket::Session::ToolCallResult', handleToolCallResult)
       eventBus.off('Socket::Session::ImageGenerated', handleImageGenerated)
+      // eventBus.off('Socket::Session::VideoGenerated', handleVideoGenerated)
       eventBus.off('Socket::Session::UserImages', handleUserImages)
       eventBus.off('Socket::Session::AllMessages', handleAllMessages)
       eventBus.off('Socket::Session::Done', handleDone)
       eventBus.off('Socket::Session::Error', handleError)
       eventBus.off('Socket::Session::Info', handleInfo)
     }
-  })
+  }, [
+    sessionId,
+    handleDelta,
+    handleToolCall,
+    handleToolCallPendingConfirmation,
+    handleToolCallConfirmed,
+    handleToolCallCancelled,
+    handleToolCallArguments,
+    handleToolCallResult,
+    handleImageGenerated,
+    // handleVideoGenerated, // 已移除，视频在AllMessages中处理
+    handleUserImages,
+    handleAllMessages,
+    handleDone,
+    handleError,
+    handleInfo,
+    checkIfAtBottom
+  ])
 
   const initChat = useCallback(async () => {
     if (!sessionId) {
@@ -1120,6 +1324,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       // Ensure we have a valid sessionId
       const effectiveSessionId = sessionId || sessionIdRef.current || nanoid()
 
+      // 🔥 关键修复：在发送消息前注册WebSocket session
+      // 这确保新的chat session能够接收到实时消息推送
+      if (socketManager) {
+        console.log('🔌 [VIDEO_DEBUG] Registering session before send:', {
+          sessionId: effectiveSessionId,
+          canvasId: canvasId,
+          socketConnected: socketManager.isConnected(),
+          socketId: socketManager.getSocketId()
+        })
+        socketManager.registerSession(effectiveSessionId, canvasId)
+
+        // 验证注册是否成功
+        setTimeout(() => {
+          console.log('🔌 [VIDEO_DEBUG] Session registration check:', {
+            sessionId: effectiveSessionId,
+            isRegistered: socketManager.isSessionRegistered?.(effectiveSessionId) ?? 'method not available'
+          })
+        }, 100)
+      } else {
+        console.warn('⚠️ [VIDEO_DEBUG] Socket manager not available')
+      }
+
       const sendStart = performance.now()
       sendMessages({
         sessionId: effectiveSessionId,
@@ -1178,6 +1404,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           message={message}
                         />
                       )
+                    ) : (message as any).type === 'video' ||
+                       ((message as any).video_url && typeof message.content === 'string') ? (
+                      // 视频消息处理 - MessageRegular会自动处理视频显示和时间戳
+                      <MessageRegular
+                        message={message}
+                        content={typeof message.content === 'string' ? message.content : '🎬 视频已生成'}
+                      />
                     ) : typeof message.content === 'string' ? (
                       // 字符串内容消息
                       <MessageRegular message={message} content={message.content} />

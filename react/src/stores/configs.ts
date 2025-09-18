@@ -15,6 +15,13 @@ type ConfigsStore = {
   textModel?: Model
   setTextModel: (model?: Model) => void
 
+  // New: Support multi-selection across types
+  selectedImageTool?: ToolInfo
+  setSelectedImageTool: (tool?: ToolInfo) => void
+
+  selectedVideoTool?: ToolInfo
+  setSelectedVideoTool: (tool?: ToolInfo) => void
+
   showInstallDialog: boolean
   setShowInstallDialog: (show: boolean) => void
 
@@ -45,6 +52,12 @@ const useConfigsStore = create<ConfigsStore>((set) => ({
 
   textModel: undefined,
   setTextModel: (model) => set({ textModel: model }),
+
+  selectedImageTool: undefined,
+  setSelectedImageTool: (tool) => set({ selectedImageTool: tool }),
+
+  selectedVideoTool: undefined,
+  setSelectedVideoTool: (tool) => set({ selectedVideoTool: tool }),
 
   showInstallDialog: false,
   setShowInstallDialog: (show) => set({ showInstallDialog: show }),

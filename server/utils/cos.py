@@ -59,7 +59,15 @@ class CosUtils:
                 Key=cos_file_path,
                 ContentType=content_type
             )
-            url = f"https://{self.bucket_name}.cos.{self.region}.myqcloud.com/{cos_file_path}?imageMogr2/thumbnail/avif"
+            # 检查文件扩展名，判断是否为视频文件
+            video_extensions = ('.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv')
+            is_video = any(cos_file_path.lower().endswith(ext) for ext in video_extensions)
+
+            # 视频文件不添加图片处理参数
+            if is_video:
+                url = f"https://{self.bucket_name}.cos.{self.region}.myqcloud.com/{cos_file_path}"
+            else:
+                url = f"https://{self.bucket_name}.cos.{self.region}.myqcloud.com/{cos_file_path}?imageMogr2/thumbnail/avif"
             return url
         except Exception as e:
             sys.stderr.write(f"上传失败: {e}\n")
@@ -69,7 +77,16 @@ class CosUtils:
         """
         获取文件URL
         """
-        url = f"https://{self.bucket_name}.cos.{self.region}.myqcloud.com/{key}?imageMogr2/thumbnail/avif"
+        # 检查文件扩展名，判断是否为视频文件
+        video_extensions = ('.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv', '.wmv')
+        is_video = any(key.lower().endswith(ext) for ext in video_extensions)
+
+        # 视频文件不添加图片处理参数
+        if is_video:
+            url = f"https://{self.bucket_name}.cos.{self.region}.myqcloud.com/{key}"
+        else:
+            # 图片文件添加缩略图处理参数
+            url = f"https://{self.bucket_name}.cos.{self.region}.myqcloud.com/{key}?imageMogr2/thumbnail/avif"
         return url
         
 if __name__  == "__main__":

@@ -394,3 +394,47 @@
   color: #f5f5f5 !important;
   background-color: #333333 !important;
 }
+
+/* 🎯 隐藏嵌入元素的超链接显示 */
+.excalidraw .excalidraw-hyperlinkContainer {
+  display: none !important;
+}
+
+/* 隐藏嵌入元素上方的链接标签 */
+.excalidraw .excalidraw-hyperlinkContainer-link {
+  display: none !important;
+}
+
+/* 隐藏所有embeddable元素的链接显示 */
+.excalidraw .excalidraw-embeddableContainer .excalidraw-hyperlinkContainer,
+.excalidraw .excalidraw-embeddableContainer a,
+.excalidraw .excalidraw-embeddableContainer .link-container {
+  display: none !important;
+}
+
+/* 更具体的选择器来隐藏Excalidraw的嵌入链接 */
+.excalidraw .ExcalidrawElement__link,
+.excalidraw .embeddable-link,
+.excalidraw [data-testid="link"],
+.excalidraw [class*="hyperlink"],
+.excalidraw [class*="link-badge"],
+.excalidraw [class*="link-label"] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* 隐藏嵌入元素容器内的所有链接文本 */
+.excalidraw .excalidraw-embeddableContainer::before,
+.excalidraw .excalidraw-embeddableContainer::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* 确保嵌入元素本身仍然可见 */
+.excalidraw .excalidraw-embeddableContainer iframe,
+.excalidraw .excalidraw-embeddableContainer video,
+.excalidraw .excalidraw-embeddableContainer img,
+.excalidraw .excalidraw-embeddableContainer > div {
+  display: block !important;
+  visibility: visible !important;
+}

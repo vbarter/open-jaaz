@@ -13,8 +13,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useTranslation } from 'react-i18next'
 import { useConfigs, useRefreshModels, ConfigsContext } from '@/contexts/configs'
 import { ModelInfo, ToolInfo } from '@/api/model'
+import { Model } from '@/types/types'
 import { PROVIDER_NAME_MAPPING } from '@/constants'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import useConfigsStore from '@/stores/configs'
+import { userModelService } from '@/services/userModelService'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface ModelSelectorV3Props {
   onModelChange?: (modelId: string, type: 'text' | 'image' | 'video') => void
@@ -23,7 +27,14 @@ interface ModelSelectorV3Props {
 const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
   const { textModel, setTextModel, textModels, selectedTools, setSelectedTools, allTools } =
     useConfigs()
-  
+
+  // Get new multi-selection states from store
+  const { selectedImageTool, setSelectedImageTool, selectedVideoTool, setSelectedVideoTool } = useConfigsStore()
+
+  // Get auth context to check if user is logged in
+  const { authStatus } = useAuth()
+  const user = authStatus.is_logged_in ? authStatus.user_info : null
+
   const configsContext = React.useContext(ConfigsContext)
   const isModelInitialized = configsContext?.isModelInitialized || false
 
@@ -31,51 +42,108 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const { t } = useTranslation()
 
-  // 全局单选：只能选择一个模型（文本或工具）- 依赖 configs.tsx 的状态
-  const [globalSelectedModel, setGlobalSelectedModel] = useState<{
-    model: ModelInfo | ToolInfo
-    type: 'text' | 'image' | 'video'
-  } | null>(null)
+  // Multi-selection state: one model per type
+  const [selectedModels, setSelectedModels] = useState<{
+    text?: Model
+    image?: ToolInfo
+    video?: ToolInfo
+  }>({})
 
-  // 等待 configs.tsx 初始化完成后，同步全局选择状态
+  // Load user saved models on initialization
   React.useEffect(() => {
-    if (!isModelInitialized) {
-      console.log('🔄 [ModelSelectorV3] 等待模型初始化完成...')
+    if (!isModelInitialized || !user) {
+      console.log('🔄 [ModelSelectorV3] 等待初始化或用户登录...', {
+        isModelInitialized,
+        isLoggedIn: !!user,
+        userEmail: user?.email
+      })
       return
     }
 
-    console.log('🔧 [ModelSelectorV3] 同步全局选择状态', {
-      textModel: textModel?.model,
-      selectedToolsCount: selectedTools.length,
-      currentGlobalSelection: globalSelectedModel?.type
-    })
+    const loadUserModels = async () => {
+      console.log('📥 [ModelSelectorV3] 开始加载用户保存的模型，用户:', user.email)
+      const savedModels = await userModelService.getUserModels()
+      if (savedModels) {
+        console.log('📥 [ModelSelectorV3] 成功加载用户保存的模型:', savedModels)
 
-    // 根据 configs.tsx 的状态同步 globalSelectedModel（移除自动切换tab）
-    if (textModel) {
-      // 如果有文本模型选择，优先使用文本模型
-      if (!globalSelectedModel || globalSelectedModel.type !== 'text' || 
-          (globalSelectedModel.model as ModelInfo).model !== textModel.model) {
-        console.log('📝 同步文本模型选择:', textModel.model)
-        setGlobalSelectedModel({ model: textModel, type: 'text' })
-        // 不再自动切换tab，让用户保持当前浏览的tab
-      }
-    } else if (selectedTools.length > 0) {
-      // 如果没有文本模型但有工具选择，使用第一个工具
-      const firstTool = selectedTools[0]
-      if (!globalSelectedModel || globalSelectedModel.type !== firstTool.type ||
-          (globalSelectedModel.model as ToolInfo).id !== firstTool.id) {
-        console.log('🎯 同步工具模型选择:', firstTool.display_name || firstTool.id)
-        setGlobalSelectedModel({ model: firstTool, type: firstTool.type as 'image' | 'video' })
-        // 不再自动切换tab，让用户保持当前浏览的tab
-      }
-    } else {
-      // 清空选择
-      if (globalSelectedModel) {
-        console.log('🧹 清空模型选择')
-        setGlobalSelectedModel(null)
+        // Load text model
+        if (savedModels.text_model && textModels) {
+          const matchedModel = textModels.find(
+            m => m.model === savedModels.text_model!.model &&
+                m.provider === savedModels.text_model!.provider
+          )
+          if (matchedModel) {
+            setTextModel(matchedModel)
+          }
+        }
+
+        // Load image tool
+        if (savedModels.selected_image_tool) {
+          const matchedTool = allTools.find(
+            t => t.id === savedModels.selected_image_tool!.id &&
+                t.provider === savedModels.selected_image_tool!.provider
+          )
+          if (matchedTool) {
+            setSelectedImageTool(matchedTool)
+          }
+        }
+
+        // Load video tool
+        if (savedModels.selected_video_tool) {
+          const matchedTool = allTools.find(
+            t => t.id === savedModels.selected_video_tool!.id &&
+                t.provider === savedModels.selected_video_tool!.provider
+          )
+          if (matchedTool) {
+            setSelectedVideoTool(matchedTool)
+          }
+        }
       }
     }
-  }, [isModelInitialized, textModel, selectedTools, globalSelectedModel])
+
+    loadUserModels()
+  }, [isModelInitialized, user, textModels, allTools])
+
+  // Sync selected models from configs
+  React.useEffect(() => {
+    if (!isModelInitialized) {
+      return
+    }
+
+    const newSelectedModels: typeof selectedModels = {}
+
+    // Sync text model
+    if (textModel) {
+      newSelectedModels.text = textModel
+    }
+
+    // Sync image tool
+    if (selectedImageTool) {
+      newSelectedModels.image = selectedImageTool
+    }
+
+    // Sync video tool
+    if (selectedVideoTool) {
+      newSelectedModels.video = selectedVideoTool
+    }
+
+    // For backward compatibility with selectedTools
+    if (selectedTools.length > 0 && !selectedImageTool && !selectedVideoTool) {
+      selectedTools.forEach(tool => {
+        if (tool.type === 'image' && !newSelectedModels.image) {
+          newSelectedModels.image = tool
+          setSelectedImageTool(tool)
+        } else if (tool.type === 'video' && !newSelectedModels.video) {
+          newSelectedModels.video = tool
+          setSelectedVideoTool(tool)
+        }
+      })
+    }
+
+    setSelectedModels(newSelectedModels)
+    console.log('🔧 [ModelSelectorV3] 同步选择状态', newSelectedModels)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isModelInitialized, textModel, selectedImageTool, selectedVideoTool, selectedTools])
 
   // Group models by provider
   const groupModelsByProvider = (models: typeof allTools) => {
@@ -118,69 +186,154 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
     return groupModelsByProvider(filteredTools)
   }
 
-  const handleModelSelect = (modelKey: string) => {
+  // Save models to backend immediately when selection changes
+  const saveModelsToBackend = React.useCallback(async (models: typeof selectedModels) => {
+    if (!user) {
+      console.log('❌ [ModelSelectorV3] 未登录，跳过保存')
+      return // Only save if user is logged in
+    }
+
+    console.log('💾 [ModelSelectorV3] 立即保存模型到后端:', {
+      userEmail: user.email,
+      models: models
+    })
+
+    const modelsToSave = {
+      text_model: models.text ? {
+        provider: models.text.provider,
+        model: models.text.model,
+        type: 'text'
+      } : undefined,
+      selected_image_tool: models.image ? {
+        provider: models.image.provider,
+        id: models.image.id,
+        display_name: models.image.display_name,
+        type: 'image'
+      } : undefined,
+      selected_video_tool: models.video ? {
+        provider: models.video.provider,
+        id: models.video.id,
+        display_name: models.video.display_name,
+        type: 'video'
+      } : undefined
+    }
+
+    try {
+      const success = await userModelService.saveUserModels(modelsToSave)
+      if (success) {
+        console.log('✅ [ModelSelectorV3] 模型保存成功')
+      } else {
+        console.log('❌ [ModelSelectorV3] 模型保存失败')
+      }
+    } catch (error) {
+      console.error('❌ [ModelSelectorV3] 保存模型时发生错误:', error)
+    }
+  }, [user])
+
+  const handleModelSelect = async (modelKey: string) => {
+    console.log('🔍 [ModelSelectorV3] handleModelSelect 被调用:', {
+      modelKey,
+      activeTab,
+      isLoggedIn: !!user,
+      userEmail: user?.email || 'not logged in'
+    })
+
+    let newModels = { ...selectedModels }
+
     if (activeTab === 'text') {
-      // 选择文本模型
+      // Select text model
       const model = textModels?.find((m) => m.provider + ':' + m.model === modelKey)
 
       if (model) {
-        // 清空所有工具选择
-        setSelectedTools([])
-        localStorage.setItem('disabled_tool_ids', JSON.stringify(allTools.map((t) => t.id)))
+        // Toggle text model selection
+        if (selectedModels.text?.model === model.model) {
+          // Deselect if already selected
+          console.log('➖ [ModelSelectorV3] 取消选择文本模型:', model.model)
+          setTextModel(undefined)
+          localStorage.removeItem('text_model')
+          newModels = { ...newModels, text: undefined }
+          setSelectedModels(newModels)
+        } else {
+          // Select new text model
+          console.log('➕ [ModelSelectorV3] 选择文本模型:', model.model)
+          setTextModel(model)
+          localStorage.setItem('text_model', modelKey)
+          newModels = { ...newModels, text: model }
+          setSelectedModels(newModels)
+        }
 
-        // 设置文本模型
-        setTextModel(model)
-        localStorage.setItem('text_model', modelKey)
+        // 立即保存到后端
+        console.log('🚀 [ModelSelectorV3] 立即调用保存接口')
+        await saveModelsToBackend(newModels)
 
-        // 保存当前选择的模型到 localStorage，确保格式一致
-        localStorage.setItem('current_selected_model', model.model)
-        console.log('✅ [ModelSelectorV3] 选择文本模型:', model.model)
-        
-        // 更新全局选择状态
-        setGlobalSelectedModel({ model, type: 'text' })
         onModelChange?.(modelKey, 'text')
-      } else {
-        console.warn('[debug] ❌ 未找到匹配的文本模型:', modelKey)
       }
     } else {
-      // 选择工具模型（图像或视频）
+      // Select tool model (image or video)
       const tool = allTools.find((m) => m.provider + ':' + m.id === modelKey)
       if (tool) {
-        // 清空文本模型选择
-        setTextModel(null)
-        localStorage.removeItem('text_model')
+        const isImage = tool.type === 'image'
+        const currentSelected = isImage ? selectedModels.image : selectedModels.video
 
-        // 只选择当前工具
-        setSelectedTools([tool])
-        localStorage.setItem(
-          'disabled_tool_ids',
-          JSON.stringify(allTools.filter((t) => t.id !== tool.id).map((t) => t.id))
-        )
+        if (currentSelected?.id === tool.id) {
+          // Deselect if already selected
+          console.log(`➖ [ModelSelectorV3] 取消选择${isImage ? '图片' : '视频'}模型:`, tool.id)
+          if (isImage) {
+            setSelectedImageTool(undefined)
+            newModels = { ...newModels, image: undefined }
+          } else {
+            setSelectedVideoTool(undefined)
+            newModels = { ...newModels, video: undefined }
+          }
+          setSelectedModels(newModels)
+        } else {
+          // Select new tool
+          console.log(`➕ [ModelSelectorV3] 选择${isImage ? '图片' : '视频'}模型:`, tool.id)
+          if (isImage) {
+            setSelectedImageTool(tool)
+            newModels = { ...newModels, image: tool }
+          } else {
+            setSelectedVideoTool(tool)
+            newModels = { ...newModels, video: tool }
+          }
+          setSelectedModels(newModels)
+        }
 
-        // 保存当前选择的模型到 localStorage，确保格式一致
-        const modelName = tool.display_name || tool.id
-        localStorage.setItem('current_selected_model', modelName)
-        console.log('✅ [ModelSelectorV3] 选择工具模型:', modelName)
-        
-        // 更新全局选择状态
-        setGlobalSelectedModel({ model: tool, type: tool.type as 'image' | 'video' })
+        // Update selectedTools for backward compatibility
+        const newSelectedTools = []
+        if (isImage) {
+          if (currentSelected?.id !== tool.id) {
+            newSelectedTools.push(tool)
+            if (newModels.video) newSelectedTools.push(newModels.video)
+          } else {
+            if (newModels.video) newSelectedTools.push(newModels.video)
+          }
+        } else {
+          if (newModels.image) newSelectedTools.push(newModels.image)
+          if (currentSelected?.id !== tool.id) {
+            newSelectedTools.push(tool)
+          }
+        }
+        setSelectedTools(newSelectedTools)
+
+        // 立即保存到后端
+        console.log('🚀 [ModelSelectorV3] 立即调用保存接口')
+        await saveModelsToBackend(newModels)
+
         onModelChange?.(modelKey, activeTab)
-      } else {
-        console.warn('[debug] ❌ 未找到匹配的工具模型:', modelKey)
       }
     }
-    setDropdownOpen(false) // Close dropdown after selection
+    // Don't close dropdown after selection - let user close it manually
+    // setDropdownOpen(false)
   }
 
-  // Get selected model for current tab
-  const getSelectedModel = () => {
-    if (!globalSelectedModel) return null
-
-    if (activeTab === globalSelectedModel.type) {
-      return globalSelectedModel.model
-    }
-    return null
-  }
+  // Get selected model for current tab - currently unused but may be useful for future features
+  // const getSelectedModel = () => {
+  //   if (activeTab === 'text') return selectedModels.text
+  //   if (activeTab === 'image') return selectedModels.image
+  //   if (activeTab === 'video') return selectedModels.video
+  //   return null
+  // }
 
   // Get current models based on active tab
   const getCurrentModels = () => {
@@ -191,23 +344,20 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
     }
   }
 
-  // Check if a model is selected - 改进版本，支持跨tab的选中状态检测
+  // Check if a model is selected
   const isModelSelected = (modelKey: string) => {
-    if (!globalSelectedModel) return false
+    if (activeTab === 'text' && selectedModels.text) {
+      return selectedModels.text.provider + ':' + selectedModels.text.model === modelKey
+    }
 
-    // 检查文本模型匹配
-    if (activeTab === 'text' && globalSelectedModel.type === 'text') {
-      const model = globalSelectedModel.model as ModelInfo
-      return model.provider + ':' + model.model === modelKey
+    if (activeTab === 'image' && selectedModels.image) {
+      return selectedModels.image.provider + ':' + selectedModels.image.id === modelKey
     }
-    
-    // 检查工具模型匹配
-    if ((activeTab === 'image' || activeTab === 'video') && 
-        (globalSelectedModel.type === 'image' || globalSelectedModel.type === 'video')) {
-      const tool = globalSelectedModel.model as ToolInfo
-      return tool.provider + ':' + tool.id === modelKey
+
+    if (activeTab === 'video' && selectedModels.video) {
+      return selectedModels.video.provider + ':' + selectedModels.video.id === modelKey
     }
-    
+
     return false
   }
 
@@ -226,31 +376,33 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
     { id: 'text', label: t('chat:modelSelector.tabs.text') },
   ] as const
 
-  // 智能定位：仅在首次打开下拉菜单时定位到当前选中模型的tab
+  // Auto-switch to tab with selection when dropdown opens
   const hasAutoSwitchedRef = React.useRef(false)
   const lastDropdownStateRef = React.useRef(false)
-  
+
   React.useEffect(() => {
-    // 检测下拉菜单从关闭变为打开（首次打开）
     const justOpened = dropdownOpen && !lastDropdownStateRef.current
-    
-    if (justOpened && globalSelectedModel && !hasAutoSwitchedRef.current) {
-      // 只在刚打开下拉菜单时进行一次智能定位
-      if (activeTab !== globalSelectedModel.type) {
-        console.log('🎯 下拉菜单首次打开，智能定位到:', globalSelectedModel.type)
-        setActiveTab(globalSelectedModel.type)
+
+    if (justOpened && !hasAutoSwitchedRef.current) {
+      // Auto-switch to first tab with selection
+      if (selectedModels.text && activeTab !== 'text') {
+        setActiveTab('text')
+        hasAutoSwitchedRef.current = true
+      } else if (selectedModels.image && activeTab !== 'image') {
+        setActiveTab('image')
+        hasAutoSwitchedRef.current = true
+      } else if (selectedModels.video && activeTab !== 'video') {
+        setActiveTab('video')
         hasAutoSwitchedRef.current = true
       }
     }
-    
-    // 更新下拉菜单状态记录
+
     lastDropdownStateRef.current = dropdownOpen
-    
-    // 关闭下拉菜单时重置标记
+
     if (!dropdownOpen) {
       hasAutoSwitchedRef.current = false
     }
-  }, [dropdownOpen, globalSelectedModel]) // 只监听下拉菜单状态和选中模型
+  }, [dropdownOpen, selectedModels, activeTab])
 
   return (
     <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
@@ -258,7 +410,7 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
         <Button
           variant='outline'
           className={`shrink-0 h-8 w-8 p-0 flex items-center justify-center ${
-            globalSelectedModel
+            Object.keys(selectedModels).length > 0
               ? 'text-primary border-green-200 bg-green-50'
               : 'text-muted-foreground border-border bg-background'
           }`}
@@ -272,20 +424,27 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
           <div className='text-sm font-medium'>{t('chat:modelSelector.title')}</div>
           <div className='text-xs text-muted-foreground mt-1'>
             {t(
-              'chat:modelSelector.globalSingleSelectMode',
-              'Global single selection - only one model at a time'
+              'chat:modelSelector.multiSelectMode',
+              'Multi-selection across types, single selection within type'
             )}
           </div>
-          {globalSelectedModel && (
-            <div className='mt-2 px-2 py-1 bg-primary/10 rounded text-xs text-primary'>
-              {t('chat:modelSelector.currentSelection', 'Current')}:{' '}
-              <span className='font-medium'>
-                {globalSelectedModel.type === 'text'
-                  ? (globalSelectedModel.model as ModelInfo).model
-                  : (globalSelectedModel.model as ToolInfo).display_name ||
-                    (globalSelectedModel.model as ToolInfo).id}
-              </span>
-              <span className='text-primary/70 ml-1'>({globalSelectedModel.type})</span>
+          {Object.keys(selectedModels).length > 0 && (
+            <div className='mt-2 space-y-1'>
+              {selectedModels.text && (
+                <div className='px-2 py-1 bg-blue-50 rounded text-xs text-blue-700'>
+                  {t('chat:modelSelector.text', 'Text')}: {selectedModels.text.model}
+                </div>
+              )}
+              {selectedModels.image && (
+                <div className='px-2 py-1 bg-green-50 rounded text-xs text-green-700'>
+                  {t('chat:modelSelector.image', 'Image')}: {selectedModels.image.display_name || selectedModels.image.id}
+                </div>
+              )}
+              {selectedModels.video && (
+                <div className='px-2 py-1 bg-purple-50 rounded text-xs text-purple-700'>
+                  {t('chat:modelSelector.video', 'Video')}: {selectedModels.video.display_name || selectedModels.video.id}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -328,11 +487,11 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
                   {providerModels.map((model: ModelInfo | ToolInfo) => {
                     const modelKey =
                       activeTab === 'text'
-                        ? model.provider + ':' + (model as ModelInfo).model
+                        ? model.provider + ':' + (model as Model).model
                         : model.provider + ':' + (model as ToolInfo).id
                     const modelName =
                       activeTab === 'text'
-                        ? (model as ModelInfo).model
+                        ? (model as Model).model
                         : (model as ToolInfo).display_name || (model as ToolInfo).id
 
                     return (
@@ -355,20 +514,9 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
                           </div>
                           {isModelSelected(modelKey) && (
                             <div className='text-xs text-primary/70 mt-1'>
-                              {t('chat:modelSelector.selected', 'Selected')} -{' '}
-                              {globalSelectedModel?.type}
+                              {t('chat:modelSelector.selected', 'Selected')}
                             </div>
                           )}
-                          {!isModelSelected(modelKey) &&
-                            globalSelectedModel &&
-                            globalSelectedModel.type !== activeTab && (
-                              <div className='text-xs text-muted-foreground/70 mt-1'>
-                                {t(
-                                  'chat:modelSelector.willReplace',
-                                  'Will replace current selection'
-                                )}
-                              </div>
-                            )}
                         </div>
                         <div
                           className={`ml-4 transition-all duration-200 ${

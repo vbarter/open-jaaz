@@ -23,7 +23,8 @@ async def create_local_response(messages: List[Dict[str, Any]],
                                       user_language: str = 'en',
                                       provider: str = 'openai',
                                       aspect_ratio: str = 'auto',
-                                      quantity: int = 1) -> Dict[str, Any]:
+                                      quantity: int = 1,
+                                      user_has_drawing_intent: str = "text") -> Dict[str, Any]:
     """
     本地的魔法生成功能
     实现和 magic_agent 相同的功能
@@ -60,8 +61,26 @@ async def create_local_response(messages: List[Dict[str, Any]],
             user_prompt = user_message.get('content', '')
 
 
-        result = await llm_service.generate(model_name, user_prompt, image_content, user_info,
-                                           aspect_ratio=aspect_ratio, quantity=quantity)
+        # 如果是视频生成请求，使用专门的视频处理器
+        # if user_has_drawing_intent == "video":
+        #     logger.info("🎥 检测到视频生成请求，使用视频处理器")
+        #     from services.new_chat.video_handler import handle_video_generation
+        #     return await handle_video_generation(
+        #         session_id=session_id,
+        #         canvas_id=canvas_id,
+        #         prompt=user_prompt,
+        #         tuzi_service=llm_service,
+        #         user_language=user_language
+        #     )
+
+        # 否则使用原有的生成逻辑
+        result = await llm_service.generate(model_name,
+                                            user_prompt,
+                                            image_content,
+                                            user_info,
+                                            aspect_ratio=aspect_ratio or "9:16",
+                                            quantity=quantity,
+                                            user_has_drawing_intent=user_has_drawing_intent)
         if not result:
             # 导入错误消息工具
             from utils.error_messages import ErrorMessages
@@ -107,7 +126,7 @@ async def create_local_response(messages: List[Dict[str, Any]],
                 'content': result['text_content']
             }
 
-        # 检查是否有结果 URL（图像生成）
+        # 检查是否有结果 URL
         if not result.get('result_url'):
             from utils.error_messages import ErrorMessages
             return {
@@ -119,6 +138,66 @@ async def create_local_response(messages: List[Dict[str, Any]],
         filename = ""
         cos_url = None
         result_url = result['result_url']
+
+        # 🎥 检查是否是视频生成结果
+        is_video = user_has_drawing_intent == "video" or result_url.endswith(('.mp4', '.mov', '.avi', '.webm'))
+
+        if is_video:
+            # 🎬 视频处理逻辑
+            logger.info(f"🎥 [VIDEO] 检测到视频生成结果: {result_url}")
+
+            # 🌐 [I18N] 获取多语言视频生成成功消息
+            from services.i18n_service import i18n_service
+            localized_message = i18n_service.get_video_generated_message(user_language)
+
+            # 保存视频到画布（如果有session_id和canvas_id）
+            if session_id and canvas_id:
+                try:
+                    logger.info(f"🎥 [VIDEO] 开始保存视频到画布: session_id={session_id}, canvas_id={canvas_id}")
+                    from tools.video_generation.video_canvas_utils import save_video_to_canvas, send_video_completion_notification
+
+                    # 保存视频到画布
+                    filename, file_data, new_video_element = await save_video_to_canvas(
+                        session_id=session_id,
+                        canvas_id=canvas_id,
+                        video_url=result_url
+                    )
+
+                    # 发送WebSocket通知
+                    await send_video_completion_notification(
+                        session_id=session_id,
+                        canvas_id=canvas_id,
+                        new_video_element=new_video_element,
+                        file_data=file_data,
+                        video_url=result_url  # 使用原始URL
+                    )
+
+                    logger.info(f"✅ [VIDEO] 视频已添加到画布: {filename}")
+
+                    # 直接使用原始URL
+                    video_display_url = result_url
+                except Exception as e:
+                    logger.error(f"❌ [VIDEO] 保存视频到画布失败: {e}")
+                    video_display_url = result_url
+            else:
+                logger.info(f"⚠️ [VIDEO] 缺少session_id或canvas_id，跳过画布保存")
+                video_display_url = result_url
+
+            # 返回视频URL给前端，让前端直接播放
+            # 使用前端期望的字段格式: type 和 video_url
+            return {
+                'role': 'assistant',
+                'content': localized_message,
+                'type': 'video',  # 前端期望的字段名
+                'video_url': video_display_url,  # 使用本地或原始URL
+                'metadata': {
+                    'duration': result.get('duration'),
+                    'width': result.get('width'),
+                    'height': result.get('height')
+                } if isinstance(result, dict) else None
+            }
+
+        # 🖼️ 图片处理逻辑
         image_url = result_url
 
         # 保存图片到画布

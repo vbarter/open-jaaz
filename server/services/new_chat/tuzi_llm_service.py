@@ -92,14 +92,14 @@ class TuziLLMService:
         self,
         prompt: str,
         model: str,
-        resolution: Optional[str] = None,
-        duration: Optional[int] = None,
-        aspect_ratio: Optional[str] = None,
-        input_images: Optional[List[str]] = None,
+        resolution: str = "480p",
+        duration: int = 5,
+        aspect_ratio: str = "9:16",
+        input_images: List[str] = [],
         **kwargs: Any
     ) -> str:
         """
-        创建云端视频生成任务
+        这是一个定制的视频生成接口，主要使用了yunwu veo3视频接口
 
         Args:
             prompt: 视频生成提示词
@@ -117,33 +117,47 @@ class TuziLLMService:
             Exception: 当任务创建失败时抛出异常
         """
         logger.info(f"👇create_video_task prompt: {prompt}, model: {model}, resolution: {resolution}, duration: {duration}, aspect_ratio: {aspect_ratio}, input_images: {input_images}")
+        
         async with HttpClient.create_aiohttp() as session:
             payload = {
                 "prompt": prompt,
                 "model": model,
-                "resolution": resolution,
-                "duration": duration,
-                "aspect_ratio": aspect_ratio,
-                **kwargs
+                "enable_upsample": True,
+                "enhance_prompt": True,
             }
 
+            # 添加可选参数
+            if aspect_ratio:
+                payload["aspect_ratio"] = aspect_ratio
             if input_images:
-                payload["input_images"] = input_images
+                payload["images"] = input_images
+            if resolution:
+                payload["resolution"] = resolution
+            if duration:
+                payload["duration"] = duration
+            
+            # 添加其他参数
+            payload.update(kwargs)
+
+            headers = {
+                "Authorization": f"Bearer sk-3id68TiP9AKUFzIhSnz8KrTTDXDXKyR05xuOW7kyCIubMlDq",
+                "Content-Type": "application/json"
+            }
 
             async with session.post(
-                f"{self.api_url}/video/sunra/generations",
-                headers=self._build_headers(),
+                f"{self.api_url}/video/create",
+                headers=headers,
                 json=payload,
                 timeout=aiohttp.ClientTimeout(total=120.0)
             ) as response:
                 if response.status == 200:
                     data = await response.json()
-                    task_id = data.get('task_id', '')
+                    task_id = data.get('id', '')
                     if task_id:
                         logger.info(f"✅ Video task created: {task_id}")
                         return task_id
                     else:
-                        raise Exception("No task_id in response")
+                        raise Exception("No id in response")
                 else:
                     error_text = await response.text()
                     raise Exception(f"Failed to create video task: HTTP {response.status} - {error_text}")
@@ -168,40 +182,43 @@ class TuziLLMService:
         Raises:
             Exception: 当任务失败或超时时抛出异常
         """
-        max_attempts = max_attempts or 150  # 默认最多轮询 150 次
+        max_attempts = max_attempts or 100  # 默认最多轮询 150 次
         interval = interval or 2.0  # 默认轮询间隔 2 秒
+
+        headers = {
+            "Authorization": f"Bearer sk-3id68TiP9AKUFzIhSnz8KrTTDXDXKyR05xuOW7kyCIubMlDq",
+            "Content-Type": "application/json"
+        }
 
         async with HttpClient.create_aiohttp() as session:
             for _ in range(max_attempts):
                 async with session.get(
-                    f"{self.api_url}/task/{task_id}",
-                    headers=self._build_headers(),
+                    f"{self.api_url}/video/query?id={task_id}",
+                    headers=headers,
                     timeout=aiohttp.ClientTimeout(total=20.0)
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
-                        if data.get('success') and data.get('data', {}).get('found'):
-                            task = data['data']['task']
-                            status = task.get('status')
-
-                            if status == 'succeeded':
-                                logger.info(f"✅ Task {task_id} completed successfully")
-                                return task
-                            elif status == 'failed':
-                                error_msg = task.get('error', 'Unknown error')
-                                raise Exception(f"Task failed: {error_msg}")
-                            elif status == 'cancelled':
-                                raise Exception("Task was cancelled")
-                            elif status == 'processing':
-                                # 继续轮询
-                                await asyncio.sleep(interval)
-                                continue
+                        status = data.get('status')
+                        
+                        if status == 'completed':
+                            logger.info(f"✅ Task {task_id} completed successfully")
+                            video_url = data.get('video_url')
+                            if video_url:
+                                return {'result_url': video_url, 'status': status}
                             else:
-                                raise Exception(f"Unknown task status: {status}")
+                                raise Exception("No video_url in completed response")
+                        elif status in ['failed', 'error', 'video_generation_failed', 'video_upsampling_failed']:
+                            error_msg = data.get('detail', {}).get('error', 'Unknown error')
+                            raise Exception(f"Task failed with status {status}: {error_msg}")
                         else:
-                            raise Exception("Task not found")
+                            # 继续轮询
+                            logger.info(f"🔄 Task {task_id} status: {status}, continuing to poll...")
+                            await asyncio.sleep(interval)
+                            continue
                     else:
-                        raise Exception(f"Failed to get task status: HTTP {response.status}")
+                        error_text = await response.text()
+                        raise Exception(f"Failed to get task status: HTTP {response.status} - {error_text}")
 
             raise Exception(f"Task polling timeout after {max_attempts} attempts")
 
@@ -295,7 +312,8 @@ class TuziLLMService:
                        user_info: Optional[Dict[str, Any]] = None,
                        stream: bool = False,
                        aspect_ratio: str = 'auto',
-                       quantity: int = 1) -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None], str]:
+                       quantity: int = 1,
+                       user_has_drawing_intent: str = "text") -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None], str]:
         """
         生成魔法图像的完整流程
 
@@ -314,26 +332,24 @@ class TuziLLMService:
         """
         try:
             # 步骤1: 判断用户是否有图片上传，如果有肯定是画图 
-            if len(image_content) > 0:
-                logger.info("🖼️ 检测到图片上传，执行图片编辑流程")
-                # 如果不能画图, 也设置成系统默认的
-                image_model = self._get_image_generation_model(model_name)
-                return await self._handle_image_editing(image_model, user_prompt, image_content, user_info, aspect_ratio, quantity)
-            
-            # 步骤2: 没有图片上传，进行画图语义理解
-            logger.info("📝 无图片上传，进行语义理解...")
-            is_image_generation = await self._detect_image_generation_intent(user_prompt)
-            
-            if is_image_generation:
-                logger.info("🎨 检测到画图意图，执行图片生成流程")
-                # 步骤4: 检查用户设置的model是否是画图模型，如果不是默认使用gemini-2.5-flash-image
-                image_model = self._get_image_generation_model(model_name)
-                return await self._handle_image_generation(image_model, user_prompt, user_info, aspect_ratio, quantity)
-            else:
+            if user_has_drawing_intent == "text":
                 logger.info("💬 检测到文本对话意图，执行文本对话流程")
                 # 步骤3: 不是画图，直接走用户设定的大模型调用
                 return await self._handle_text_conversation(model_name, user_prompt, user_info, stream=stream)
-                
+            elif user_has_drawing_intent == "image":
+                logger.info("💬 检测到画图意图，执行图片生成流程")
+                ##image_model = self._get_image_generation_model(model_name)
+                if len(image_content) > 0:
+                    logger.info("🖼️ 检测到图片上传，执行图片编辑流程")
+                    return await self._handle_image_editing(model_name, user_prompt, image_content, user_info, aspect_ratio, quantity)
+                else:
+                    logger.info("📝 无图片上传，执行文生图流程...")
+                    return await self._handle_image_generation(model_name, user_prompt, user_info, aspect_ratio, quantity)
+            elif user_has_drawing_intent == "video":
+                #video_model = self._get_video_generation_model(model_name)
+                logger.info("🎥 检测到视频意图，执行视频生成流程")
+                logger.info(f"🔍 [DEBUG] 输入图片: {image_content}")
+                return await self.generate_video(user_prompt, model_name, input_images=image_content)
         except Exception as e:
             error_msg = f"Error in generate: {str(e)}"
             logger.error(f"❌ {error_msg}")
@@ -468,6 +484,18 @@ class TuziLLMService:
         else:
             logger.info(f"⚠️ 用户选择的模型 '{user_model}' 不支持图片编辑，使用默认模型 'gemini-2.5-flash-image'")
             return "gemini-2.5-flash-image"
+        
+    def _get_video_generation_model(self, user_model: str) -> str:
+        """获取视频生成模型，如果用户选择的不是视频生成模型则使用默认模型"""
+        # 已验证可用的图像编辑模型
+        supported_video_generation_models = ["veo3-fast"]
+
+        if user_model in supported_video_generation_models:
+            logger.info(f"✅ 用户选择的模型 '{user_model}' 支持图片编辑")
+            return "veo3-fast-frames"
+        else:
+            logger.info(f"⚠️ 用户选择的模型 '{user_model}' 不支持视频编辑，使用默认模型 'veo3-fast-frames'")
+            return "veo3-fast-frames"
 
     async def _handle_image_generation(self, model_name: str, user_prompt: str, user_info: Optional[Dict[str, Any]],
                                        aspect_ratio: str = 'auto', quantity: int = 1) -> Dict[str, Any]:
@@ -1085,10 +1113,10 @@ user input: {prompt}
         self,
         prompt: str,
         model: str,
-        resolution: Optional[str] = None,
-        duration: Optional[int] = None,
-        aspect_ratio: Optional[str] = None,
-        input_images: Optional[List[str]] = None,
+        resolution: str = "480p",
+        duration: int = 5,
+        aspect_ratio: str = "9:16",
+        input_images: List[str] = [],
         **kwargs: Any
     ) -> Dict[str, Any]:
         """
