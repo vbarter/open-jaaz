@@ -50,6 +50,7 @@ DEFAULT_PROVIDERS_CONFIG: AppConfig = {
         'models': {
             'gemini-2.5-flash-image': {'type': 'image'},
             'gemini-2.5-pro-all': {'type': 'text'},
+            'veo3-fast': {'type': 'video'},
         },
         'url': 'https://api.tu-zi.com/v1',
         'api_key': 'sk-xNyBtMDiP435GMO6e2opXYiSpkNbcVwMK93Vz8joVIPTXuzV',
@@ -60,6 +61,11 @@ DEFAULT_PROVIDERS_CONFIG: AppConfig = {
         },
         'url': 'https://api.apiplus.org/v1',
         'api_key': 'sk-T5GzBCTpRm92Po9G9WU9B19w1p1pxHJ8qwfcAcZ47MdZCzEM',
+    },
+    'yunwu': {
+        'models': {},
+        'url': 'https://api.apiplus.org/v1',
+        'api_key': 'sk-3id68TiP9AKUFzIhSnz8KrTTDXDXKyR05xuOW7kyCIubMlDq',
     },
 
 }

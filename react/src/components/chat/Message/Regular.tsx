@@ -3,6 +3,7 @@ import { Markdown } from '../Markdown'
 import MessageImage from './Image'
 import InsufficientPointsCard from './InsufficientPointsCard'
 import Timestamp from './Timestamp'
+import VideoMessage from '../VideoMessage'
 
 type MessageRegularProps = {
   message: Message
@@ -22,6 +23,9 @@ const MessageRegular: React.FC<MessageRegularProps> = ({
       ? content.text
       : ''
   if (!isText) return <MessageImage content={content} />
+
+  // 检测视频消息
+  const isVideoMessage = message.role === 'assistant' && (message as any)?.type === 'video'
 
   // 检测积分不足消息
   const isInsufficientPointsMessage = message.role === 'assistant' && (
@@ -133,7 +137,14 @@ const MessageRegular: React.FC<MessageRegularProps> = ({
             align="left"
           />
           <div className="text-gray-800 dark:text-gray-200 text-left items-start flex flex-col">
-            {isInsufficientPointsMessage ? (
+            {isVideoMessage ? (
+              <VideoMessage
+                content={markdownText}
+                videoUrl={(message as any)?.video_url}
+                videoId={(message as any)?.video_id}
+                metadata={(message as any)?.metadata}
+              />
+            ) : isInsufficientPointsMessage ? (
               <InsufficientPointsCard
                 {...extractPointsInfo(markdownText)}
               />

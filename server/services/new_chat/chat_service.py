@@ -207,6 +207,8 @@ async def handle_chat(data: Dict[str, Any]) -> None:
         provider = 'anthropic'
     elif 'seedream' in model_name.lower():
         provider = 'doubao'
+    elif model_name.lower().startswith("veo"):
+        provider = 'yunwu'
     else:
         provider = 'openai'  # 默认提供商
     
@@ -223,12 +225,6 @@ async def handle_chat(data: Dict[str, Any]) -> None:
     
     # Extract user information
     user_uuid = user_info.get('uuid') if user_info else None
-
-    # print('✨ magic_service 接收到数据:', {
-    #     'session_id': session_id,
-    #     'canvas_id': canvas_id,
-    #     'messages_count': len(messages),
-    # })
 
     # If there is only one message, create a new magic session
     if len(messages) == 1:
@@ -313,37 +309,22 @@ async def handle_chat(data: Dict[str, Any]) -> None:
 
     
     # 🎯 提前检查画图积分：在AI生成前检查用户是否有足够积分
-    user_has_drawing_intent = False
-    if messages and len(messages) > 0:
-        user_message = messages[-1]
-        if user_message.get('role') == 'user':
-            content = user_message.get('content', [])
-            if isinstance(content, list):
-                for item in content:
-                    if item.get('type') == 'text':
-                        text = item.get('text', '').lower()
-                        drawing_keywords = ['画', '绘制', '生成图片', '创建图像', '制作图片', 'draw', 'generate image', 'create picture']
-                        if any(keyword in text for keyword in drawing_keywords):
-                            user_has_drawing_intent = True
-                            break
-            elif isinstance(content, str):
-                text = content.lower()
-                drawing_keywords = ['画', '绘制', '生成图片', '创建图像', '制作图片', 'draw', 'generate image', 'create picture']
-                if any(keyword in text for keyword in drawing_keywords):
-                    user_has_drawing_intent = True
+    user_has_drawing_intent = await _check_video_or_image(messages)
     
-    logger.info(f"🔍 [DEBUG] 预检查用户画图意图: {user_has_drawing_intent}")
+    logger.info(f"🔍 预检查用户意图: {user_has_drawing_intent}")
     
     # 如果检测到画图意图，立即进行积分检查
-    if user_has_drawing_intent and user_info and user_info.get('id') and user_info.get('uuid'):
+    if user_has_drawing_intent in ('video', 'image') and user_info and user_info.get('id') and user_info.get('uuid'):
         try:
-            logger.info(f"🎯 [DEBUG] 检测到画图意图，进行预积分检查")
-            await points_service.check_and_reserve_image_generation_points(
-                user_info.get('id'), user_info.get('uuid')
-            )
-            logger.info(f"✅ [DEBUG] 画图积分预检查通过，继续处理")
+            
+            if user_has_drawing_intent == 'video':
+                logger.info(f"🎯 [DEBUG] 检测到视频意图，进行预积分检查")
+                await points_service.check_and_reserve_image_generation_points(user_info.get('id'), user_info.get('uuid'), required_points=5)
+            else:
+                logger.info(f"🎯 [DEBUG] 检测到画图意图，进行预积分检查")
+                await points_service.check_and_reserve_image_generation_points(user_info.get('id'), user_info.get('uuid'), required_points=2)
         except InsufficientPointsError as e:
-            logger.warning(f"❌ 画图积分预检查失败，用户 {user_info.get('id')}: {e.message}")
+            logger.warning(f"❌ 积分预检查失败，用户 {user_info.get('id')}: {e.message}")
             
             # 获取用户语言偏好
             user_language = user_info.get('language', 'en') if user_info else 'en'
@@ -529,7 +510,7 @@ async def _process_generation(
     user_uuid: Optional[str] = None,
     user_info: Optional[Dict[str, Any]] = None,
     enhanced_user_message: Optional[Dict[str, Any]] = None,
-    user_has_drawing_intent: bool = False,
+    user_has_drawing_intent: str = "text",
     user_language: str = 'en',
     provider: str = 'openai',
     aspect_ratio: str = 'auto',
@@ -566,7 +547,8 @@ async def _process_generation(
                                                   user_info,
                                                   provider=provider,
                                                   aspect_ratio=aspect_ratio,
-                                                  quantity=quantity)
+                                                  quantity=quantity,
+                                                  user_has_drawing_intent=user_has_drawing_intent)
         
         # 4. 检查生成结果是否包含图片，或者检查用户是否有画图意图
         logger.info(f"🔍 [DEBUG] 检查AI响应内容: {str(ai_response.get('content', ''))[:200]}...")
@@ -580,28 +562,6 @@ async def _process_generation(
                                    '![image](' in content or 
                                    (content.count('![') > 0 and content.count('](') > 0))
         
-        # 检查用户是否有画图意图（检查用户消息中的关键词）
-        user_has_drawing_intent = False
-        if messages and len(messages) > 0:
-            user_message = messages[-1]
-            if user_message.get('role') == 'user':
-                content = user_message.get('content', [])
-                if isinstance(content, list):
-                    for item in content:
-                        if item.get('type') == 'text':
-                            text = item.get('text', '').lower()
-                            drawing_keywords = ['画', '绘制', '生成图片', '创建图像', '制作图片', 'draw', 'generate image', 'create picture']
-                            if any(keyword in text for keyword in drawing_keywords):
-                                user_has_drawing_intent = True
-                                break
-                elif isinstance(content, str):
-                    text = content.lower()
-                    drawing_keywords = ['画', '绘制', '生成图片', '创建图像', '制作图片', 'draw', 'generate image', 'create picture']
-                    if any(keyword in text for keyword in drawing_keywords):
-                        user_has_drawing_intent = True
-        
-        logger.info(f"🔍 [DEBUG] 图片检测结果: has_generated_image={has_generated_image}, user_has_drawing_intent={user_has_drawing_intent}")
-        
         # 🆕 [CHAT_DUAL_DISPLAY] AI响应内容检查，现在支持markdown图片格式用于聊天显示
         ai_response_content = ai_response.get('content', '')
         logger.info(f"🖼️ [CHAT_DUAL_DISPLAY] AI响应内容预览: {str(ai_response_content)[:100]}...")
@@ -613,15 +573,24 @@ async def _process_generation(
         # 🔧 [FIX] 移除重复保存标志，改用统一保存逻辑
         
         # 🎯 新逻辑：如果用户有画图意图且积分检查已通过，直接扣除积分
-        if user_has_drawing_intent and user_info and user_info.get('id') and user_info.get('uuid'):
+        if user_info and user_info.get('id') and user_info.get('uuid'):
             logger.info(f"🎯 [DEBUG] 用户有画图意图且积分已预检查通过，进行积分扣除")
             try:
                 # 扣除积分（积分检查已在主函数中完成）
-                deduction_result = await points_service.deduct_image_generation_points(
-                    user_id=user_info.get('id'),
-                    user_uuid=user_info.get('uuid'),
-                    session_id=session_id
-                )
+                if user_has_drawing_intent == 'video':
+                    deduction_result = await points_service.deduct_image_generation_points(
+                        user_id=user_info.get('id'),
+                        user_uuid=user_info.get('uuid'),
+                        session_id=session_id,
+                        deduction_points=5
+                    )
+                else:
+                    deduction_result = await points_service.deduct_image_generation_points(
+                        user_id=user_info.get('id'),
+                        user_uuid=user_info.get('uuid'),
+                        session_id=session_id,
+                        deduction_points=2
+                    )
                 
                 if deduction_result['success']:
                     logger.info(f"✅ 聊天画图积分扣除成功: {deduction_result['message']}")
@@ -656,66 +625,6 @@ async def _process_generation(
                     
             except Exception as e:
                 logger.error(f"❌ 聊天画图扣除积分时发生错误: {e}")
-                
-        # 如果实际生成了图片但没有预先的画图意图，进行传统积分处理
-        elif has_generated_image and not user_has_drawing_intent:
-            has_image = True
-            logger.info(f"🎯 [DEBUG] 检测到实际生成了图片，开始积分处理流程")
-            # 发送图片上传状态
-            await send_image_upload_status(session_id=session_id, canvas_id=canvas_id)
-            
-            # 🎯 检测到生成了图片，扣除积分
-            if user_info and user_info.get('id') and user_info.get('uuid'):
-                logger.info(f"🔍 [DEBUG] 用户信息验证通过: user_id={user_info.get('id')}, user_uuid={user_info.get('uuid')}")
-                try:
-                    # 先检查积分是否足够
-                    await points_service.check_and_reserve_image_generation_points(
-                        user_info.get('id'), user_info.get('uuid')
-                    )
-                    
-                    # 扣除积分
-                    deduction_result = await points_service.deduct_image_generation_points(
-                        user_id=user_info.get('id'),
-                        user_uuid=user_info.get('uuid'),
-                        session_id=session_id
-                    )
-                    
-                    if deduction_result['success']:
-                        logger.info(f"✅ 聊天画图积分扣除成功: {deduction_result['message']}")
-                        
-                        # 🔧 [FIX] 移除第二分支的重复图片保存逻辑  
-                        # 图片保存将在后续的统一位置处理，避免重复保存
-                        if canvas_id:
-                            logger.info(f"🖼️ [DEBUG] 第二分支：检测到画布，图片将在统一位置保存")
-                        
-                        # 通过WebSocket通知前端积分变化
-                        notification_message = {
-                            'type': 'points_deducted',
-                            'points_deducted': deduction_result['points_deducted'],
-                            'balance_after': deduction_result['balance_after'],
-                            'message': f"生成图片完成，扣除{deduction_result['points_deducted']}积分，剩余{deduction_result['balance_after']}积分"
-                        }
-                        logger.info(f"📡 [DEBUG] 准备发送积分扣除通知: {notification_message}")
-                        
-                        await send_to_websocket(session_id, notification_message)
-                        logger.info(f"📡 [DEBUG] 积分扣除通知已发送到session: {session_id}")
-                    else:
-                        logger.error(f"❌ 聊天画图积分扣除失败: {deduction_result['message']}")
-                        
-                except InsufficientPointsError as e:
-                    logger.warning(f"❌ 实际生成图片后发现积分不足，用户 {user_info.get('id')}: {e.message}")
-                    # 这种情况比较特殊，图片已经生成但积分不足
-                    await send_to_websocket(session_id, {
-                        'type': 'warning',
-                        'message': f"图片已生成但{e.message}，请及时充值积分",
-                        'error_code': 'insufficient_points_after_generation'
-                    })
-                except Exception as e:
-                    logger.error(f"❌ 聊天画图扣除积分时发生错误: {e}")
-            else:
-                logger.warning(f"⚠️ [DEBUG] 检测到图片但用户信息不完整，跳过积分扣除: user_info={user_info}")
-        else:
-            logger.info(f"🔍 [DEBUG] 未检测到图片生成或画图意图，不进行积分扣除")
         
     except Exception as e:
         logger.error(f"[ERROR] 生成过程出错: {e}")
@@ -801,3 +710,95 @@ async def _process_generation(
             'ai_response': ai_response_with_id
         }
     )
+
+
+async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
+    """
+    检查用户消息是否包含视频或图片生成意图
+    
+    Args:
+        messages: 用户消息列表
+        
+    Returns:
+        str: 'video' | 'image' | 'text'
+    """
+    if not messages:
+        return 'text'
+    
+    # 获取最后一条用户消息
+    last_message = messages[-1]
+    if last_message.get('role') != 'user':
+        return 'text'
+    
+    content: str = last_message.get('content', '')
+    
+    # 检查是否包含图片
+    has_image = False
+    text_content: str = ''
+    
+    if isinstance(content, list):
+        for item in content:
+            if item.get('type') == 'image_url':
+                has_image = True
+            elif item.get('type') == 'text':
+                text_content += item.get('text', '') + ' '
+        text_content = text_content.strip()
+    else:
+        text_content = content
+
+    if not text_content:
+        return 'text'
+    
+    from openai import AsyncOpenAI
+
+    intent_client = AsyncOpenAI(
+                api_key="sk-l3f6rcO4mZ3EZBLlUr6Gw7UHAszGOTQClJInVpUa6cgGezjp",
+                base_url="https://api.apiplus.org/v1",
+                timeout=30.0,
+                max_retries=0
+    )
+
+    # 策略1: 如果有图片，肯定是图片或视频生成
+    if has_image:
+        # 通过文本内容判断是视频还是图片
+        prompt = f"""你是一个意图识别专家。请分析用户的消息，判断用户想要：
+1. 生成视频 - 返回 "video"
+2. 生成图片/画图 - 返回 "image"  
+
+视频关键词：视频、录像、动画、动态、拍摄、制作视频、video、animation、movie、clip
+图片关键词：画、绘制、生成图片、创建图像、制作图片、draw、generate image、create picture、paint、sketch
+只返回一个词：video、image
+
+用户输入: {text_content}
+返回:"""
+        
+        response = await intent_client.chat.completions.create(
+                         model="gpt-5-2025-08-07",
+                         messages=[{"role": "user", "content": prompt}],
+                         max_tokens=100,
+                         temperature=0.1)
+        
+        result = response.choices[0].message.content.strip().lower()
+        return result
+    else:
+        # 通过文本内容判断是视频还是图片
+        prompt = f"""你是一个意图识别专家。请分析用户的消息，判断用户想要：
+1. 生成视频 - 返回 "video"
+2. 生成图片/画图 - 返回 "image" 
+3. 文本对话 - 返回 "text"
+
+视频关键词：视频、录像、动画、动态、拍摄、制作视频、video、animation、movie、clip
+图片关键词：画、绘制、生成图片、创建图像、制作图片、draw、generate image、create picture、paint、sketch
+只返回一个词：video、image、text
+
+用户输入: {text_content}
+返回:"""
+        
+        response = await intent_client.chat.completions.create(
+                         model="gpt-5-2025-08-07",
+                         messages=[{"role": "user", "content": prompt}],
+                         max_tokens=100,
+                         temperature=0.1)
+        
+        result = response.choices[0].message.content.strip().lower()
+        return result

@@ -241,118 +241,78 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({
     async (elementData: any, videoSrc: string) => {
       if (!excalidrawAPI) return
 
-      // Function to create video element with given dimensions
-      const createVideoElement = (finalWidth: number, finalHeight: number) => {
-        console.log('👇 Video element properties:', {
-          id: elementData.id,
-          type: elementData.type,
-          locked: elementData.locked,
-          groupIds: elementData.groupIds,
-          isDeleted: elementData.isDeleted,
-          x: elementData.x,
-          y: elementData.y,
-          width: elementData.width,
-          height: elementData.height,
-        })
+      console.log('🎥 添加视频到画布:', {
+        videoSrc,
+        elementData
+      })
 
-        const videoElements = convertToExcalidrawElements([
-          {
-            type: 'embeddable',
-            id: elementData.id,
-            x: elementData.x,
-            y: elementData.y,
-            width: elementData.width,
-            height: elementData.height,
-            link: videoSrc,
-            // 添加必需的基本样式属性
-            strokeColor: '#000000',
-            backgroundColor: 'transparent',
-            fillStyle: 'solid',
-            strokeWidth: 1,
-            strokeStyle: 'solid',
-            roundness: null,
-            roughness: 1,
-            opacity: 100,
-            // 添加必需的变换属性
-            angle: 0,
-            seed: Math.random(),
-            version: 1,
-            versionNonce: Math.random(),
-            // 添加必需的状态属性
-            locked: false,
-            isDeleted: false,
-            groupIds: [],
-            // 添加绑定框属性
-            boundElements: [],
-            updated: Date.now(),
-            // 添加必需的索引和帧ID属性
-            frameId: null,
-            index: null, // 添加缺失的index属性
-            // 添加自定义数据属性
-            customData: {},
-          },
-        ])
+      // 使用元素数据中的尺寸，如果没有则使用默认值
+      const width = elementData.width || 640
+      const height = elementData.height || 360
+      const x = elementData.x || 100
+      const y = elementData.y || 100
 
-        console.log('👇 Converted video elements:', videoElements)
-
-        const currentElements = excalidrawAPI.getSceneElements()
-        const newElements = [...currentElements, ...videoElements]
-
-        console.log(
-          '👇 Updating scene with elements count:',
-          newElements.length
-        )
-
-        excalidrawAPI.updateScene({
-          elements: newElements,
-        })
-
-        console.log(
-          '👇 Added video embed element:',
-          videoSrc,
-          `${elementData.width}x${elementData.height}`
-        )
+      // 创建嵌入元素（使用已有的属性或生成新的）
+      const videoElement = {
+        type: 'embeddable' as const,
+        id: elementData.id || `video_${Date.now()}`,
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        link: videoSrc,
+        // 基本样式属性
+        strokeColor: elementData.strokeColor || '#000000',
+        backgroundColor: elementData.backgroundColor || 'transparent',
+        fillStyle: elementData.fillStyle || 'solid',
+        strokeWidth: elementData.strokeWidth || 1,
+        strokeStyle: elementData.strokeStyle || 'solid',
+        roundness: elementData.roundness || null,
+        roughness: elementData.roughness || 1,
+        opacity: elementData.opacity || 100,
+        // 变换属性
+        angle: elementData.angle || 0,
+        seed: elementData.seed || Math.floor(Math.random() * 1000000),
+        version: elementData.version || 1,
+        versionNonce: elementData.versionNonce || Math.floor(Math.random() * 1000000),
+        // 状态属性
+        locked: elementData.locked || false,
+        isDeleted: elementData.isDeleted || false,
+        groupIds: elementData.groupIds || [],
+        // 绑定属性
+        boundElements: elementData.boundElements || [],
+        updated: elementData.updated || Date.now(),
+        // 框架属性
+        frameId: elementData.frameId || null,
+        index: elementData.index || null,
+        // 自定义数据
+        customData: elementData.customData || {},
       }
 
-      // If dimensions are provided, use them directly
-      if (elementData.width && elementData.height) {
-        createVideoElement(elementData.width, elementData.height)
-        return
-      }
+      console.log('🎬 创建的视频元素:', videoElement)
 
-      // Otherwise, try to get video's natural dimensions
-      const video = document.createElement('video')
-      video.crossOrigin = 'anonymous'
+      // 转换为Excalidraw元素
+      const videoElements = convertToExcalidrawElements([videoElement])
 
-      video.onloadedmetadata = () => {
-        const videoWidth = video.videoWidth
-        const videoHeight = video.videoHeight
+      console.log('👇 Converted video elements:', videoElements)
 
-        if (videoWidth && videoHeight) {
-          // Scale down if video is too large (max 800px width)
-          const maxWidth = 800
-          let finalWidth = videoWidth
-          let finalHeight = videoHeight
+      // 获取当前画布元素
+      const currentElements = excalidrawAPI.getSceneElements()
+      const newElements = [...currentElements, ...videoElements]
 
-          if (videoWidth > maxWidth) {
-            const scale = maxWidth / videoWidth
-            finalWidth = maxWidth
-            finalHeight = videoHeight * scale
-          }
+      console.log('👇 更新画布，元素总数:', newElements.length)
 
-          createVideoElement(finalWidth, finalHeight)
-        } else {
-          // Fallback to default dimensions
-          createVideoElement(320, 180)
-        }
-      }
+      // 更新画布场景
+      excalidrawAPI.updateScene({
+        elements: newElements,
+      })
 
-      video.onerror = () => {
-        console.warn('Could not load video metadata, using default dimensions')
-        createVideoElement(320, 180)
-      }
-
-      video.src = videoSrc
+      console.log(
+        '✅ 视频已添加到画布:',
+        videoSrc,
+        `尺寸: ${width}x${height}`,
+        `位置: (${x}, ${y})`
+      )
     },
     [excalidrawAPI]
   )

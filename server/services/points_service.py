@@ -341,8 +341,10 @@ class PointsService:
                 'message': f"扣除积分时发生错误: {str(e)}"
             }
     
-    async def check_and_reserve_image_generation_points(self, user_id: int, user_uuid: str, 
-                                                      required_points: int = 2) -> None:
+    async def check_and_reserve_image_generation_points(self, 
+                                                        user_id: int, 
+                                                        user_uuid: str, 
+                                                        required_points: int = 2) -> None:
         """
         检查并预留画图积分，如果积分不足则抛出异常
         这个方法专门用于画图前的积分检查
