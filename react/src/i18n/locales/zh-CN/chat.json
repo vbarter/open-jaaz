@@ -87,9 +87,13 @@
     "auto": "自动",
     "singleSelectMode": "单选模式",
     "globalSingleSelectMode": "全局单选 - 同时只能选择一个模型",
+    "multiSelectMode": "跨类型多选，同类型内单选",
     "selected": "已选择",
     "currentSelection": "当前选择",
     "willReplace": "将替换当前选择",
+    "text": "文本",
+    "image": "图像",
+    "video": "视频",
     "tabs": {
       "image": "图像",
       "video": "视频",

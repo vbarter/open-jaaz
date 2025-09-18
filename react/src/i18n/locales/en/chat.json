@@ -86,9 +86,13 @@
     "auto": "Auto",
     "singleSelectMode": "Single selection mode",
     "globalSingleSelectMode": "Global single selection - only one model at a time",
+    "multiSelectMode": "Multi-selection across types, single selection within type",
     "selected": "Selected",
     "currentSelection": "Current",
     "willReplace": "Will replace current selection",
+    "text": "Text",
+    "image": "Image",
+    "video": "Video",
     "tabs": {
       "image": "Image",
       "video": "Video",
