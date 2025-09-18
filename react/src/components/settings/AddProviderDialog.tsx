@@ -117,6 +117,7 @@ const PROVIDER_OPTIONS = [
       apiUrl: 'https://api.google.com/v1',
       models: {
         'gemini-2.5-flash-image': { type: 'image' },
+        veo3_fast: { type: 'video' },
         // not supported yet!
         // 'gemini-2.0-flash-preview-image-generation': { type: 'image' },
         // 'imagen-4.0-generate-preview-06-06': { type: 'image' },
