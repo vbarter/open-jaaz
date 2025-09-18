@@ -96,9 +96,9 @@ export const VideoMessage: React.FC<VideoMessageProps> = ({
 
       {/* 视频播放器 */}
       {videoUrl && (
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden shadow-sm">
-          {/* 视频容器 */}
-          <div className="relative bg-black">
+        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden shadow-sm w-full max-w-2xl">
+          {/* 视频容器 - 保持16:9宽高比，最大尺寸640x360以匹配后端 */}
+          <div className="relative bg-black mx-auto" style={{ maxWidth: '640px', width: '100%', aspectRatio: '16/9' }}>
             {/* 加载指示器 */}
             {isLoading && !hasError && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
@@ -132,10 +132,10 @@ export const VideoMessage: React.FC<VideoMessageProps> = ({
               </div>
             )}
 
-            {/* HTML5 视频播放器 */}
+            {/* HTML5 视频播放器 - 保持16:9宽高比，与后端一致 */}
             <video
               ref={videoRef}
-              className="w-full h-auto max-h-[400px]"
+              className="w-full h-full object-contain bg-black"
               controls
               controlsList="nodownload" // 隐藏下载按钮（我们提供自定义的）
               preload="metadata" // 预加载元数据
@@ -147,7 +147,12 @@ export const VideoMessage: React.FC<VideoMessageProps> = ({
               onLoadedMetadata={handleLoadedData}
               onError={handleError}
               onLoadStart={() => setIsLoading(true)}
-              style={{ display: hasError ? 'none' : 'block' }}
+              style={{
+                display: hasError ? 'none' : 'block',
+                maxWidth: '640px',
+                width: '100%',
+                aspectRatio: '16/9'
+              }}
             >
               <source src={videoUrl} type="video/mp4" />
               {/* 添加其他格式支持 */}
@@ -166,13 +171,15 @@ export const VideoMessage: React.FC<VideoMessageProps> = ({
             <div className="flex items-center justify-between">
               {/* 视频信息 */}
               <div className="text-xs text-gray-600 dark:text-gray-400 space-x-3">
-                {metadata?.width && metadata?.height && (
+                {metadata?.width && metadata?.height ? (
                   <span>{metadata.width}x{metadata.height}</span>
+                ) : (
+                  <span>640x360 (16:9)</span>
                 )}
                 {metadata?.duration && (
                   <span>{formatDuration(metadata.duration)}</span>
                 )}
-                {!metadata?.width && !metadata?.height && !metadata?.duration && videoReady && (
+                {!metadata?.duration && videoReady && (
                   <span>视频已就绪</span>
                 )}
               </div>

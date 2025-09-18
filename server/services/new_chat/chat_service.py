@@ -837,11 +837,19 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
     if has_image:
         # 通过文本内容判断是视频还是图片
         prompt = f"""你是一个意图识别专家。请分析用户的消息，判断用户想要：
-1. 生成视频 - 返回 "video"
-2. 生成图片/画图 - 返回 "image"  
+1. 如果用户想生成视频，返回 “video”
+* case1: 帮我生成一个视频
+* case2: 来个视频
+* case3: 制作一个视频
+* case4: 制作一个动画
+* case5: 制作一个动画视频
 
-视频关键词：视频、录像、动画、动态、拍摄、制作视频、video、animation、movie、clip
-图片关键词：画、绘制、生成图片、创建图像、制作图片、draw、generate image、create picture、paint、sketch
+2. 如果用户想生成图片/画图，返回 “image” 
+* case1: 帮我生成一个图片
+* case2: 来个图片
+* case3: 制作一个图片
+* case4: 制作一个图片
+
 只返回一个词：video、image
 
 用户输入: {text_content}
@@ -861,12 +869,21 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
     else:
         # 通过文本内容判断是视频还是图片
         prompt = f"""你是一个意图识别专家。请分析用户的消息，判断用户想要：
-1. 生成视频 - 返回 "video"
-2. 生成图片/画图 - 返回 "image" 
-3. 文本对话 - 返回 "text"
+1. 如果用户想生成视频，返回 “video”
+* case1: 帮我生成一个视频
+* case2: 来个视频
+* case3: 制作一个视频
+* case4: 制作一个动画
+* case5: 制作一个动画视频
 
-视频关键词：视频、录像、动画、动态、拍摄、制作视频、video、animation、movie、clip
-图片关键词：画、绘制、生成图片、创建图像、制作图片、draw、generate image、create picture、paint、sketch
+2. 如果用户想生成图片/画图，返回 “image” 
+* case1: 帮我生成一个图片
+* case2: 来个图片
+* case3: 制作一个图片
+* case4: 制作一个图片
+
+3. 除了上述情况，其他都是文本对话 - 返回 "text"
+
 只返回一个词：video、image、text
 
 用户输入: {text_content}

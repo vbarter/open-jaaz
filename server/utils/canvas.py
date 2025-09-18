@@ -5,13 +5,13 @@ import math
 class CanvasLayoutConfig:
     """画布布局配置类"""
     def __init__(self):
-        # 标准图片尺寸（保持16:9比例）
-        self.standard_width = 320
-        self.standard_height = 180
-        
-        # 布局参数
-        self.horizontal_spacing = 30
-        self.vertical_spacing = 30
+        # 标准图片尺寸（保持16:9比例）- 调整为更大的默认尺寸
+        self.standard_width = 640  # 从320调整为640
+        self.standard_height = 360  # 从180调整为360
+
+        # 布局参数 - 适当增加间距以适应更大的元素
+        self.horizontal_spacing = 40  # 从30调整为40
+        self.vertical_spacing = 40    # 从30调整为40
         self.margin_left = 50
         self.margin_top = 50
         

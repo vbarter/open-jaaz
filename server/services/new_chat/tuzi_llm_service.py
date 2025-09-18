@@ -348,7 +348,8 @@ class TuziLLMService:
             elif user_has_drawing_intent == "video":
                 #video_model = self._get_video_generation_model(model_name)
                 logger.info("🎥 检测到视频意图，执行视频生成流程")
-                return await self.generate_video(user_prompt, model_name)
+                logger.info(f"🔍 [DEBUG] 输入图片: {image_content}")
+                return await self.generate_video(user_prompt, model_name, input_images=image_content)
         except Exception as e:
             error_msg = f"Error in generate: {str(e)}"
             logger.error(f"❌ {error_msg}")

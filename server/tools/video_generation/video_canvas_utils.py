@@ -54,15 +54,15 @@ def _calculate_video_optimal_size(original_width: int, original_height: int) -> 
     # 标准16:9比例
     target_ratio = 16 / 9
     
-    # 最大尺寸限制
-    max_width = layout_config.standard_width * 1.5
-    max_height = layout_config.standard_height * 1.5
-    
+    # 最大尺寸限制 - 允许更大的视频
+    max_width = min(layout_config.standard_width * 1.5, 960)  # 最大960px宽
+    max_height = min(layout_config.standard_height * 1.5, 540)  # 最大540px高
+
     # 如果原始尺寸在合理范围内，直接使用
     if original_width <= max_width and original_height <= max_height:
         return original_width, original_height
-    
-    # 按照16:9比例和最大宽度计算
+
+    # 按照16:9比例和最大宽度计算 - 使用标准尺寸作为默认值
     optimal_width = min(max_width, layout_config.standard_width)
     optimal_height = int(optimal_width / target_ratio)
     

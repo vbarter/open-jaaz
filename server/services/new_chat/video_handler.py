@@ -58,13 +58,13 @@ async def handle_video_generation(
         # 生成唯一的视频ID
         video_id = str(uuid.uuid4())
 
-        # 创建视频元素数据（用于Excalidraw）
+        # 创建视频元素数据（用于Excalidraw）- 使用新的标准尺寸
         element_data = {
             'id': video_id,
             'type': 'embeddable',
             'x': 100,  # 默认位置
             'y': 100,
-            'width': 640,  # 默认尺寸
+            'width': 640,  # 标准尺寸640x360
             'height': 360,
             'link': video_url,
             'locked': False,
