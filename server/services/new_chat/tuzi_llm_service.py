@@ -744,7 +744,7 @@ class TuziLLMService:
                     logger.error(f"🎯 [DEBUG]   file_size_error: {e}")
 
                 prompt = f"""
-Generate images based on user input
+基于用户输入的图片，结合用户需求，重新生成一张完整的图片，不要引用任何原文图片
 user input: {prompt}
 """
                 # 将aspect_ratio转换为size参数（用于图片编辑）
@@ -771,7 +771,7 @@ user input: {prompt}
                         'base_url': self.api_url,
                         'api_key': self.api_token
                     }
-                    logger.info(f"🎯 [DEBUG] 完整调用参数: {list(edit_params.keys())}")
+                    logger.info(f"🎯 [DEBUG] 完整调用参数: {edit_params}")
 
                     result = await client.images.edit(
                         model=model,
