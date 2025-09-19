@@ -114,6 +114,23 @@ app.include_router(pages_router.router)
 app.include_router(invite_router.router)
 app.include_router(user_model_router.router)
 
+# Sitemap.xml endpoint
+@app.get("/sitemap.xml")
+async def get_sitemap():
+    """返回sitemap.xml文件"""
+    sitemap_path = os.path.join(react_build_dir, "sitemap.xml")
+    if os.path.exists(sitemap_path):
+        return FileResponse(sitemap_path, media_type="application/xml")
+    raise HTTPException(status_code=404, detail="Sitemap not found")
+
+@app.get("/robots.txt")
+async def get_robots():
+    """返回robots.txt文件"""
+    robots_path = os.path.join(react_build_dir, "robots.txt")
+    if os.path.exists(robots_path):
+        return FileResponse(robots_path, media_type="text/plain")
+    raise HTTPException(status_code=404, detail="Robots.txt not found")
+
 # Mount the React build directory
 react_build_dir = os.environ.get('UI_DIST_DIR', os.path.join(
     os.path.dirname(root_dir), "react", "dist"))
@@ -152,7 +169,7 @@ if os.path.exists(react_build_dir):
 @app.get("/{filename:path}")
 async def serve_static_files(filename: str):
     # Check if file exists in react build directory and is a static file
-    if filename.endswith(('.png', '.svg', '.ico', '.jpg', '.jpeg', '.gif', '.webp', '.html')):
+    if filename.endswith(('.png', '.svg', '.ico', '.jpg', '.jpeg', '.gif', '.webp', '.html', '.xml', '.txt')):
         file_path = os.path.join(react_build_dir, filename)
         if os.path.exists(file_path):
             return FileResponse(file_path)
