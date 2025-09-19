@@ -76,8 +76,8 @@ class DatabaseService:
             from utils.url_converter import convert_to_cos_url
             cos_url = convert_to_cos_url(thumbnail)
             
-            if cos_url != thumbnail:
-                logger.info(f"✨ 转换thumbnail URL: {thumbnail} -> {cos_url}")
+            # if cos_url != thumbnail:
+            #     logger.info(f"✨ 转换thumbnail URL: {thumbnail} -> {cos_url}")
             
             return cos_url
                 
