@@ -142,19 +142,11 @@ export function FloatingUserInfo() {
 
     return (
       <>
-        <div className="absolute top-16 left-4 md:bottom-5 md:top-auto z-30">
+        <div className="absolute top-2 right-2 md:top-4 md:right-4 z-30">
           <DropdownMenu onOpenChange={(open) => open && handleMenuOpen()}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative p-0 h-auto rounded-lg hover:bg-white/90 transition-all duration-200">
-                <div className="flex items-center gap-2 bg-white/85 backdrop-blur-md border border-white/30 rounded-lg px-2 py-1 shadow-none">
-                  {/* 用户头像 */}
-                  <Avatar className="h-7 w-7 ring-1 ring-blue-200/30">
-                    <AvatarImage src={image_url} alt={username} />
-                    <AvatarFallback className="text-[10px] font-medium bg-gradient-to-br from-blue-100 to-indigo-100 text-slate-600">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-
+              <Button variant="ghost" className="relative p-1.5 md:p-2 h-auto rounded-lg hover:bg-transparent hover:text-current transition-none focus-visible:ring-0 focus-visible:ring-offset-0">
+                <div className="flex items-center gap-2">
                   {/* 积分显示 */}
                   <div className="flex items-center gap-1.5 text-slate-600">
                     <div className="p-1 rounded-full bg-gray-100">
@@ -164,10 +156,18 @@ export function FloatingUserInfo() {
                       {balanceLoading ? '...' : balanceError ? '--' : points}
                     </span>
                   </div>
+
+                  {/* 用户头像 */}
+                  <Avatar className="h-7 w-7 ring-1 ring-blue-200/30">
+                    <AvatarImage src={image_url} alt={username} />
+                    <AvatarFallback className="text-[10px] font-medium bg-gradient-to-br from-blue-100 to-indigo-100 text-slate-600">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64 bg-white/85 backdrop-blur-md border-white/40 ml-4">
+            <DropdownMenuContent align="end" className="w-64 bg-white/95 backdrop-blur-lg border border-gray-200/50 shadow-2xl mr-4 z-90">
               {/* User Profile Header */}
               <div className="px-3 py-3 border-b border-white/30">
                 <div className="flex items-center space-x-3">
@@ -260,12 +260,12 @@ export function FloatingUserInfo() {
 
   // 未登录状态，显示登录提示
   return (
-    <div className="absolute top-16 left-4 md:bottom-5 md:top-auto z-30">
+    <div className="absolute top-2 right-2 md:top-4 md:right-4 z-30">
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
         onClick={() => setShowLoginDialog(true)}
-        className="bg-white/85 backdrop-blur-md border-gray-200/30 text-gray-700 hover:bg-white/90 transition-all duration-200 text-[10px] px-1.5 py-0.5 h-auto shadow-none rounded-lg"
+        className="p-1.5 md:p-2 h-auto rounded-lg hover:bg-transparent hover:text-current transition-none text-gray-700 focus-visible:ring-0 focus-visible:ring-offset-0"
       >
         {t('common:auth.login')}
       </Button>
