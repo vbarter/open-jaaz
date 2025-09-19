@@ -1,0 +1,23 @@
+User-agent: *
+Allow: /
+
+# Disallow crawling of API endpoints
+Disallow: /api/
+
+# Disallow crawling of admin areas
+Disallow: /admin/
+
+# Disallow crawling of user private areas
+Disallow: /dashboard/
+Disallow: /profile/
+
+# Allow crawling of public assets
+Allow: /assets/
+Allow: /*.css
+Allow: /*.js
+Allow: /*.png
+Allow: /*.jpg
+Allow: /*.svg
+
+# Sitemap location
+Sitemap: https://www.magicart.cc/sitemap.xml

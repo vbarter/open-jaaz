@@ -1,16 +1,23 @@
-import { listCanvases } from '@/api/canvas'
+import { listCanvases, createCanvas } from '@/api/canvas'
 import CanvasCard from '@/components/home/CanvasCard'
-import { useQuery } from '@tanstack/react-query'
+import { Button } from '@/components/ui/button'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { useNavigate, useLocation } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
+import { useConfigs } from '@/contexts/configs'
+import { DEFAULT_SYSTEM_PROMPT } from '@/constants'
+import { nanoid } from 'nanoid'
+import { toast } from 'sonner'
+import { Plus } from 'lucide-react'
 
 const CanvasList: React.FC = () => {
   const { t } = useTranslation()
   const location = useLocation()
   const { authStatus } = useAuth()
+  const { setInitCanvas } = useConfigs()
   const isHomePage = location.pathname === '/'
 
   const { data: canvases, refetch } = useQuery({
@@ -33,6 +40,42 @@ const CanvasList: React.FC = () => {
     navigate({ to: '/canvas/$id', params: { id } })
   }
 
+  // 创建新项目的mutation
+  const { mutate: createCanvasMutation, isPending: isCreatingCanvas } = useMutation({
+    mutationFn: createCanvas,
+    onSuccess: (data, variables) => {
+      setInitCanvas(true)
+
+      // 跳转到新创建的canvas页面
+      navigate({
+        to: '/canvas/$id',
+        params: { id: data.id },
+        search: {
+          sessionId: variables.session_id,
+        },
+      })
+    },
+    onError: (error) => {
+      console.error('[debug] Canvas创建失败:', error)
+      toast.error(t('common:messages.error'), {
+        description: error.message,
+      })
+    },
+  })
+
+  // 创建新项目的处理函数
+  const handleCreateNewProject = () => {
+    createCanvasMutation({
+      name: t('home:newCanvas'),
+      canvas_id: nanoid(),
+      messages: [], // 空消息数组，创建空项目
+      session_id: nanoid(),
+      text_model: null, // 使用默认模型
+      tool_list: [], // 使用默认工具
+      system_prompt: localStorage.getItem('system_prompt') || DEFAULT_SYSTEM_PROMPT,
+    })
+  }
+
   // 🚨 如果未登录，不显示项目列表
   if (!authStatus.is_logged_in) {
     console.log('🚫 CanvasList: User not logged in, not showing projects')
@@ -42,14 +85,24 @@ const CanvasList: React.FC = () => {
   return (
     <div className="flex flex-col px-4 sm:px-6 md:px-10 mt-6 sm:mt-8 md:mt-10 gap-4 select-none max-w-[1200px] mx-auto">
       {canvases && canvases.length > 0 && (
-        <motion.span
-          className="text-xl sm:text-2xl font-bold px-2 sm:px-0"
+        <motion.div
+          className="flex items-center justify-between px-2 sm:px-0"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          {t('home:allProjects')}
-        </motion.span>
+          <span className="text-xl sm:text-2xl font-bold">
+            {t('home:allProjects')}
+          </span>
+          <Button
+            onClick={handleCreateNewProject}
+            disabled={isCreatingCanvas}
+            className="bg-gray-800 hover:bg-gray-700 text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center gap-2 shadow-sm transition-colors"
+          >
+            <Plus className="size-4" />
+            {t('home:newProject')}
+          </Button>
+        </motion.div>
       )}
 
       <AnimatePresence>
