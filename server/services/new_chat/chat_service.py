@@ -915,16 +915,16 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
 返回:"""
         
         response = await intent_client.chat.completions.create(
-                         model="gpt-5-2025-08-07",
+                         model="gpt-5-all",
                          messages=[{"role": "user", "content": prompt}],
                          max_tokens=100,
                          temperature=0.1)
 
         result = response.choices[0].message.content.strip().lower()
-        logger.info(f"🔍 [DEBUG] 意图识别结果: {result}")
+        logger.info(f"🔍 [DEBUG] 带图片上传，意图识别结果: {result}")
         # 确保返回有效的意图
-        if result not in ['video', 'image', 'text']:
-            return 'text'  # 默认返回文本意图
+        if result not in ['video', 'image']:
+            return 'image'  # 默认返回文本意图
         return result
     else:
         # 通过文本内容判断是视频还是图片
@@ -957,7 +957,7 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
                          temperature=0.1)
 
         result = response.choices[0].message.content.strip().lower()
-        logger.info(f"🔍 [DEBUG] 意图识别结果: {result}")
+        logger.info(f"🔍 [DEBUG] 不带图片上传，意图识别结果: {result}")
         # 确保返回有效的意图
         if result not in ['video', 'image', 'text']:
             return 'text'  # 默认返回文本意图

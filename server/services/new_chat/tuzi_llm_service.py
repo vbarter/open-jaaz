@@ -337,7 +337,6 @@ class TuziLLMService:
                 # 步骤3: 不是画图，直接走用户设定的大模型调用
                 return await self._handle_text_conversation(model_name, user_prompt, user_info, stream=stream)
             elif user_has_drawing_intent == "image":
-                logger.info("💬 检测到画图意图，执行图片生成流程")
                 ##image_model = self._get_image_generation_model(model_name)
                 if len(image_content) > 0:
                     logger.info("🖼️ 检测到图片上传，执行图片编辑流程")
