@@ -907,6 +907,7 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
 * case2: 来个图片
 * case3: 制作一个图片
 * case4: 制作一个图片
+* case5: 画一个...
 
 只返回一个词：video、image
 
@@ -920,6 +921,7 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
                          temperature=0.1)
 
         result = response.choices[0].message.content.strip().lower()
+        logger.info(f"🔍 [DEBUG] 意图识别结果: {result}")
         # 确保返回有效的意图
         if result not in ['video', 'image', 'text']:
             return 'text'  # 默认返回文本意图
@@ -939,6 +941,7 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
 * case2: 来个图片
 * case3: 制作一个图片
 * case4: 制作一个图片
+* case5: 画一个...
 
 3. 除了上述情况，其他都是文本对话 - 返回 "text"
 
@@ -954,6 +957,7 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
                          temperature=0.1)
 
         result = response.choices[0].message.content.strip().lower()
+        logger.info(f"🔍 [DEBUG] 意图识别结果: {result}")
         # 确保返回有效的意图
         if result not in ['video', 'image', 'text']:
             return 'text'  # 默认返回文本意图
