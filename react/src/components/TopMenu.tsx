@@ -85,14 +85,14 @@ export default function TopMenu({
           >
             {t('navigation.templates')}
           </Button>
-          <Button
+          {/* <Button
             variant="ghost"
             size="sm"
             className="flex items-center font-medium px-2 py-1.5 text-sm rounded-lg hover:bg-white/20 hover:backdrop-blur-sm sm:px-4 sm:py-2 sm:text-base"
             onClick={() => navigate({ to: '/pricing' })}
           >
             {t('navigation.pricing')}
-          </Button>
+          </Button> */}
         </nav>
       </div>
 
