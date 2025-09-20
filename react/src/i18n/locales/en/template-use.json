@@ -20,6 +20,13 @@
     "aspectRatio": "Aspect Ratio",
     "quantity": "Quantity"
   },
+  "upload": {
+    "uploadImages": "Upload Images",
+    "uploadImagesOptional": "Upload Images (Optional)",
+    "needUploadImage": "Image Upload Required",
+    "dragDropFiles": "Drag files here or click to upload",
+    "supportedFormats": "Supports JPG, PNG, GIF formats"
+  },
   "messages": {
     "loading": "Loading template...",
     "error": "Error loading template",

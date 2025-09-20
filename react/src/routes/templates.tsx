@@ -10,6 +10,8 @@ import { getTemplates, type Template, type TemplateSearchParams } from '@/api/te
 import Footer from '@/components/common/Footer'
 import { useQuery } from '@tanstack/react-query'
 import { useState, useMemo } from 'react'
+import { getApiLanguage } from '@/utils/language'
+import { useLanguage } from '@/hooks/use-language'
 
 export const Route = createFileRoute('/templates')({
   component: TemplatesPage,
@@ -19,14 +21,16 @@ function TemplatesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const navigate = useNavigate()
   const { t } = useTranslation('templates')
-  
+  const { currentLanguage } = useLanguage()
+
   const searchParams: TemplateSearchParams = useMemo(() => ({
     search: searchTerm || undefined,
     page: 1,
     limit: 50, // 使用后端允许的最大值来获取所有模版
     sort_by: 'downloads',
-    sort_order: 'desc'
-  }), [searchTerm])
+    sort_order: 'desc',
+    lang: getApiLanguage(currentLanguage)
+  }), [searchTerm, currentLanguage])
 
   const { data: templatesData, isLoading, error } = useQuery({
     queryKey: ['templates', searchParams],

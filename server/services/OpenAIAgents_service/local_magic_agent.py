@@ -11,7 +11,7 @@ from utils.cos_image_service import get_cos_image_service
 from common import DEFAULT_PORT, BASE_URL
 from ..magic_draw_service import MagicDrawService
 from services.new_chat.tuzi_llm_service import TuziLLMService
-from routers.templates_router import TEMPLATES
+from services.template_service import template_service
 from services.i18n_service import i18n_service
 from log import get_logger
 
@@ -90,14 +90,15 @@ async def create_local_magic_response(messages: List[Dict[str, Any]],
                                             user_has_drawing_intent="url",
                                             user_language=user_language)
         else:
-            # 如果有template_id，从TEMPLATES获取对应的prompt
+            # 如果有template_id，从模板服务获取对应的prompt
             template_prompt = ""
             template_image = ""
             use_mask = 0
             is_image = 0
             try:
                 template_id_int = int(template_id)
-                template = next((t for t in TEMPLATES if t["id"] == template_id_int), None)
+                # 使用默认语言（中文）获取模板，保持向后兼容
+                template = template_service.get_template_by_id(template_id_int, "zh")
                 if template:
                     template_prompt = template.get("prompt", "")
                     template_image = str(template.get("image", ""))

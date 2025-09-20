@@ -17,6 +17,8 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getTemplate } from '@/api/templates'
 import { BASE_API_URL } from '@/constants'
+import { getApiLanguage } from '@/utils/language'
+import { useLanguage } from '@/hooks/use-language'
 import { uploadImageFast, FastUploadResult } from '@/api/upload'
 import { createCanvas } from '@/api/canvas'
 import { sendMagicGenerate } from '@/api/magic'
@@ -39,6 +41,7 @@ function TemplateUsePage() {
   const navigate = useNavigate()
   const { t } = useTranslation('template-use')
   const { textModel, selectedTools, setInitCanvas } = useConfigs()
+  const { currentLanguage } = useLanguage()
   const [characterName, setCharacterName] = useState('')
   const [images, setImages] = useState<
     {
@@ -63,8 +66,8 @@ function TemplateUsePage() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['template', templateId],
-    queryFn: () => getTemplate(parseInt(templateId)),
+    queryKey: ['template', templateId, currentLanguage],
+    queryFn: () => getTemplate(parseInt(templateId), getApiLanguage(currentLanguage)),
     staleTime: 5 * 60 * 1000,
   })
 
@@ -521,11 +524,11 @@ function TemplateUsePage() {
                       </Button>
                       {template.need_upload_file === 1 ? (
                         <span className='text-xs text-red-500'>
-                          * 需要上传图片
+                          * {t('upload.needUploadImage')}
                         </span>
                       ) : (
                         <span className='text-xs text-gray-500'>
-                          上传图片 (可选)
+                          {t('upload.uploadImagesOptional')}
                         </span>
                       )}
                     </div>
