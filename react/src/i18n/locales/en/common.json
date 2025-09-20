@@ -20,7 +20,8 @@
     "error": "Error",
     "success": "Success",
     "warning": "Warning",
-    "info": "Information"
+    "info": "Information",
+    "download": "Download"
   },
   "messages": {
     "success": "Operation completed successfully",

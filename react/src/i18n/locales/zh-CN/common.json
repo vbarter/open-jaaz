@@ -20,7 +20,8 @@
     "error": "错误",
     "success": "成功",
     "warning": "警告",
-    "info": "信息"
+    "info": "信息",
+    "download": "下载"
   },
   "messages": {
     "success": "操作成功完成",
