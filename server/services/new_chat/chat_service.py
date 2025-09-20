@@ -131,42 +131,7 @@ async def handle_chat(data: Dict[str, Any]) -> None:
     text_model_data = data.get('text_model')
     aspect_ratio: str = data.get('aspect_ratio', 'auto')
     quantity: int = data.get('quantity', 1)
-    
-    # 🌐 [I18N] 检测用户语言偏好
-    user_language = 'en'  # 默认英文
-    try:
-        # 方法1: 从用户消息内容检测语言
-        if messages:
-            latest_message = messages[-1]
-            if isinstance(latest_message, dict) and 'content' in latest_message:
-                content = latest_message['content']
-                if isinstance(content, list) and content:
-                    for item in content:
-                        if isinstance(item, dict) and item.get('type') == 'text':
-                            text_content = item.get('text', '')
-                            if text_content:
-                                detected_lang = i18n_service.detect_language_from_content(text_content)
-                                user_language = detected_lang
-                                logger.info(f"🌐 [I18N] 从用户消息检测语言: {user_language} (内容: {text_content[:50]}...)")
-                                break
-        
-        # 方法2: 从请求头检测语言（如果有的话）
-        accept_language = data.get('accept_language')
-        if accept_language:
-            header_lang = i18n_service.detect_language_from_accept_header(accept_language)
-            user_language = header_lang
-            logger.info(f"🌐 [I18N] 从Accept-Language头检测语言: {user_language}")
-        
-    except Exception as e:
-        logger.warning(f"⚠️ [I18N] 语言检测失败，使用默认英文: {e}")
-        user_language = 'en'
-    
-    logger.info(f"🌐 [I18N] 最终确定用户语言: {user_language}")
-    
-    # 添加详细的调试信息
-    logger.info(f"🔍 [DEBUG] 前端传入的完整请求数据 keys: {list(data.keys())}")
-    logger.info(f"🔍 [DEBUG] 前端传入的 model_name: '{model_name}'")
-    logger.info(f"🔍 [DEBUG] 前端传入的 text_model: {text_model_data}")
+    user_language: str = data.get('language', 'en')
 
 
     # 1 最先做意图理解，确认用户想干嘛
@@ -272,7 +237,7 @@ async def handle_chat(data: Dict[str, Any]) -> None:
     logger.info(f"🔍 预检查用户意图: {user_has_drawing_intent}")
     
     # 如果检测到画图意图，立即进行积分检查
-    if user_has_drawing_intent in ('video', 'image') and user_info and user_info.get('id') and user_info.get('uuid'):
+    if user_has_drawing_intent in ('video', 'image', 'url') and user_info and user_info.get('id') and user_info.get('uuid'):
         try:
             
             if user_has_drawing_intent == 'video':
@@ -512,7 +477,8 @@ async def _process_generation(
                                                   provider=provider,
                                                   aspect_ratio=aspect_ratio,
                                                   quantity=quantity,
-                                                  user_has_drawing_intent=user_has_drawing_intent)
+                                                  user_has_drawing_intent=user_has_drawing_intent,
+                                                  user_language=user_language)
         
         # 4. 检查生成结果是否包含图片，或者检查用户是否有画图意图
         logger.info(f"🔍 [DEBUG] 检查AI响应内容: {str(ai_response.get('content', ''))[:200]}...")
@@ -758,21 +724,11 @@ async def _auto_select_model_by_intent(intent: str, data: Dict[str, Any]) -> tup
     Returns:
         tuple[str, str]: (model_name, provider)
     """
-    from services.config_service import config_service
-    from services.tool_service import tool_service
     from services.db_service import db_service
-
-    config = config_service.get_config()
 
     # 获取用户信息
     user_info = data.get('user_info', {})
     user_uuid = user_info.get('uuid') if user_info else None
-
-    # 获取前端传入的模型选择（兼容性处理）
-    text_model_data = data.get('text_model', {})
-    selected_tools = data.get('selected_tools', [])
-    selected_image_tool = data.get('selected_image_tool', {})
-    selected_video_tool = data.get('selected_video_tool', {})
 
     # 从数据库获取用户保存的模型配置
     user_saved_models = None
@@ -785,12 +741,12 @@ async def _auto_select_model_by_intent(intent: str, data: Dict[str, Any]) -> tup
             logger.warning(f"⚠️ [Model Selection] 获取用户模型配置失败: {e}")
 
     logger.info(f"🎯 [Model Selection] 开始根据意图选择模型 - 意图: {intent}")
-    logger.info(f"🎯 [Model Selection] 前端传入数据 - text_model: {text_model_data}, selected_tools: {selected_tools}")
-    logger.info(f"🎯 [Model Selection] 前端传入数据 - image_tool: {selected_image_tool}, video_tool: {selected_video_tool}")
+    logger.info(f"🎯 [Model Selection] 前端传入数据 - user_saved_models: {user_saved_models}")
 
     if intent == 'text':
-        if user_saved_models and isinstance(user_saved_models, dict):
-            saved_text_model = user_saved_models.get('text_model', {})
+        if user_saved_models:
+            model_data = user_saved_models.get('model', {})
+            saved_text_model = model_data.get('text_model', {})
             if saved_text_model and saved_text_model.get('type') == 'text':
                 provider = saved_text_model.get('provider', '')
                 model_name = saved_text_model.get('model') or saved_text_model.get('display_name', '')
@@ -803,31 +759,33 @@ async def _auto_select_model_by_intent(intent: str, data: Dict[str, Any]) -> tup
         logger.info(f"⚠️ [Model Selection] 使用默认文本模型: {default_model} ({default_provider})")
         return default_model, default_provider
 
-    elif intent == 'image':
+    elif intent in ['image', 'url']:
         # 3. 尝试使用用户保存的图像工具配置
         if user_saved_models and isinstance(user_saved_models, dict):
-            saved_image_tool = user_saved_models.get('selected_image_tool', {})
+            model_data = user_saved_models.get('model', {})
+            saved_image_tool = model_data.get('selected_image_tool', {})
             if saved_image_tool and saved_image_tool.get('type') == 'image':
                 provider = saved_image_tool.get('provider', '')
                 model_name = saved_image_tool.get('display_name', '')
                 if model_name and provider:
-                    logger.info(f"💾 [Model Selection] 使用用户保存的图像工具: {tool_id} ({provider})")
+                    logger.info(f"💾 [Model Selection] 使用用户保存的图像工具: {model_name} ({provider})")
                     return model_name, provider
 
         default_model = 'gemini-2.5-flash-image'
         default_provider = 'google'
-        logger.info(f"⚠️ [Model Selection] 使用默认文本模型: {default_model} ({default_provider})")
+        logger.info(f"⚠️ [Model Selection] 使用默认图像模型: {default_model} ({default_provider})")
         return default_model, default_provider
 
     elif intent == 'video':
         # 3. 尝试使用用户保存的视频工具配置
-        if user_saved_models and isinstance(user_saved_models, dict):
-            saved_video_tool = user_saved_models.get('selected_video_tool', {})
+        if user_saved_models:
+            model_data = user_saved_models.get('model', {})
+            saved_video_tool = model_data.get('selected_video_tool', {})
             if saved_video_tool and saved_video_tool.get('type') == 'video':
                 provider = saved_video_tool.get('provider', '')
                 model_name = saved_video_tool.get('display_name', '')
                 if model_name and provider:
-                    if model_name == 'veo3-fast':
+                    if model_name == 'veo3_fast':
                         provider = 'yunwu'
                         model_name = 'veo3-fast-frames'
                     logger.info(f"💾 [Model Selection] 使用用户保存的视频工具: {model_name} ({provider})")
@@ -837,8 +795,6 @@ async def _auto_select_model_by_intent(intent: str, data: Dict[str, Any]) -> tup
         default_provider = 'yunwu'
         logger.warning(f"💾 [Model Selection] 没有找到可用的视频工具，使用默认: {default_model} ({default_provider})")
         return default_model, default_provider
-    elif intent == 'url':
-        return 'gemini-2.5-flash', 'google'
 
     # 默认返回文本模型
     logger.warning(f"⚠️ [Model Selection] 意图无法识别: {intent}，使用默认文本模型")

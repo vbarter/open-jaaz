@@ -33,32 +33,10 @@ async def chat(request: Request, current_user: Optional[CurrentUser] = Depends(g
         {"status": "done"}
     """
     data = await request.json()
-    
-    # 🔍 检测用户语言偏好
-    accept_language = request.headers.get('accept-language', '')
-    user_language = i18n_service.detect_language_from_accept_header(accept_language)
-    
-    # 如果用户发送的是中文消息，也可以作为语言检测的辅助
-    messages = data.get('messages', [])
-    if messages:
-        latest_message = messages[-1]
-        if latest_message.get('role') == 'user':
-            content = latest_message.get('content', '')
-            if isinstance(content, list):
-                # 提取文本内容
-                text_content = ''
-                for item in content:
-                    if isinstance(item, dict) and item.get('type') == 'text':
-                        text_content += item.get('text', '')
-            else:
-                text_content = str(content)
-            
-            # 基于内容检测语言
-            content_language = i18n_service.detect_language_from_content(text_content)
-            if content_language != 'en':  # 如果内容检测不是英文，优先使用内容检测结果
-                user_language = content_language
-    
-    logger.info(f"🌍 [DEBUG] 检测到用户语言: {user_language} (Accept-Language: {accept_language})")
+
+    # 🔍 检测用户语言偏好（优先级：前端传递 > Accept-Language > 内容检测）
+    user_language = 'en'  # 默认英文
+    logger.info(f"🌍 [DEBUG] 使用前端传递的语言: {user_language}")
     
     # 🔍 添加用户信息到请求数据中
     if current_user:

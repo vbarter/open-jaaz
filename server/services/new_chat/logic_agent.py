@@ -60,18 +60,6 @@ async def create_local_response(messages: List[Dict[str, Any]],
             user_prompt = user_message.get('content', '')
 
 
-        # 如果是视频生成请求，使用专门的视频处理器
-        # if user_has_drawing_intent == "video":
-        #     logger.info("🎥 检测到视频生成请求，使用视频处理器")
-        #     from services.new_chat.video_handler import handle_video_generation
-        #     return await handle_video_generation(
-        #         session_id=session_id,
-        #         canvas_id=canvas_id,
-        #         prompt=user_prompt,
-        #         tuzi_service=llm_service,
-        #         user_language=user_language
-        #     )
-
         # 否则使用原有的生成逻辑
         result = await llm_service.generate(model_name,
                                             user_prompt,
@@ -79,7 +67,8 @@ async def create_local_response(messages: List[Dict[str, Any]],
                                             user_info,
                                             aspect_ratio=aspect_ratio or "9:16",
                                             quantity=quantity,
-                                            user_has_drawing_intent=user_has_drawing_intent)
+                                            user_has_drawing_intent=user_has_drawing_intent,
+                                            user_language=user_language)
         if not result:
             # 导入错误消息工具
             from utils.error_messages import ErrorMessages

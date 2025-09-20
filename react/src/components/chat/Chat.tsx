@@ -11,6 +11,7 @@ import { motion } from 'motion/react'
 import { nanoid } from 'nanoid'
 import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 import { PhotoProvider } from 'react-photo-view'
 import { toast } from 'sonner'
 import ShinyText from '../ui/shiny-text'
@@ -1347,6 +1348,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         console.warn('⚠️ [VIDEO_DEBUG] Socket manager not available')
       }
 
+      // 🌍 获取当前语言
+      const currentLanguage = localStorage.getItem('i18nextLng') || i18n.language || 'en'
+
       const sendStart = performance.now()
       sendMessages({
         sessionId: effectiveSessionId,
@@ -1356,6 +1360,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         systemPrompt: localStorage.getItem('system_prompt') || DEFAULT_SYSTEM_PROMPT,
         aspectRatio: configs.aspectRatio || 'auto',
         quantity: configs.quantity || 1,
+        language: currentLanguage,
       })
       if (searchSessionId !== effectiveSessionId) {
         window.history.pushState({}, '', `/canvas/${canvasId}?sessionId=${effectiveSessionId}`)

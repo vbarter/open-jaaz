@@ -264,12 +264,16 @@ function TemplateUsePage() {
       // 3. 在后台启动魔法生成（通过websocket向canvas页面推送进度）
       // 使用setTimeout确保这个调用不会阻塞页面跳转
       setTimeout(() => {
+        // 🌍 获取当前语言
+        const currentLanguage = localStorage.getItem('i18nextLng') || 'en'
+
         sendMagicGenerate({
           sessionId: sessionId,
           canvasId: canvasId,
           newMessages: magicMessages,
           systemPrompt: systemPrompt,
           templateId: parseInt(templateId),
+          language: currentLanguage,
         }).catch((error) => {
           console.error('❌ 魔法生成启动失败:', error)
           // 错误会通过websocket推送到canvas页面
