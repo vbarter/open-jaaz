@@ -356,7 +356,7 @@ class TuziLLMService:
                 if prompt.strip() == "":
                     raise Exception("相关url，生成提示词为空")
                 logger.info(f"🔍 [DEBUG] 生成提示词: {prompt}")
-                return await self._handle_image_generation("gemini-2.5-flash-image", prompt, user_info, aspect_ratio, quantity)
+                return await self._handle_image_generation(model_name, prompt, user_info, aspect_ratio, quantity)
         except Exception as e:
             error_msg = f"Error in generate: {str(e)}"
             logger.error(f"❌ {error_msg}")
@@ -720,7 +720,7 @@ class TuziLLMService:
                 ) as response:
                     if response.status == 200:
                         result = await response.json()
-                        
+                        logger.info(f"🔍 [DEBUG] 提示词优化结果: {result}")
                         # 解析响应
                         if result.get('candidates') and len(result['candidates']) > 0:
                             candidate = result['candidates'][0]
