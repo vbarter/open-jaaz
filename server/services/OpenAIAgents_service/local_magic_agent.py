@@ -26,6 +26,7 @@ async def create_local_magic_response(messages: List[Dict[str, Any]],
                                       user_info: Optional[Dict[str, Any]] = None,
                                       aspect_ratio: str = "auto",
                                       quantity: int = 1,
+                                      user_language: str = "en",
                                       model_name: str = "",
                                       provider: str = "") -> Dict[str, Any]:
     """
@@ -87,7 +88,7 @@ async def create_local_magic_response(messages: List[Dict[str, Any]],
                                             aspect_ratio=aspect_ratio or "9:16",
                                             quantity=quantity,
                                             user_has_drawing_intent="url",
-                                            user_language="en")
+                                            user_language=user_language)
         else:
             # 如果有template_id，从TEMPLATES获取对应的prompt
             template_prompt = ""

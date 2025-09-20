@@ -33,10 +33,6 @@ async def chat(request: Request, current_user: Optional[CurrentUser] = Depends(g
         {"status": "done"}
     """
     data = await request.json()
-
-    # 🔍 检测用户语言偏好（优先级：前端传递 > Accept-Language > 内容检测）
-    user_language = 'en'  # 默认英文
-    logger.info(f"🌍 [DEBUG] 使用前端传递的语言: {user_language}")
     
     # 🔍 添加用户信息到请求数据中
     if current_user:
@@ -45,7 +41,7 @@ async def chat(request: Request, current_user: Optional[CurrentUser] = Depends(g
             'uuid': current_user.uuid,
             'email': current_user.email,
             'nickname': current_user.nickname,
-            'language': user_language  # 添加语言信息
+            'language': data.get('language', 'en')  # 添加语言信息
         }
     
     await handle_chat(data)

@@ -17,6 +17,22 @@ type RelayoutButtonProps = {
 const RelayoutButton = ({ onClick, disabled }: RelayoutButtonProps) => {
   const { t } = useTranslation()
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    console.log('🔧 RelayoutButton 被点击', { disabled })
+
+    if (!disabled && onClick) {
+      console.log('✅ 调用 onClick 回调')
+      onClick()
+    } else if (disabled) {
+      console.log('⚠️ 按钮被禁用，忽略点击')
+    } else {
+      console.log('⚠️ 没有 onClick 回调')
+    }
+  }
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -28,12 +44,8 @@ const RelayoutButton = ({ onClick, disabled }: RelayoutButtonProps) => {
             'p-2 rounded-md cursor-pointer hover:bg-primary/5',
             disabled && 'opacity-50 cursor-not-allowed'
           )}
-          onMouseDown={(e) => {
-            e.preventDefault()
-            if (!disabled) {
-              onClick?.()
-            }
-          }}
+          onClick={handleClick}
+          onMouseDown={handleClick}
         >
           <Grid3X3 className="size-4" />
         </Button>

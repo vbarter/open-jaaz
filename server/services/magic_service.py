@@ -47,6 +47,7 @@ async def handle_magic(data: Dict[str, Any]) -> None:
     user_info: Dict[str, Any] = data.get('user_info', {})
     aspect_ratio: str = data.get('aspect_ratio', 'auto')
     quantity: int = data.get('quantity', 1)
+    user_language: str = data.get('language', 'en')
     
     logger.info(f"[Magic Service] 解析请求参数: session_id={session_id}, canvas_id={canvas_id}, messages_count={len(messages)}, user_info={bool(user_info)}")
     
@@ -140,6 +141,7 @@ async def handle_magic(data: Dict[str, Any]) -> None:
                                                          user_info, 
                                                          aspect_ratio, 
                                                          quantity,
+                                                         user_language=user_language,
                                                          model_name=model_name,
                                                          provider=provider))
 
@@ -243,6 +245,7 @@ async def _process_magic_generation(
     user_info: Optional[Dict[str, Any]] = None,
     aspect_ratio: str = "auto",
     quantity: int = 1,
+    user_language: str = "en",
     model_name: str = "",
     provider: str = ""
 ) -> None:
@@ -272,6 +275,7 @@ async def _process_magic_generation(
                                                         user_info=user_info, 
                                                         aspect_ratio=aspect_ratio, 
                                                         quantity=quantity,
+                                                        user_language=user_language,
                                                         model_name=model_name,
                                                         provider=provider)
 

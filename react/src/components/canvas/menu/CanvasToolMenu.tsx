@@ -9,6 +9,7 @@ import RelayoutButton from './RelayoutButton'
 import ToolOverflowMenu from './ToolOverflowMenu'
 import { ToolType } from './CanvasMenuIcon'
 import { ImageLayoutManager } from '@/lib/image-layout-manager'
+import { toast } from 'sonner'
 
 const CanvasToolMenu = () => {
   const { excalidrawAPI } = useCanvas()
@@ -22,101 +23,148 @@ const CanvasToolMenu = () => {
   }
 
   const handleRelayout = () => {
-    if (!excalidrawAPI) return
+    console.log('🔧 开始重新排布操作')
 
-    // 获取当前画布中的所有元素和文件
-    const currentElements = excalidrawAPI.getSceneElements()
-    const currentFiles = excalidrawAPI.getFiles()
-
-    // 筛选出图片元素
-    const imageElements = currentElements.filter((el) => el.type === 'image' && !el.isDeleted)
-
-    if (imageElements.length === 0) {
+    if (!excalidrawAPI) {
+      console.error('❌ excalidrawAPI 未初始化')
+      toast.error(t('canvas:tool.relayoutError', { defaultValue: '重排版失败：画布API未初始化' }))
       return
     }
 
-    // 使用临时的布局管理器进行重排版
-    const layoutManager = new ImageLayoutManager()
+    try {
+      // 获取当前画布中的所有元素和文件
+      const currentElements = excalidrawAPI.getSceneElements()
+      const currentFiles = excalidrawAPI.getFiles()
 
-    // 重新排列图片
-    const relayoutedImages = layoutManager.relayoutImages(currentElements)
+      console.log('📊 画布元素统计:', {
+        totalElements: currentElements.length,
+        files: Object.keys(currentFiles).length,
+      })
 
-    if (relayoutedImages.length === 0) {
-      return
-    }
+      // 筛选出图片元素
+      const imageElements = currentElements.filter((el) => el.type === 'image' && !el.isDeleted)
 
-    // 更新非图片元素（保持原样）
-    const nonImageElements = currentElements.filter((el) => el.type !== 'image' || el.isDeleted)
+      console.log('🖼️ 图片元素详情:', {
+        totalImages: imageElements.length,
+        imageIds: imageElements.map((el) => ({ id: el.id, x: el.x, y: el.y, type: el.type })),
+      })
 
-    // 合并所有元素
-    const updatedElements = [...nonImageElements, ...relayoutedImages]
+      if (imageElements.length === 0) {
+        console.warn('⚠️ 没有找到图片元素，重排版操作已取消')
+        toast.warning(t('canvas:tool.noImages', { defaultValue: '画布上没有图片可以重新排布' }))
+        return
+      }
 
-    // 更新画布 - 同时传递元素和文件
-    excalidrawAPI.updateScene({
-      elements: updatedElements,
-      files: currentFiles, // 重要：保持文件引用
-    })
+      // 使用临时的布局管理器进行重排版
+      const layoutManager = new ImageLayoutManager()
 
-    // 等待DOM完全更新后再触发滚动
-    // 使用多层延迟确保重排版完全完成
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        // 方案1：尝试滚动到第一张图片（第一行第一列）
-        const firstImageInfo = layoutManager.getFirstImageInfo()
-        if (firstImageInfo) {
-          try {
-            excalidrawAPI.scrollToContent(firstImageInfo.id, {
-              animate: true,
-            })
-            return
-          } catch (error) {
-            // 方案1.5：滚动到第一行的视野区域
-            const firstRowViewArea = layoutManager.getFirstRowViewArea()
-            if (firstRowViewArea) {
-              try {
-                // 使用updateScene设置视窗位置
-                const currentAppState = excalidrawAPI.getAppState()
-                excalidrawAPI.updateScene({
-                  appState: {
-                    ...currentAppState,
-                    scrollX: -firstRowViewArea.x,
-                    scrollY: -firstRowViewArea.y,
-                    zoom: {
-                      value: Math.min(
-                        window.innerWidth / firstRowViewArea.width,
-                        window.innerHeight / firstRowViewArea.height,
-                        1 // 不要放大，最多1倍
-                      ),
+      // 重新排列图片
+      console.log('🔄 开始重新排列图片...')
+      const relayoutedImages = layoutManager.relayoutImages(currentElements)
+
+      console.log('✅ 重排版结果:', {
+        relayoutedCount: relayoutedImages.length,
+        expectedCount: imageElements.length,
+      })
+
+      if (relayoutedImages.length === 0) {
+        console.error('❌ 重排版失败：没有生成重排版后的图片')
+        toast.error(t('canvas:tool.relayoutFailed', { defaultValue: '重排版失败' }))
+        return
+      }
+
+      // 更新非图片元素（保持原样）
+      const nonImageElements = currentElements.filter((el) => el.type !== 'image' || el.isDeleted)
+      // 合并所有元素
+      const updatedElements = [...nonImageElements, ...relayoutedImages]
+      // 更新画布 - 同时传递元素和文件
+      try {
+        excalidrawAPI.updateScene({
+          elements: updatedElements,
+          files: currentFiles, // 重要：保持文件引用
+        })
+      } catch (updateError) {
+        return
+      }
+
+      // 等待DOM完全更新后再触发滚动
+      // 使用多层延迟确保重排版完全完成
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          console.log('📍 开始滚动到重排版后的内容')
+
+          // 方案1：尝试滚动到第一张图片（第一行第一列）
+          const firstImageInfo = layoutManager.getFirstImageInfo()
+          if (firstImageInfo) {
+            try {
+              console.log('📍 滚动到第一张图片:', firstImageInfo)
+              excalidrawAPI.scrollToContent(firstImageInfo.id, {
+                animate: true,
+              })
+              return
+            } catch (error) {
+              console.warn('⚠️ 滚动到第一张图片失败，尝试备选方案:', error)
+
+              // 方案1.5：滚动到第一行的视野区域
+              const firstRowViewArea = layoutManager.getFirstRowViewArea()
+              if (firstRowViewArea) {
+                try {
+                  console.log('📍 滚动到第一行视野区域:', firstRowViewArea)
+                  // 使用updateScene设置视窗位置
+                  const currentAppState = excalidrawAPI.getAppState()
+                  excalidrawAPI.updateScene({
+                    appState: {
+                      ...currentAppState,
+                      scrollX: -firstRowViewArea.x,
+                      scrollY: -firstRowViewArea.y,
+                      zoom: {
+                        value: Math.min(
+                          window.innerWidth / firstRowViewArea.width,
+                          window.innerHeight / firstRowViewArea.height,
+                          1 // 不要放大，最多1倍
+                        ),
+                      },
                     },
-                  },
-                })
-                return
-              } catch (viewError) {
-                console.error('❌ 滚动到第一行视野区域失败:', viewError)
+                  })
+                  return
+                } catch (viewError) {
+                  console.error('❌ 滚动到第一行视野区域失败:', viewError)
+                }
               }
             }
           }
-        }
 
-        try {
-          excalidrawAPI.scrollToContent(undefined, {
-            fitToContent: true,
-            animate: true,
-          })
-        } catch (error) {
+          // 方案2：滚动到全部内容
           try {
-            excalidrawAPI.updateScene({
-              appState: {
-                ...excalidrawAPI.getAppState(),
-                shouldCacheIgnoreZoom: false,
-              },
+            console.log('📍 尝试滚动到全部内容')
+            excalidrawAPI.scrollToContent(undefined, {
+              fitToContent: true,
+              animate: true,
             })
-          } catch (fallbackError) {
-            console.error('❌ 备选方案也失败:', fallbackError)
+          } catch (error) {
+            console.warn('⚠️ 滚动到全部内容失败，尝试最后的备选方案:', error)
+
+            try {
+              excalidrawAPI.updateScene({
+                appState: {
+                  ...excalidrawAPI.getAppState(),
+                  shouldCacheIgnoreZoom: false,
+                },
+              })
+            } catch (fallbackError) {
+              console.error('❌ 所有滚动方案都失败:', fallbackError)
+            }
           }
-        }
-      }, 200) // 增加延迟时间，确保DOM完全更新
-    })
+        }, 200) // 增加延迟时间，确保DOM完全更新
+      })
+    } catch (error) {
+      console.error('❌ 重排版过程中发生未预期的错误:', error)
+      toast.error(
+        t('canvas:tool.relayoutError', {
+          defaultValue: `重排版失败：${error instanceof Error ? error.message : '未知错误'}`,
+        })
+      )
+    }
   }
 
   excalidrawAPI?.onChange((_elements, appState, _files) => {
@@ -125,9 +173,29 @@ const CanvasToolMenu = () => {
 
   // 检查是否有图片元素，用于控制重排版按钮是否可用
   const hasImages = () => {
-    if (!excalidrawAPI) return false
+    if (!excalidrawAPI) {
+      console.log('🔍 hasImages: excalidrawAPI 未初始化')
+      return false
+    }
+
     const elements = excalidrawAPI.getSceneElements()
-    return elements.some((el) => el.type === 'image' && !el.isDeleted)
+    const imageElements = elements.filter((el) => el.type === 'image' && !el.isDeleted)
+
+    // 每次检查时输出详细信息，便于调试
+    console.log('🔍 hasImages 检查结果:', {
+      totalElements: elements.length,
+      imageCount: imageElements.length,
+      allElementTypes: [...new Set(elements.map((el) => el.type))],
+      imageElementDetails: imageElements.map((el) => ({
+        id: el.id,
+        type: el.type,
+        isDeleted: el.isDeleted,
+        x: el.x,
+        y: el.y,
+      })),
+    })
+
+    return imageElements.length > 0
   }
 
   // 所有可用的工具
