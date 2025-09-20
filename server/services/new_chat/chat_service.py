@@ -269,8 +269,6 @@ async def handle_chat(data: Dict[str, Any]) -> None:
             # 即使 WebSocket 发送失败，也要继续处理
 
     
-    
-    
     logger.info(f"🔍 预检查用户意图: {user_has_drawing_intent}")
     
     # 如果检测到画图意图，立即进行积分检查
@@ -839,6 +837,8 @@ async def _auto_select_model_by_intent(intent: str, data: Dict[str, Any]) -> tup
         default_provider = 'yunwu'
         logger.warning(f"💾 [Model Selection] 没有找到可用的视频工具，使用默认: {default_model} ({default_provider})")
         return default_model, default_provider
+    elif intent == 'url':
+        return 'gemini-2.5-flash', 'google'
 
     # 默认返回文本模型
     logger.warning(f"⚠️ [Model Selection] 意图无法识别: {intent}，使用默认文本模型")
@@ -930,24 +930,37 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
     else:
         # 通过文本内容判断是视频还是图片
         prompt = f"""
-你是用户意图识别专家。请分析用户输入，判断用户想要图片生成、视频生成还是文本问答。
+你是用户意图识别专家。请分析用户输入，判断用户想要链接处理、图片生成、视频生成还是文本问答。
+
 **分析思路：**
-1. **识别核心动词**：
+
+1. **识别链接内容**：
+   - 包含http/https协议的完整URL → url
+   - 包含域名格式（如xxx.com、xxx.cn）→ url
+   - 明确提到"链接"、"网址"、"网站"、"打开"等 → url
+
+2. **识别核心动词**：
    - 创作类动词（画、生成、制作、设计）→ 视觉生成需求
    - 询问类动词（问、解释、告诉、帮助）→ 文本问答需求
-2. **判断媒体类型**：
+
+3. **判断媒体类型**：
    - 静态描述词（一张图、画面、海报、logo）→ image
    - 动态描述词（视频、动画、播放、动作序列）→ video  
    - 无媒体需求（纯信息咨询、知识问答）→ text
-3. **语境确认**：
+
+4. **语境确认**：
+   - 涉及链接处理 → url
    - 有具体视觉要求 → image/video
    - 纯粹信息需求 → text
+
 **输出规则：**
+- 链接处理需求：输出 url
 - 图片生成需求：输出 image
 - 视频生成需求：输出 video  
 - 文本问答需求：输出 text
 - 只输出一个英文单词，无需其他解释
-现在分析: {text_content}
+
+现在分析："{text_content}"
 """
         
         response = await intent_client.chat.completions.create(
@@ -959,6 +972,6 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
         result = response.choices[0].message.content.strip().lower()
         logger.info(f"🔍 [DEBUG] 不带图片上传，意图识别结果: {result}")
         # 确保返回有效的意图
-        if result not in ['video', 'image', 'text']:
+        if result not in ['video', 'image', 'text', 'url']:
             return 'text'  # 默认返回文本意图
         return result

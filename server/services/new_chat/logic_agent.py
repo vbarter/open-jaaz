@@ -26,8 +26,7 @@ async def create_local_response(messages: List[Dict[str, Any]],
                                       quantity: int = 1,
                                       user_has_drawing_intent: str = "text") -> Dict[str, Any]:
     """
-    本地的魔法生成功能
-    实现和 magic_agent 相同的功能
+    本地的逻辑生成功能
     """
     try:
         # 获取图片内容

@@ -349,6 +349,12 @@ class TuziLLMService:
                 logger.info("🎥 检测到视频意图，执行视频生成流程")
                 logger.info(f"🔍 [DEBUG] 输入图片: {image_content}")
                 return await self.generate_video(user_prompt, model_name, input_images=image_content)
+            elif user_has_drawing_intent == "url":
+                logger.info("🔗 检测到链接处理意图，执行链接处理流程")
+                user_prompt = f"{user_prompt} \n 请你仔细阅读这个网页，根据内容生成详细的英文绘图prompt"
+                prompt = await self._generate_prompt_by_url(user_prompt)
+                logger.info(f"🔍 [DEBUG] 生成提示词: {prompt}")
+                return await self._handle_image_generation("gemini-2.5-flash-image", prompt, user_info, aspect_ratio, quantity)
         except Exception as e:
             error_msg = f"Error in generate: {str(e)}"
             logger.error(f"❌ {error_msg}")
@@ -665,6 +671,75 @@ class TuziLLMService:
         except Exception as e:
             logger.error(f"❌ 流式响应失败: {e}")
             yield f"[错误] 流式响应失败: {str(e)}"
+
+    async def _generate_prompt_by_url(self, user_prompt: str) -> str:
+        """
+        生成优化的提示词
+        
+        Args:
+            user_prompt: 用户输入的提示词
+            model_name: 模型名称
+            
+        Returns:
+            str: 优化后的提示词
+        """
+        try:
+            logger.info(f"🔧 [DEBUG] 开始生成优化提示词，模型: {model_name}")    
+            # 构建请求数据
+            request_data = {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {"text": user_prompt}
+                        ]
+                    }
+                ],
+                "tools": [
+                    {
+                        "urlContext": {}
+                    }
+                ]
+            }
+            
+            # 构建请求头
+            headers = {
+                'Accept': 'application/json',
+                'Authorization': f'Bearer sk-64la3SBXs3A8cznd5Is0Ed1ZerLl9TmzjhN4V3L9c7jodEa6',
+                'Content-Type': 'application/json'
+            }
+            
+            # 发送请求
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"https://yunwu.ai/v1beta/models/gemini-2.5-flash:generateContent",
+                    headers=headers,
+                    json=request_data,
+                    timeout=aiohttp.ClientTimeout(total=60.0)
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        
+                        # 解析响应
+                        if result.get('candidates') and len(result['candidates']) > 0:
+                            candidate = result['candidates'][0]
+                            if candidate.get('content') and candidate['content'].get('parts'):
+                                parts = candidate['content']['parts']
+                                if len(parts) > 0 and parts[0].get('text'):
+                                    optimized_prompt = parts[0]['text']
+                                    logger.info(f"✅ [DEBUG] 提示词优化完成: {optimized_prompt[:100]}...")
+                                    return optimized_prompt
+                        
+                        logger.warning("⚠️ 提示词优化失败，使用原始提示词")
+                        return user_prompt
+                    else:
+                        logger.error(f"❌ API请求失败，状态码: {response.status}")
+                        return user_prompt
+                        
+        except Exception as e:
+            logger.error(f"❌ 提示词优化失败: {e}")
+            return user_prompt
+        
 
     async def gemini_edit_image_by_tuzi(
         self,
