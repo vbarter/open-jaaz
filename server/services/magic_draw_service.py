@@ -3,10 +3,9 @@ import base64
 from email.mime import image
 import os
 import uuid
-import json
 import asyncio
 import aiohttp
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union, AsyncGenerator
 from utils.http_client import HttpClient
 from services.config_service import config_service
 from utils.image_analyser import ImageAnalyser
@@ -242,7 +241,11 @@ class MagicDrawService:
 
             raise Exception(f"Task polling timeout after {max_attempts} attempts")
 
-    async def generate_magic_image(self, system_prompt: str, image_content: str, user_info: Optional[Dict[str, Any]] = None, aspect_ratio: str = "auto", quantity: int = 1) -> Optional[Dict[str, Any]]:
+    async def generate_magic_image(self, 
+                                   system_prompt: str, 
+                                   image_content: str, 
+                                   user_info: Optional[Dict[str, Any]] = None, 
+                                   aspect_ratio: str = "auto", quantity: int = 1) -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None], str]:
         """
         生成魔法图像的完整流程
 

@@ -11,6 +11,7 @@ from services.db_service import db_service
 from services.OpenAIAgents_service import create_local_magic_response
 from services.websocket_service import send_to_websocket, send_ai_thinking_status, send_generation_status  # type: ignore
 from services.stream_service import add_stream_task, remove_stream_task
+from services.new_chat import auto_select_model_by_intent
 from services.points_service import points_service, InsufficientPointsError
 from services.i18n_service import i18n_service
 from log import get_logger
@@ -93,12 +94,6 @@ async def handle_magic(data: Dict[str, Any]) -> None:
     else:
         logger.warning(f"⚠️ 用户信息不完整，跳过积分检查: user_id={user_id}, user_uuid={user_uuid}")
 
-    # print('✨ magic_service 接收到数据:', {
-    #     'session_id': session_id,
-    #     'canvas_id': canvas_id,
-    #     'messages_count': len(messages),
-    # })
-
     # If there is only one message, create a new magic session
     if len(messages) == 1:
         # create new session (只有在session不存在时才创建)
@@ -129,7 +124,24 @@ async def handle_magic(data: Dict[str, Any]) -> None:
     # Create and start magic generation task
     # 从data中获取用户信息，如果有的话
     user_info = data.get('user_info')
-    task = asyncio.create_task(_process_magic_generation(messages, session_id, canvas_id, system_prompt, template_id, user_uuid, user_info, aspect_ratio, quantity))
+
+    # 选择model
+    if template_id == "1":
+        model_name, provider = await auto_select_model_by_intent("url", data)
+    else:
+        model_name, provider = await auto_select_model_by_intent("image", data)
+
+    task = asyncio.create_task(_process_magic_generation(messages, 
+                                                         session_id, 
+                                                         canvas_id, 
+                                                         system_prompt, 
+                                                         template_id, 
+                                                         user_uuid, 
+                                                         user_info, 
+                                                         aspect_ratio, 
+                                                         quantity,
+                                                         model_name=model_name,
+                                                         provider=provider))
 
     # Register the task in stream_tasks (for possible cancellation)
     add_stream_task(session_id, task)
@@ -230,7 +242,9 @@ async def _process_magic_generation(
     user_uuid: Optional[str] = None,
     user_info: Optional[Dict[str, Any]] = None,
     aspect_ratio: str = "auto",
-    quantity: int = 1
+    quantity: int = 1,
+    model_name: str = "",
+    provider: str = ""
 ) -> None:
     """
     Process magic generation in a separate async task.
@@ -241,15 +255,6 @@ async def _process_magic_generation(
         canvas_id: Canvas ID
     """
     try:
-        # 🔥 发送开始生成通知
-        await send_generation_status(
-            session_id=session_id,
-            canvas_id=canvas_id,
-            status='progress',
-            message='🎨 正在生成魔法图片...',
-            progress=0.3
-        )
-        
         # 🔥 发送图像处理通知
         await send_generation_status(
             session_id=session_id,
@@ -260,8 +265,15 @@ async def _process_magic_generation(
         )
         
         # 原来是基于云端生成
-        # ai_response = await create_jaaz_response(messages, session_id, canvas_id)
-        ai_response = await create_local_magic_response(messages, session_id, canvas_id, template_id=template_id, user_info=user_info, aspect_ratio=aspect_ratio, quantity=quantity)
+        ai_response = await create_local_magic_response(messages, 
+                                                        session_id, 
+                                                        canvas_id, 
+                                                        template_id=template_id, 
+                                                        user_info=user_info, 
+                                                        aspect_ratio=aspect_ratio, 
+                                                        quantity=quantity,
+                                                        model_name=model_name,
+                                                        provider=provider)
 
         # 🔍 检查Magic Generation是否真正成功
         is_generation_successful = False

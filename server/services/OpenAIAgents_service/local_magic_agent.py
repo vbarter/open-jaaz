@@ -10,6 +10,7 @@ from services.config_service import get_user_files_dir
 from utils.cos_image_service import get_cos_image_service
 from common import DEFAULT_PORT, BASE_URL
 from ..magic_draw_service import MagicDrawService
+from services.new_chat.tuzi_llm_service import TuziLLMService
 from routers.templates_router import TEMPLATES
 from services.i18n_service import i18n_service
 from log import get_logger
@@ -24,7 +25,9 @@ async def create_local_magic_response(messages: List[Dict[str, Any]],
                                       template_id: str = "",
                                       user_info: Optional[Dict[str, Any]] = None,
                                       aspect_ratio: str = "auto",
-                                      quantity: int = 1) -> Dict[str, Any]:
+                                      quantity: int = 1,
+                                      model_name: str = "",
+                                      provider: str = "") -> Dict[str, Any]:
     """
     本地的魔法生成功能
     实现和 magic_agent 相同的功能
@@ -33,25 +36,27 @@ async def create_local_magic_response(messages: List[Dict[str, Any]],
         # 获取图片内容
         user_message: Dict[str, Any] = messages[-1]
         image_content: str = ""
-
-        if isinstance(user_message.get('content'), list):
-            for content_item in user_message['content']:
-                if content_item.get('type') == 'image_url':
-                    image_content = content_item.get(
-                        'image_url', {}).get('url', "")
-                    break
-
-        if not image_content:
-            return {
-                'role': 'assistant',
-                'content': '✨ not found input image'
-            }
-
-        # 创建 Jaaz 服务实例
+        
+        # 创建服务实例
         try:
-            magic_draw_service = MagicDrawService()
+            if template_id == "1":
+                magic_draw_service = TuziLLMService(provider=provider)
+            else:
+                if isinstance(user_message.get('content'), list):
+                    for content_item in user_message['content']:
+                        if content_item.get('type') == 'image_url':
+                            image_content = content_item.get(
+                                'image_url', {}).get('url', "")
+                            break
+
+                if not image_content:
+                    return {
+                        'role': 'assistant',
+                        'content': '✨ not found input image'
+                    }
+                magic_draw_service = MagicDrawService()
         except ValueError as e:
-            print(f"❌ Tu-zi service configuration error: {e}")
+            logger.error(f"❌ magic service configuration error: {e}")
             return {
                 'role': 'assistant',
                 'content': '✨ Cloud API Key not configured'
@@ -69,7 +74,20 @@ async def create_local_magic_response(messages: List[Dict[str, Any]],
 
         # 调用tuzi服务生成魔法图像
         if not template_id:
-            result = await magic_draw_service.generate_magic_image(system_prompt, image_content, user_info, aspect_ratio, quantity)
+            result = await magic_draw_service.generate_magic_image(system_prompt, 
+                                                                   image_content, 
+                                                                   user_info, 
+                                                                   aspect_ratio, 
+                                                                   quantity)
+        elif template_id == "1":
+            result = await magic_draw_service.generate(model_name,
+                                            user_prompt,
+                                            None,
+                                            user_info,
+                                            aspect_ratio=aspect_ratio or "9:16",
+                                            quantity=quantity,
+                                            user_has_drawing_intent="url",
+                                            user_language="en")
         else:
             # 如果有template_id，从TEMPLATES获取对应的prompt
             template_prompt = ""
@@ -93,18 +111,23 @@ async def create_local_magic_response(messages: List[Dict[str, Any]],
                 template_prompt = user_prompt  # 如果模板ID无效，使用用户输入
 
             
-            # 🎯 优先级逻辑：用户提示词 > 模版提示词
-            # 1. 如果用户提供了有效的提示词（非空且不只是空白字符），使用用户提示词  
-            # 2. 如果用户提示词为空，使用模版提示词作为后备
-            user_prompt_is_valid = user_prompt and user_prompt.strip()
-            
-            if user_prompt_is_valid:
+            if user_prompt and user_prompt.strip() != "":
                 final_prompt = str(user_prompt.strip())
                 logger.info(f"✅ 使用用户提示词: {final_prompt}")
             else:
                 final_prompt = str(template_prompt if template_prompt else "")
                 logger.info(f"✅ 使用模版提示词: {final_prompt}")
-            result = await magic_draw_service.generate_template_image(final_prompt, image_content, template_image, user_info, use_mask, is_image, session_id, aspect_ratio, quantity)
+            result = await magic_draw_service.generate_template_image(final_prompt, 
+                                                                      image_content, 
+                                                                      template_image, 
+                                                                      user_info, 
+                                                                      use_mask, 
+                                                                      is_image, 
+                                                                      session_id, 
+                                                                      aspect_ratio, 
+                                                                      quantity)
+        
+        ######################
         if not result:
             return {
                 'role': 'assistant',

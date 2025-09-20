@@ -136,10 +136,17 @@ async def handle_chat(data: Dict[str, Any]) -> None:
 
     # 1 最先做意图理解，确认用户想干嘛
     # user_has_drawing_intent: 'text', 'video', 'image'
-    user_has_drawing_intent = await _check_video_or_image(messages)
+    if template_id:
+        await _push_user_images_to_frontend(messages, session_id, template_id, canvas_id)
+        if template_id == "1":
+            user_has_drawing_intent = "url"
+        else:
+            user_has_drawing_intent = "image"
+    else:
+        user_has_drawing_intent = await _check_video_or_image(messages)
 
     # 2 根据意图自动选择合适的模型
-    model_name, provider = await _auto_select_model_by_intent(user_has_drawing_intent, data)
+    model_name, provider = await auto_select_model_by_intent(user_has_drawing_intent, data)
 
     logger.info(f"🎯 [DEBUG] 最终选择的模型 - model_name: '{model_name}', provider: '{provider}', intent: '{user_has_drawing_intent}'")
         
@@ -323,9 +330,9 @@ async def handle_chat(data: Dict[str, Any]) -> None:
             return
 
     # 如果是模版生成，先发送一张图片到前端
-    if template_id:
-        # 先推送用户上传的图片到前端显示
-        await _push_user_images_to_frontend(messages, session_id, template_id, canvas_id)
+    # if template_id:
+    #     # 先推送用户上传的图片到前端显示
+    #     await _push_user_images_to_frontend(messages, session_id, template_id, canvas_id)
 
     # Create and start magic generation task
     task = asyncio.create_task(_process_generation(messages,
@@ -713,7 +720,7 @@ async def _process_generation(
     )
 
 
-async def _auto_select_model_by_intent(intent: str, data: Dict[str, Any]) -> tuple[str, str]:
+async def auto_select_model_by_intent(intent: str, data: Dict[str, Any]) -> tuple[str, str]:
     """
     根据意图自动选择合适的模型
 
