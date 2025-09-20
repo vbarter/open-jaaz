@@ -10,6 +10,9 @@ export interface Template {
   created_at?: string
   updated_at?: string
   prompt?: string
+  need_upload_file?: number
+  use_mask?: number
+  is_image?: number
 }
 
 export interface TemplateListResponse {
@@ -26,6 +29,7 @@ export interface TemplateSearchParams {
   category?: string
   sort_by?: 'downloads' | 'rating' | 'created_at'
   sort_order?: 'asc' | 'desc'
+  lang?: string
 }
 
 export async function getTemplates(params?: TemplateSearchParams): Promise<TemplateListResponse> {
@@ -49,6 +53,9 @@ export async function getTemplates(params?: TemplateSearchParams): Promise<Templ
   if (params?.sort_order) {
     searchParams.append('sort_order', params.sort_order)
   }
+  if (params?.lang) {
+    searchParams.append('lang', params.lang)
+  }
 
   const response = await fetch(`/api/templates?${searchParams.toString()}`)
   
@@ -59,20 +66,32 @@ export async function getTemplates(params?: TemplateSearchParams): Promise<Templ
   return await response.json()
 }
 
-export async function getTemplate(id: number): Promise<Template> {
-  const response = await fetch(`/api/templates/${id}`)
-  
+export async function getTemplate(id: number, lang?: string): Promise<Template> {
+  const searchParams = new URLSearchParams()
+  if (lang) {
+    searchParams.append('lang', lang)
+  }
+
+  const url = `/api/templates/${id}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
+  const response = await fetch(url)
+
   if (!response.ok) {
     throw new Error(`Failed to fetch template: ${response.statusText}`)
   }
-  
+
   return await response.json()
 }
 
-export async function downloadTemplate(id: number): Promise<{ success: boolean; message: string }> {
-  const response = await fetch(`/api/templates/${id}/download`, {
+export async function downloadTemplate(id: number, lang?: string): Promise<{ success: boolean; message: string }> {
+  const searchParams = new URLSearchParams()
+  if (lang) {
+    searchParams.append('lang', lang)
+  }
+
+  const url = `/api/templates/${id}/download${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
+  const response = await fetch(url, {
     method: 'POST',
   })
-  
+
   return await response.json()
 }

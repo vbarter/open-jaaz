@@ -62,7 +62,11 @@
     "freedraw": "Free Draw",
     "zoomFit": "Zoom to fit",
     "relayout": "Relayout Images",
-    "moreTools": "More Tools"
+    "moreTools": "More Tools",
+    "relayoutError": "Relayout failed",
+    "relayoutFailed": "Relayout failed",
+    "relayoutSuccess": "Relayout successful",
+    "noImages": "No images on canvas to relayout"
   },
   "popbar": {
     "addToChat": "Add to chat",

@@ -17,6 +17,8 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getTemplate } from '@/api/templates'
 import { BASE_API_URL } from '@/constants'
+import { getApiLanguage } from '@/utils/language'
+import { useLanguage } from '@/hooks/use-language'
 import { uploadImageFast, FastUploadResult } from '@/api/upload'
 import { createCanvas } from '@/api/canvas'
 import { sendMagicGenerate } from '@/api/magic'
@@ -39,6 +41,7 @@ function TemplateUsePage() {
   const navigate = useNavigate()
   const { t } = useTranslation('template-use')
   const { textModel, selectedTools, setInitCanvas } = useConfigs()
+  const { currentLanguage } = useLanguage()
   const [characterName, setCharacterName] = useState('')
   const [images, setImages] = useState<
     {
@@ -63,8 +66,8 @@ function TemplateUsePage() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['template', templateId],
-    queryFn: () => getTemplate(parseInt(templateId)),
+    queryKey: ['template', templateId, currentLanguage],
+    queryFn: () => getTemplate(parseInt(templateId), getApiLanguage(currentLanguage)),
     staleTime: 5 * 60 * 1000,
   })
 
@@ -155,7 +158,8 @@ function TemplateUsePage() {
       return
     }
 
-    if (images.length === 0) {
+    // 根据模版配置检查是否需要上传文件
+    if (template.need_upload_file === 1 && images.length === 0) {
       toast.error(t('messages.uploadImage'))
       return
     }
@@ -177,41 +181,52 @@ function TemplateUsePage() {
         imagesCount: images.length,
       })
 
-      // 优化图片处理 - 优先使用本地预览，避免重复网络请求
-      setGeneratingStep(t('steps.processingImages'))
-      const imagePromises = images.map(async (image) => {
-        // 如果有本地预览URL，直接使用（已经是base64格式）
-        if (image.localPreviewUrl && image.localPreviewUrl.startsWith('data:')) {
-          console.log('⚡ 使用本地预览URL，避免网络请求:', image.file_id)
-          return image.localPreviewUrl
-        }
-        
-        // 如果没有本地预览，才从服务器获取
-        console.log('⚡ 从服务器获取图片:', image.file_id)
-        const response = await fetch(`/api/file/${image.file_id}?redirect=true`)
-        const blob = await response.blob()
-        return new Promise<string>((resolve) => {
-          const reader = new FileReader()
-          reader.onloadend = () => resolve(reader.result as string)
-          reader.readAsDataURL(blob)
+      // 根据模版配置处理图片 - 只有需要上传文件的模版才处理图片
+      let messageContent
+      if (template.need_upload_file === 1 && images.length > 0) {
+        setGeneratingStep(t('steps.processingImages'))
+        const imagePromises = images.map(async (image) => {
+          // 如果有本地预览URL，直接使用（已经是base64格式）
+          if (image.localPreviewUrl && image.localPreviewUrl.startsWith('data:')) {
+            console.log('⚡ 使用本地预览URL，避免网络请求:', image.file_id)
+            return image.localPreviewUrl
+          }
+
+          // 如果没有本地预览，才从服务器获取
+          console.log('⚡ 从服务器获取图片:', image.file_id)
+          const response = await fetch(`/api/file/${image.file_id}?redirect=true`)
+          const blob = await response.blob()
+          return new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.readAsDataURL(blob)
+          })
         })
-      })
 
-      const base64Images = await Promise.all(imagePromises)
+        const base64Images = await Promise.all(imagePromises)
 
-      // 构建包含图片的消息内容
-      const messageContent = [
-        {
-          type: 'text',
-          text: textContent,
-        },
-        ...images.map((_, index) => ({
-          type: 'image_url',
-          image_url: {
-            url: base64Images[index],
+        // 构建包含图片的消息内容
+        messageContent = [
+          {
+            type: 'text',
+            text: textContent,
           },
-        })),
-      ]
+          ...images.map((_, index) => ({
+            type: 'image_url',
+            image_url: {
+              url: base64Images[index],
+            },
+          })),
+        ]
+      } else {
+        // 不需要上传文件的模版，只发送文本内容
+        messageContent = [
+          {
+            type: 'text',
+            text: textContent,
+          },
+        ]
+      }
 
       // 构造完整的用户消息对象（用于显示和magic生成）
       const fullUserMessage: UserMessage = {
@@ -499,13 +514,24 @@ function TemplateUsePage() {
                       onChange={handleImagesUpload}
                       hidden
                     />
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={() => imageInputRef.current?.click()}
-                    >
-                      <PlusIcon className='size-4' />
-                    </Button>
+                    <div className='flex items-center gap-2'>
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        onClick={() => imageInputRef.current?.click()}
+                      >
+                        <PlusIcon className='size-4' />
+                      </Button>
+                      {template.need_upload_file === 1 ? (
+                        <span className='text-xs text-red-500'>
+                          * {t('upload.needUploadImage')}
+                        </span>
+                      ) : (
+                        <span className='text-xs text-gray-500'>
+                          {t('upload.uploadImagesOptional')}
+                        </span>
+                      )}
+                    </div>
 
                     {/* Model Selector */}
                     <ModelSelectorV3 />
@@ -530,7 +556,7 @@ function TemplateUsePage() {
                       variant='default'
                       size='icon'
                       onClick={handleGenerate}
-                      disabled={!characterName.trim() || images.length === 0}
+                      disabled={!characterName.trim() || (template.need_upload_file === 1 && images.length === 0)}
                     >
                       <Play className='size-4' />
                     </Button>

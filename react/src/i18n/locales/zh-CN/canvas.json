@@ -62,7 +62,11 @@
     "freedraw": "自由绘制",
     "zoomFit": "缩放适应",
     "relayout": "重排版",
-    "moreTools": "更多工具"
+    "moreTools": "更多工具",
+    "relayoutError": "重排版失败",
+    "relayoutFailed": "重排版失败",
+    "relayoutSuccess": "重排版成功",
+    "noImages": "画布上没有图片可以重新排布"
   },
   "popbar": {
     "addToChat": "添加到聊天",

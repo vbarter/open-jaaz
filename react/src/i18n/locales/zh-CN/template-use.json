@@ -20,6 +20,13 @@
     "aspectRatio": "宽高比",
     "quantity": "数量"
   },
+  "upload": {
+    "uploadImages": "上传图片",
+    "uploadImagesOptional": "上传图片(可选)",
+    "needUploadImage": "需要上传图片",
+    "dragDropFiles": "拖拽文件到此处或点击上传",
+    "supportedFormats": "支持 JPG、PNG、GIF 格式"
+  },
   "messages": {
     "loading": "正在加载模板...",
     "error": "加载模板时出现错误",
