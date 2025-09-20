@@ -59,7 +59,8 @@
     "shape": "Shape",
     "arrow": "Arrow",
     "line": "Line",
-    "zoomFit": "Zoom to fit"
+    "zoomFit": "Zoom to fit",
+    "relayout": "Relayout Images"
   },
   "popbar": {
     "addToChat": "Add to chat",

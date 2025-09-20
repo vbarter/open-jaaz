@@ -59,7 +59,8 @@
     "shape": "形状",
     "arrow": "箭头",
     "line": "直线",
-    "zoomFit": "缩放适应"
+    "zoomFit": "缩放适应",
+    "relayout": "重排版"
   },
   "popbar": {
     "addToChat": "添加到聊天",

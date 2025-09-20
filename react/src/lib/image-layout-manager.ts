@@ -321,4 +321,279 @@ export class ImageLayoutManager {
       })
     })
   }
+
+  /**
+   * 重新排列所有图片，按一行5个的规律排版，基于实际尺寸避免重叠
+   * @param elements 当前画布中的所有图片元素
+   * @returns 重新排列后的图片元素数组
+   */
+  relayoutImages(elements: readonly any[]): any[] {
+    // 筛选出所有图片元素
+    const imageElements = elements.filter(el => el.type === 'image' && !el.isDeleted)
+
+    console.log('🔧 ImageLayoutManager.relayoutImages 开始:')
+    console.log('  - 输入元素总数:', elements.length)
+    console.log('  - 筛选出的图片数:', imageElements.length)
+
+    if (imageElements.length === 0) {
+      console.log('  - 没有图片元素，返回空数组')
+      return []
+    }
+
+    // 清空当前布局管理器
+    this.clear()
+
+    // 第一步：将图片按行分组
+    const rows: any[][] = []
+    for (let i = 0; i < imageElements.length; i += this.IMAGES_PER_ROW) {
+      rows.push(imageElements.slice(i, i + this.IMAGES_PER_ROW))
+    }
+
+    console.log(`📐 分成 ${rows.length} 行:`)
+    rows.forEach((row, index) => {
+      console.log(`  行 ${index}: ${row.length} 张图片`)
+    })
+
+    // 第二步：计算每行的最大高度和每列的最大宽度
+    const rowHeights: number[] = []
+    const colWidths: number[] = new Array(this.IMAGES_PER_ROW).fill(0)
+
+    rows.forEach((row, rowIndex) => {
+      let maxHeight = 0
+      row.forEach((img, colIndex) => {
+        maxHeight = Math.max(maxHeight, img.height)
+        colWidths[colIndex] = Math.max(colWidths[colIndex], img.width)
+      })
+      rowHeights[rowIndex] = maxHeight
+    })
+
+    console.log('📏 计算出的尺寸:')
+    console.log('  - 行高度:', rowHeights.map(h => Math.round(h)))
+    console.log('  - 列宽度:', colWidths.map(w => Math.round(w)))
+
+    // 第三步：基于实际尺寸重新计算每个图片的位置
+    const updatedElements: any[] = []
+    let currentY = this.INITIAL_Y
+
+    rows.forEach((row, rowIndex) => {
+      let currentX = this.INITIAL_X
+
+      row.forEach((element, colIndex) => {
+        const globalIndex = rowIndex * this.IMAGES_PER_ROW + colIndex
+
+        console.log(`  - 处理图片 ${globalIndex + 1}/${imageElements.length}:`)
+        console.log(`    原始: (${Math.round(element.x)}, ${Math.round(element.y)}) ${Math.round(element.width)}x${Math.round(element.height)}`)
+        console.log(`    fileId: ${element.fileId}`)
+
+        // 新位置：在列内居中对齐
+        const x = currentX + (colWidths[colIndex] - element.width) / 2
+        const y = currentY + (rowHeights[rowIndex] - element.height) / 2
+
+        console.log(`    新位置: (${Math.round(x)}, ${Math.round(y)}) [行${rowIndex},列${colIndex}]`)
+
+        // 创建更新后的元素
+        const updatedElement = {
+          ...element,
+          x,
+          y,
+          updated: Date.now()
+        }
+
+        // 验证关键属性
+        if (!updatedElement.fileId) {
+          console.error(`    ⚠️ 警告: 图片 ${globalIndex + 1} 的 fileId 丢失!`)
+        }
+
+        updatedElements.push(updatedElement)
+
+        // 添加到布局管理器
+        this.addImage({
+          id: element.id,
+          x,
+          y,
+          width: element.width,
+          height: element.height,
+          row: rowIndex,
+          col: colIndex
+        })
+
+        // 移动到下一列
+        currentX += colWidths[colIndex] + this.IMAGE_SPACING
+      })
+
+      // 移动到下一行
+      currentY += rowHeights[rowIndex] + this.IMAGE_SPACING
+    })
+
+    console.log('🔧 ImageLayoutManager.relayoutImages 完成:')
+    console.log('  - 返回的元素数:', updatedElements.length)
+    console.log('  - 总布局尺寸:', {
+      width: Math.max(...colWidths) * this.IMAGES_PER_ROW + this.IMAGE_SPACING * (this.IMAGES_PER_ROW - 1),
+      height: rowHeights.reduce((sum, h) => sum + h, 0) + this.IMAGE_SPACING * (rowHeights.length - 1)
+    })
+
+    return updatedElements
+  }
+
+  /**
+   * 获取第一张图片信息（第一行第一列，用于重排版后的跳转）
+   * @returns 第一张图片的信息，如果没有图片则返回null
+   */
+  getFirstImageInfo(): { id: string; x: number; y: number } | null {
+    const images = this.getAllImages()
+    if (images.length === 0) {
+      console.log('🎯 getFirstImageInfo: 没有图片')
+      return null
+    }
+
+    // 按行列顺序排序，确保第一张图片是第一行第一列
+    const sortedImages = images.sort((a, b) => {
+      if (a.row !== b.row) return a.row - b.row
+      return a.col - b.col
+    })
+
+    console.log(`🎯 getFirstImageInfo: 总共 ${images.length} 张图片`)
+
+    // 获取第一张图片（第一行第一列）
+    const firstImage = sortedImages[0]
+
+    console.log(`🎯 选择第一张图片: 行 ${firstImage.row}, 列 ${firstImage.col}`)
+    console.log(`🎯 第一张图片ID: ${firstImage.id}`)
+    console.log(`🎯 第一张图片位置: (${Math.round(firstImage.x)}, ${Math.round(firstImage.y)}) 尺寸: ${Math.round(firstImage.width)}x${Math.round(firstImage.height)}`)
+
+    // 返回图片中心点坐标，这样滚动视角更自然
+    const centerX = firstImage.x + firstImage.width / 2
+    const centerY = firstImage.y + firstImage.height / 2
+
+    console.log(`🎯 第一张图片中心点: (${Math.round(centerX)}, ${Math.round(centerY)})`)
+
+    return {
+      id: firstImage.id,
+      x: centerX,
+      y: centerY
+    }
+  }
+
+  /**
+   * 获取适合滚动显示的第一行图片区域
+   * @returns 第一行图片的视野区域，包含前几张图片的显示范围
+   */
+  getFirstRowViewArea(): { x: number; y: number; width: number; height: number } | null {
+    const images = this.getAllImages()
+    if (images.length === 0) {
+      console.log('🎯 getFirstRowViewArea: 没有图片')
+      return null
+    }
+
+    // 获取第一行的所有图片
+    const firstRowImages = images.filter(img => img.row === 0)
+    if (firstRowImages.length === 0) {
+      console.log('🎯 getFirstRowViewArea: 没有第一行图片')
+      return null
+    }
+
+    // 按列顺序排序
+    firstRowImages.sort((a, b) => a.col - b.col)
+
+    console.log(`🎯 第一行包含 ${firstRowImages.length} 张图片`)
+
+    // 计算第一行的边界框
+    let minX = Infinity, minY = Infinity
+    let maxX = -Infinity, maxY = -Infinity
+
+    firstRowImages.forEach(img => {
+      minX = Math.min(minX, img.x)
+      minY = Math.min(minY, img.y)
+      maxX = Math.max(maxX, img.x + img.width)
+      maxY = Math.max(maxY, img.y + img.height)
+    })
+
+    // 添加一些边距，让视野更舒适
+    const padding = 50
+    const viewArea = {
+      x: minX - padding,
+      y: minY - padding,
+      width: (maxX - minX) + padding * 2,
+      height: (maxY - minY) + padding * 2
+    }
+
+    console.log(`🎯 第一行视野区域: (${Math.round(viewArea.x)}, ${Math.round(viewArea.y)}) ${Math.round(viewArea.width)}x${Math.round(viewArea.height)}`)
+
+    return viewArea
+  }
+
+  /**
+   * 获取中间位置的图片信息（用于重排版后的跳转）
+   * @returns 中间图片的信息，如果没有图片则返回null
+   */
+  getMiddleImageInfo(): { id: string; x: number; y: number } | null {
+    const images = this.getAllImages()
+    if (images.length === 0) {
+      console.log('🎯 getMiddleImageInfo: 没有图片')
+      return null
+    }
+
+    // 按行列顺序排序
+    const sortedImages = images.sort((a, b) => {
+      if (a.row !== b.row) return a.row - b.row
+      return a.col - b.col
+    })
+
+    console.log(`🎯 getMiddleImageInfo: 总共 ${images.length} 张图片`)
+
+    // 找到中间位置的图片
+    const middleIndex = Math.floor(images.length / 2)
+    const middleImage = sortedImages[middleIndex]
+
+    console.log(`🎯 选择中间图片: 索引 ${middleIndex}, 行 ${middleImage.row}, 列 ${middleImage.col}`)
+    console.log(`🎯 中间图片ID: ${middleImage.id}`)
+    console.log(`🎯 中间图片位置: (${Math.round(middleImage.x)}, ${Math.round(middleImage.y)}) 尺寸: ${Math.round(middleImage.width)}x${Math.round(middleImage.height)}`)
+
+    // 返回图片信息
+    const centerX = middleImage.x + middleImage.width / 2
+    const centerY = middleImage.y + middleImage.height / 2
+
+    console.log(`🎯 中间图片中心点: (${Math.round(centerX)}, ${Math.round(centerY)})`)
+
+    return {
+      id: middleImage.id,
+      x: centerX,
+      y: centerY
+    }
+  }
+
+  /**
+   * 获取中间位置的图片坐标（向后兼容）
+   * @returns 中间图片的位置信息，如果没有图片则返回null
+   */
+  getMiddleImagePosition(): { x: number; y: number } | null {
+    const info = this.getMiddleImageInfo()
+    return info ? { x: info.x, y: info.y } : null
+  }
+
+  /**
+   * 获取整个图片布局的边界框（用于滚动到整体视图）
+   * @returns 布局的边界框信息，如果没有图片则返回null
+   */
+  getLayoutBounds(): { x: number; y: number; width: number; height: number } | null {
+    const images = this.getAllImages()
+    if (images.length === 0) return null
+
+    let minX = Infinity, minY = Infinity
+    let maxX = -Infinity, maxY = -Infinity
+
+    images.forEach(img => {
+      minX = Math.min(minX, img.x)
+      minY = Math.min(minY, img.y)
+      maxX = Math.max(maxX, img.x + img.width)
+      maxY = Math.max(maxY, img.y + img.height)
+    })
+
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY
+    }
+  }
 }
