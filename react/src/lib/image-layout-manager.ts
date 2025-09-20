@@ -4,13 +4,13 @@
  */
 
 export type ImagePosition = {
-  id: string        // 图片元素的唯一ID
-  x: number         // 左上角x坐标
-  y: number         // 左上角y坐标
-  width: number     // 图片宽度
-  height: number    // 图片高度
-  row: number       // 所在行号 (0-based)
-  col: number       // 所在列号 (0-based)
+  id: string // 图片元素的唯一ID
+  x: number // 左上角x坐标
+  y: number // 左上角y坐标
+  width: number // 图片宽度
+  height: number // 图片高度
+  row: number // 所在行号 (0-based)
+  col: number // 所在列号 (0-based)
 }
 
 export class ImageLayoutManager {
@@ -18,10 +18,10 @@ export class ImageLayoutManager {
   private rowHeights: Map<number, number> = new Map() // 记录每行的最大高度
 
   // 配置参数
-  private readonly IMAGES_PER_ROW = 5      // 每行最多放置的图片数
-  private readonly IMAGE_SPACING = 20      // 图片之间的间隔（像素）
-  private readonly INITIAL_X = 100         // 起始X坐标
-  private readonly INITIAL_Y = 100         // 起始Y坐标
+  private readonly IMAGES_PER_ROW = 5 // 每行最多放置的图片数
+  private readonly IMAGE_SPACING = 20 // 图片之间的间隔（像素）
+  private readonly INITIAL_X = 100 // 起始X坐标
+  private readonly INITIAL_Y = 100 // 起始Y坐标
 
   /**
    * 添加图片记录
@@ -73,7 +73,10 @@ export class ImageLayoutManager {
    * @param height 新图片的高度
    * @returns 计算出的位置信息
    */
-  calculateNextPosition(width: number, height: number): {
+  calculateNextPosition(
+    width: number,
+    height: number
+  ): {
     x: number
     y: number
     row: number
@@ -111,7 +114,7 @@ export class ImageLayoutManager {
       x,
       y,
       row: targetRow,
-      col: targetCol
+      col: targetCol,
     }
   }
 
@@ -201,22 +204,21 @@ export class ImageLayoutManager {
    */
   syncWithElements(elements: readonly any[]): void {
     // 筛选出图片元素
-    const imageElements = elements
-      .filter(el => el.type === 'image' && !el.isDeleted)
+    const imageElements = elements.filter((el) => el.type === 'image' && !el.isDeleted)
 
     // 记录哪些图片ID仍然存在
-    const existingIds = new Set(imageElements.map(el => el.id))
+    const existingIds = new Set(imageElements.map((el) => el.id))
 
     // 移除已不存在的图片
     const currentImages = Array.from(this.images.keys())
-    currentImages.forEach(id => {
+    currentImages.forEach((id) => {
       if (!existingIds.has(id)) {
         this.removeImage(id)
       }
     })
 
     // 添加新的图片（管理器中不存在的）- 保持它们的原始位置
-    imageElements.forEach(element => {
+    imageElements.forEach((element) => {
       if (!this.images.has(element.id)) {
         // 这是画布上已存在但管理器中没有的图片
         // 我们需要根据它的实际位置来分配行列
@@ -250,12 +252,12 @@ export class ImageLayoutManager {
 
         const imagePos: ImagePosition = {
           id: element.id,
-          x: element.x,  // 保持原始位置
-          y: element.y,  // 保持原始位置
+          x: element.x, // 保持原始位置
+          y: element.y, // 保持原始位置
           width: element.width,
           height: element.height,
           row: Math.max(0, row),
-          col: Math.min(col, this.IMAGES_PER_ROW - 1)
+          col: Math.min(col, this.IMAGES_PER_ROW - 1),
         }
 
         this.addImage(imagePos)
@@ -273,10 +275,11 @@ export class ImageLayoutManager {
 
     // 筛选出图片元素并按照位置排序
     const imageElements = elements
-      .filter(el => el.type === 'image' && !el.isDeleted)
+      .filter((el) => el.type === 'image' && !el.isDeleted)
       .sort((a, b) => {
         // 先按Y坐标排序，再按X坐标排序
-        if (Math.abs(a.y - b.y) < 50) { // 同一行的判定（Y坐标差小于50）
+        if (Math.abs(a.y - b.y) < 50) {
+          // 同一行的判定（Y坐标差小于50）
           return a.x - b.x
         }
         return a.y - b.y
@@ -287,7 +290,7 @@ export class ImageLayoutManager {
     let currentRow: any[] = []
     let lastY = -Infinity
 
-    imageElements.forEach(element => {
+    imageElements.forEach((element) => {
       // 如果Y坐标差异较大，认为是新的一行
       if (lastY !== -Infinity && element.y - lastY > 100) {
         if (currentRow.length > 0) {
@@ -314,7 +317,7 @@ export class ImageLayoutManager {
           width: element.width,
           height: element.height,
           row: rowIndex,
-          col: colIndex
+          col: colIndex,
         }
 
         this.addImage(imagePos)
@@ -329,7 +332,7 @@ export class ImageLayoutManager {
    */
   relayoutImages(elements: readonly any[]): any[] {
     // 筛选出所有图片元素
-    const imageElements = elements.filter(el => el.type === 'image' && !el.isDeleted)
+    const imageElements = elements.filter((el) => el.type === 'image' && !el.isDeleted)
 
     console.log('🔧 ImageLayoutManager.relayoutImages 开始:')
     console.log('  - 输入元素总数:', elements.length)
@@ -367,10 +370,6 @@ export class ImageLayoutManager {
       rowHeights[rowIndex] = maxHeight
     })
 
-    console.log('📏 计算出的尺寸:')
-    console.log('  - 行高度:', rowHeights.map(h => Math.round(h)))
-    console.log('  - 列宽度:', colWidths.map(w => Math.round(w)))
-
     // 第三步：基于实际尺寸重新计算每个图片的位置
     const updatedElements: any[] = []
     let currentY = this.INITIAL_Y
@@ -381,22 +380,16 @@ export class ImageLayoutManager {
       row.forEach((element, colIndex) => {
         const globalIndex = rowIndex * this.IMAGES_PER_ROW + colIndex
 
-        console.log(`  - 处理图片 ${globalIndex + 1}/${imageElements.length}:`)
-        console.log(`    原始: (${Math.round(element.x)}, ${Math.round(element.y)}) ${Math.round(element.width)}x${Math.round(element.height)}`)
-        console.log(`    fileId: ${element.fileId}`)
-
         // 新位置：在列内居中对齐
         const x = currentX + (colWidths[colIndex] - element.width) / 2
         const y = currentY + (rowHeights[rowIndex] - element.height) / 2
-
-        console.log(`    新位置: (${Math.round(x)}, ${Math.round(y)}) [行${rowIndex},列${colIndex}]`)
 
         // 创建更新后的元素
         const updatedElement = {
           ...element,
           x,
           y,
-          updated: Date.now()
+          updated: Date.now(),
         }
 
         // 验证关键属性
@@ -414,7 +407,7 @@ export class ImageLayoutManager {
           width: element.width,
           height: element.height,
           row: rowIndex,
-          col: colIndex
+          col: colIndex,
         })
 
         // 移动到下一列
@@ -423,13 +416,6 @@ export class ImageLayoutManager {
 
       // 移动到下一行
       currentY += rowHeights[rowIndex] + this.IMAGE_SPACING
-    })
-
-    console.log('🔧 ImageLayoutManager.relayoutImages 完成:')
-    console.log('  - 返回的元素数:', updatedElements.length)
-    console.log('  - 总布局尺寸:', {
-      width: Math.max(...colWidths) * this.IMAGES_PER_ROW + this.IMAGE_SPACING * (this.IMAGES_PER_ROW - 1),
-      height: rowHeights.reduce((sum, h) => sum + h, 0) + this.IMAGE_SPACING * (rowHeights.length - 1)
     })
 
     return updatedElements
@@ -442,7 +428,6 @@ export class ImageLayoutManager {
   getFirstImageInfo(): { id: string; x: number; y: number } | null {
     const images = this.getAllImages()
     if (images.length === 0) {
-      console.log('🎯 getFirstImageInfo: 没有图片')
       return null
     }
 
@@ -451,26 +436,17 @@ export class ImageLayoutManager {
       if (a.row !== b.row) return a.row - b.row
       return a.col - b.col
     })
-
-    console.log(`🎯 getFirstImageInfo: 总共 ${images.length} 张图片`)
-
     // 获取第一张图片（第一行第一列）
     const firstImage = sortedImages[0]
-
-    console.log(`🎯 选择第一张图片: 行 ${firstImage.row}, 列 ${firstImage.col}`)
-    console.log(`🎯 第一张图片ID: ${firstImage.id}`)
-    console.log(`🎯 第一张图片位置: (${Math.round(firstImage.x)}, ${Math.round(firstImage.y)}) 尺寸: ${Math.round(firstImage.width)}x${Math.round(firstImage.height)}`)
 
     // 返回图片中心点坐标，这样滚动视角更自然
     const centerX = firstImage.x + firstImage.width / 2
     const centerY = firstImage.y + firstImage.height / 2
 
-    console.log(`🎯 第一张图片中心点: (${Math.round(centerX)}, ${Math.round(centerY)})`)
-
     return {
       id: firstImage.id,
       x: centerX,
-      y: centerY
+      y: centerY,
     }
   }
 
@@ -486,7 +462,7 @@ export class ImageLayoutManager {
     }
 
     // 获取第一行的所有图片
-    const firstRowImages = images.filter(img => img.row === 0)
+    const firstRowImages = images.filter((img) => img.row === 0)
     if (firstRowImages.length === 0) {
       console.log('🎯 getFirstRowViewArea: 没有第一行图片')
       return null
@@ -498,10 +474,12 @@ export class ImageLayoutManager {
     console.log(`🎯 第一行包含 ${firstRowImages.length} 张图片`)
 
     // 计算第一行的边界框
-    let minX = Infinity, minY = Infinity
-    let maxX = -Infinity, maxY = -Infinity
+    let minX = Infinity,
+      minY = Infinity
+    let maxX = -Infinity,
+      maxY = -Infinity
 
-    firstRowImages.forEach(img => {
+    firstRowImages.forEach((img) => {
       minX = Math.min(minX, img.x)
       minY = Math.min(minY, img.y)
       maxX = Math.max(maxX, img.x + img.width)
@@ -513,11 +491,13 @@ export class ImageLayoutManager {
     const viewArea = {
       x: minX - padding,
       y: minY - padding,
-      width: (maxX - minX) + padding * 2,
-      height: (maxY - minY) + padding * 2
+      width: maxX - minX + padding * 2,
+      height: maxY - minY + padding * 2,
     }
 
-    console.log(`🎯 第一行视野区域: (${Math.round(viewArea.x)}, ${Math.round(viewArea.y)}) ${Math.round(viewArea.width)}x${Math.round(viewArea.height)}`)
+    console.log(
+      `🎯 第一行视野区域: (${Math.round(viewArea.x)}, ${Math.round(viewArea.y)}) ${Math.round(viewArea.width)}x${Math.round(viewArea.height)}`
+    )
 
     return viewArea
   }
@@ -545,9 +525,13 @@ export class ImageLayoutManager {
     const middleIndex = Math.floor(images.length / 2)
     const middleImage = sortedImages[middleIndex]
 
-    console.log(`🎯 选择中间图片: 索引 ${middleIndex}, 行 ${middleImage.row}, 列 ${middleImage.col}`)
+    console.log(
+      `🎯 选择中间图片: 索引 ${middleIndex}, 行 ${middleImage.row}, 列 ${middleImage.col}`
+    )
     console.log(`🎯 中间图片ID: ${middleImage.id}`)
-    console.log(`🎯 中间图片位置: (${Math.round(middleImage.x)}, ${Math.round(middleImage.y)}) 尺寸: ${Math.round(middleImage.width)}x${Math.round(middleImage.height)}`)
+    console.log(
+      `🎯 中间图片位置: (${Math.round(middleImage.x)}, ${Math.round(middleImage.y)}) 尺寸: ${Math.round(middleImage.width)}x${Math.round(middleImage.height)}`
+    )
 
     // 返回图片信息
     const centerX = middleImage.x + middleImage.width / 2
@@ -558,7 +542,7 @@ export class ImageLayoutManager {
     return {
       id: middleImage.id,
       x: centerX,
-      y: centerY
+      y: centerY,
     }
   }
 
@@ -579,10 +563,12 @@ export class ImageLayoutManager {
     const images = this.getAllImages()
     if (images.length === 0) return null
 
-    let minX = Infinity, minY = Infinity
-    let maxX = -Infinity, maxY = -Infinity
+    let minX = Infinity,
+      minY = Infinity
+    let maxX = -Infinity,
+      maxY = -Infinity
 
-    images.forEach(img => {
+    images.forEach((img) => {
       minX = Math.min(minX, img.x)
       minY = Math.min(minY, img.y)
       maxX = Math.max(maxX, img.x + img.width)
@@ -593,7 +579,7 @@ export class ImageLayoutManager {
       x: minX,
       y: minY,
       width: maxX - minX,
-      height: maxY - minY
+      height: maxY - minY,
     }
   }
 }

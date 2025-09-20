@@ -59,8 +59,10 @@
     "shape": "形状",
     "arrow": "箭头",
     "line": "直线",
+    "freedraw": "自由绘制",
     "zoomFit": "缩放适应",
-    "relayout": "重排版"
+    "relayout": "重排版",
+    "moreTools": "更多工具"
   },
   "popbar": {
     "addToChat": "添加到聊天",

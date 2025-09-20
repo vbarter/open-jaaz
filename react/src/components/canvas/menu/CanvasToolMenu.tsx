@@ -1,13 +1,19 @@
 import { Separator } from '@/components/ui/separator'
 import { useCanvas } from '@/contexts/canvas'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Grid3X3 } from 'lucide-react'
 import CanvasMenuButton from './CanvasMenuButton'
 import RelayoutButton from './RelayoutButton'
+import ToolOverflowMenu from './ToolOverflowMenu'
 import { ToolType } from './CanvasMenuIcon'
 import { ImageLayoutManager } from '@/lib/image-layout-manager'
 
 const CanvasToolMenu = () => {
   const { excalidrawAPI } = useCanvas()
+  const isMobile = useIsMobile()
+  const { t } = useTranslation()
 
   const [activeTool, setActiveTool] = useState<ToolType | undefined>(undefined)
 
@@ -18,30 +24,16 @@ const CanvasToolMenu = () => {
   const handleRelayout = () => {
     if (!excalidrawAPI) return
 
-    console.log('开始重排版图片...')
-
     // 获取当前画布中的所有元素和文件
     const currentElements = excalidrawAPI.getSceneElements()
     const currentFiles = excalidrawAPI.getFiles()
 
-    console.log('🔍 当前画布状态:')
-    console.log('  - 元素总数:', currentElements.length)
-    console.log('  - 文件总数:', Object.keys(currentFiles).length)
-
     // 筛选出图片元素
-    const imageElements = currentElements.filter(el => el.type === 'image' && !el.isDeleted)
+    const imageElements = currentElements.filter((el) => el.type === 'image' && !el.isDeleted)
 
     if (imageElements.length === 0) {
-      console.log('画布中没有图片，跳过重排版')
       return
     }
-
-    console.log(`找到 ${imageElements.length} 张图片，开始重排版...`)
-
-    // 打印每个图片元素的关键信息
-    imageElements.forEach((img, index) => {
-      console.log(`  图片 ${index + 1}: ID=${img.id}, fileId=${img.fileId}, 位置=(${Math.round(img.x)}, ${Math.round(img.y)})`)
-    })
 
     // 使用临时的布局管理器进行重排版
     const layoutManager = new ImageLayoutManager()
@@ -50,62 +42,38 @@ const CanvasToolMenu = () => {
     const relayoutedImages = layoutManager.relayoutImages(currentElements)
 
     if (relayoutedImages.length === 0) {
-      console.log('重排版后没有图片')
       return
     }
 
-    console.log('📐 重排版后的图片位置:')
-    relayoutedImages.forEach((img, index) => {
-      console.log(`  图片 ${index + 1}: ID=${img.id}, fileId=${img.fileId}, 新位置=(${Math.round(img.x)}, ${Math.round(img.y)})`)
-    })
-
     // 更新非图片元素（保持原样）
-    const nonImageElements = currentElements.filter(el => el.type !== 'image' || el.isDeleted)
+    const nonImageElements = currentElements.filter((el) => el.type !== 'image' || el.isDeleted)
 
     // 合并所有元素
     const updatedElements = [...nonImageElements, ...relayoutedImages]
 
-    console.log('🎨 更新画布:')
-    console.log('  - 非图片元素:', nonImageElements.length)
-    console.log('  - 重排版图片:', relayoutedImages.length)
-    console.log('  - 总元素数:', updatedElements.length)
-
     // 更新画布 - 同时传递元素和文件
     excalidrawAPI.updateScene({
       elements: updatedElements,
-      files: currentFiles // 重要：保持文件引用
+      files: currentFiles, // 重要：保持文件引用
     })
-
-    console.log('重排版完成，准备自动滚动到第一张图片...')
 
     // 等待DOM完全更新后再触发滚动
     // 使用多层延迟确保重排版完全完成
     requestAnimationFrame(() => {
       setTimeout(() => {
-        console.log('🎯 开始执行滚动逻辑...')
-
         // 方案1：尝试滚动到第一张图片（第一行第一列）
         const firstImageInfo = layoutManager.getFirstImageInfo()
         if (firstImageInfo) {
-          console.log(`🎯 找到第一张图片: ID=${firstImageInfo.id}, 位置=(${Math.round(firstImageInfo.x)}, ${Math.round(firstImageInfo.y)})`)
-
           try {
-            console.log('📱 尝试滚动到第一张图片元素...')
             excalidrawAPI.scrollToContent(firstImageInfo.id, {
-              animate: true
+              animate: true,
             })
-            console.log('✅ 滚动到第一张图片完成')
             return
           } catch (error) {
-            console.error('❌ 滚动到第一张图片失败:', error)
-            console.log('🔄 尝试备选方案：滚动到第一行视野区域...')
-
             // 方案1.5：滚动到第一行的视野区域
             const firstRowViewArea = layoutManager.getFirstRowViewArea()
             if (firstRowViewArea) {
               try {
-                console.log(`📱 滚动到第一行视野区域: (${Math.round(firstRowViewArea.x)}, ${Math.round(firstRowViewArea.y)}) ${Math.round(firstRowViewArea.width)}x${Math.round(firstRowViewArea.height)}`)
-
                 // 使用updateScene设置视窗位置
                 const currentAppState = excalidrawAPI.getAppState()
                 excalidrawAPI.updateScene({
@@ -118,11 +86,10 @@ const CanvasToolMenu = () => {
                         window.innerWidth / firstRowViewArea.width,
                         window.innerHeight / firstRowViewArea.height,
                         1 // 不要放大，最多1倍
-                      )
-                    }
-                  }
+                      ),
+                    },
+                  },
                 })
-                console.log('✅ 滚动到第一行视野区域完成')
                 return
               } catch (viewError) {
                 console.error('❌ 滚动到第一行视野区域失败:', viewError)
@@ -131,27 +98,19 @@ const CanvasToolMenu = () => {
           }
         }
 
-        // 方案2：滚动到所有内容区域
-        console.log('📱 尝试滚动到整体内容区域...')
         try {
           excalidrawAPI.scrollToContent(undefined, {
             fitToContent: true,
-            animate: true
+            animate: true,
           })
-          console.log('✅ 滚动到整体内容完成')
         } catch (error) {
-          console.error('❌ 滚动到整体内容失败:', error)
-
-          // 方案3：使用zoomToFit作为备选
-          console.log('📱 尝试使用zoomToFit作为备选...')
           try {
             excalidrawAPI.updateScene({
               appState: {
                 ...excalidrawAPI.getAppState(),
-                shouldCacheIgnoreZoom: false
-              }
+                shouldCacheIgnoreZoom: false,
+              },
             })
-            console.log('✅ 备选方案执行完成')
           } catch (fallbackError) {
             console.error('❌ 备选方案也失败:', fallbackError)
           }
@@ -168,46 +127,102 @@ const CanvasToolMenu = () => {
   const hasImages = () => {
     if (!excalidrawAPI) return false
     const elements = excalidrawAPI.getSceneElements()
-    return elements.some(el => el.type === 'image' && !el.isDeleted)
+    return elements.some((el) => el.type === 'image' && !el.isDeleted)
   }
 
-  const tools: (ToolType | null)[] = [
+  // 所有可用的工具
+  const allTools: ToolType[] = [
     'hand',
     'selection',
-    null,
     'rectangle',
     'ellipse',
     'arrow',
     'line',
     'freedraw',
-    null,
     'text',
     'image',
   ]
 
+  // 移动端优先显示的工具（最重要的8个 + 重排版按钮 = 9个）
+  const mobileVisibleTools: ToolType[] = [
+    'hand',
+    'selection',
+    'rectangle',
+    'ellipse',
+    'arrow',
+    'line',
+    'text',
+    'image',
+  ]
+
+  // 计算需要折叠的工具
+  const overflowTools = isMobile
+    ? allTools.filter((tool) => !mobileVisibleTools.includes(tool))
+    : []
+
+  // 当前显示的工具
+  const visibleTools = isMobile ? mobileVisibleTools : allTools
+
+  // 创建自定义菜单项（移动端时包含重排按钮）
+  const customItems = isMobile
+    ? [
+        {
+          id: 'relayout',
+          type: 'relayout' as const,
+          icon: Grid3X3,
+          label: t('canvas:tool.relayout'),
+          disabled: !hasImages(),
+          onClick: handleRelayout,
+        },
+      ]
+    : []
+
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-white/85 backdrop-blur-md rounded-xl p-1.5 shadow-lg border border-white/40 md:bottom-5">
-      {tools.map((tool, index) =>
-        tool ? (
-          <CanvasMenuButton
-            key={tool}
-            type={tool}
-            activeTool={activeTool}
-            onClick={() => handleToolChange(tool)}
-          />
-        ) : (
-          <Separator
-            key={index}
-            orientation="vertical"
-            className="h-6! bg-primary/5"
-          />
-        )
-      )}
-      <Separator orientation="vertical" className="h-6! bg-primary/5" />
-      <RelayoutButton
-        onClick={handleRelayout}
-        disabled={!hasImages()}
+    <div
+      className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center bg-white/85 backdrop-blur-md rounded-xl shadow-lg border border-white/40 md:bottom-5 ${
+        isMobile ? 'p-1 max-w-[95vw] overflow-x-auto gap-0.5' : 'p-1.5 gap-1'
+      }`}
+    >
+      {/* 基础工具组 */}
+      <CanvasMenuButton
+        type='hand'
+        activeTool={activeTool}
+        onClick={() => handleToolChange('hand')}
       />
+      <CanvasMenuButton
+        type='selection'
+        activeTool={activeTool}
+        onClick={() => handleToolChange('selection')}
+      />
+
+      {/* 分隔符 */}
+      <Separator orientation='vertical' className='h-6! bg-primary/5' />
+
+      {/* 绘图工具组 */}
+      {visibleTools.slice(2).map((tool) => (
+        <CanvasMenuButton
+          key={tool}
+          type={tool}
+          activeTool={activeTool}
+          onClick={() => handleToolChange(tool)}
+        />
+      ))}
+
+      {/* 折叠菜单 */}
+      {isMobile && (overflowTools.length > 0 || customItems.length > 0) && (
+        <ToolOverflowMenu
+          tools={overflowTools}
+          activeTool={activeTool}
+          onToolSelect={handleToolChange}
+          customItems={customItems}
+        />
+      )}
+
+      {/* 分隔符（仅桌面端显示重排按钮时） */}
+      {!isMobile && <Separator orientation='vertical' className='h-6! bg-primary/5' />}
+
+      {/* 重排版按钮（仅桌面端显示） */}
+      {!isMobile && <RelayoutButton onClick={handleRelayout} disabled={!hasImages()} />}
     </div>
   )
 }
