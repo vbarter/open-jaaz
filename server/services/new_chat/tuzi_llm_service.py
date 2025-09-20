@@ -313,7 +313,8 @@ class TuziLLMService:
                        stream: bool = False,
                        aspect_ratio: str = 'auto',
                        quantity: int = 1,
-                       user_has_drawing_intent: str = "text") -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None], str]:
+                       user_has_drawing_intent: str = "text",
+                       user_language: str = 'en') -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None], str]:
         """
         生成魔法图像的完整流程
 
@@ -351,7 +352,8 @@ class TuziLLMService:
                 return await self.generate_video(user_prompt, model_name, input_images=image_content)
             elif user_has_drawing_intent == "url":
                 logger.info("🔗 检测到链接处理意图，执行链接处理流程")
-                user_prompt = f"{user_prompt} \n 请你仔细阅读这个网页，根据内容生成详细的英文绘图prompt"
+                user_prompt = f"{user_prompt} \n 请你仔细阅读这个网页，根据内容生成详细的绘图prompt, 输出语言采用{user_language}"
+                logger.info(f"🔍 [DEBUG] 生成提示词: {user_prompt}")
                 prompt = await self._generate_prompt_by_url(user_prompt)
                 if prompt.strip() == "":
                     raise Exception("相关url，生成提示词为空")
@@ -674,7 +676,8 @@ class TuziLLMService:
             logger.error(f"❌ 流式响应失败: {e}")
             yield f"[错误] 流式响应失败: {str(e)}"
 
-    async def _generate_prompt_by_url(self, user_prompt: str) -> str:
+    async def _generate_prompt_by_url(self, 
+                                      user_prompt: str) -> str:
         """
         生成优化的提示词
         

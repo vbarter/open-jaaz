@@ -16,6 +16,7 @@ export const sendMagicGenerate = async (payload: {
   templateId?: number
   aspectRatio?: string
   quantity?: number
+  language?: string
 }) => {
   console.log('[API Magic] 开始发送Magic Generation请求:', {
     sessionId: payload.sessionId,
@@ -33,6 +34,7 @@ export const sendMagicGenerate = async (payload: {
     template_id: payload.templateId?.toString() || '',
     aspect_ratio: payload.aspectRatio,
     quantity: payload.quantity,
+    language: payload.language,
   };
 
   console.log('[API Magic] 请求体:', {

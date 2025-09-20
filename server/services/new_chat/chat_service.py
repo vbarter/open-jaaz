@@ -131,42 +131,7 @@ async def handle_chat(data: Dict[str, Any]) -> None:
     text_model_data = data.get('text_model')
     aspect_ratio: str = data.get('aspect_ratio', 'auto')
     quantity: int = data.get('quantity', 1)
-    
-    # 🌐 [I18N] 检测用户语言偏好
-    user_language = 'en'  # 默认英文
-    try:
-        # 方法1: 从用户消息内容检测语言
-        if messages:
-            latest_message = messages[-1]
-            if isinstance(latest_message, dict) and 'content' in latest_message:
-                content = latest_message['content']
-                if isinstance(content, list) and content:
-                    for item in content:
-                        if isinstance(item, dict) and item.get('type') == 'text':
-                            text_content = item.get('text', '')
-                            if text_content:
-                                detected_lang = i18n_service.detect_language_from_content(text_content)
-                                user_language = detected_lang
-                                logger.info(f"🌐 [I18N] 从用户消息检测语言: {user_language} (内容: {text_content[:50]}...)")
-                                break
-        
-        # 方法2: 从请求头检测语言（如果有的话）
-        accept_language = data.get('accept_language')
-        if accept_language:
-            header_lang = i18n_service.detect_language_from_accept_header(accept_language)
-            user_language = header_lang
-            logger.info(f"🌐 [I18N] 从Accept-Language头检测语言: {user_language}")
-        
-    except Exception as e:
-        logger.warning(f"⚠️ [I18N] 语言检测失败，使用默认英文: {e}")
-        user_language = 'en'
-    
-    logger.info(f"🌐 [I18N] 最终确定用户语言: {user_language}")
-    
-    # 添加详细的调试信息
-    logger.info(f"🔍 [DEBUG] 前端传入的完整请求数据 keys: {list(data.keys())}")
-    logger.info(f"🔍 [DEBUG] 前端传入的 model_name: '{model_name}'")
-    logger.info(f"🔍 [DEBUG] 前端传入的 text_model: {text_model_data}")
+    user_language: str = data.get('language', 'en')
 
 
     # 1 最先做意图理解，确认用户想干嘛
@@ -512,7 +477,8 @@ async def _process_generation(
                                                   provider=provider,
                                                   aspect_ratio=aspect_ratio,
                                                   quantity=quantity,
-                                                  user_has_drawing_intent=user_has_drawing_intent)
+                                                  user_has_drawing_intent=user_has_drawing_intent,
+                                                  user_language=user_language)
         
         # 4. 检查生成结果是否包含图片，或者检查用户是否有画图意图
         logger.info(f"🔍 [DEBUG] 检查AI响应内容: {str(ai_response.get('content', ''))[:200]}...")

@@ -59,6 +59,7 @@ async def create_local_response(messages: List[Dict[str, Any]],
         elif isinstance(user_message.get('content'), str):
             user_prompt = user_message.get('content', '')
 
+
         # 否则使用原有的生成逻辑
         result = await llm_service.generate(model_name,
                                             user_prompt,
@@ -66,7 +67,8 @@ async def create_local_response(messages: List[Dict[str, Any]],
                                             user_info,
                                             aspect_ratio=aspect_ratio or "9:16",
                                             quantity=quantity,
-                                            user_has_drawing_intent=user_has_drawing_intent)
+                                            user_has_drawing_intent=user_has_drawing_intent,
+                                            user_language=user_language)
         if not result:
             # 导入错误消息工具
             from utils.error_messages import ErrorMessages

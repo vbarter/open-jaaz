@@ -15,6 +15,7 @@ export const sendMessages = async (payload: {
   systemPrompt: string | null
   aspectRatio?: string
   quantity?: number
+  language?: string
 }) => {
   const response = await fetch(`/api/chat`, {
     method: 'POST',
@@ -29,6 +30,7 @@ export const sendMessages = async (payload: {
       system_prompt: payload.systemPrompt,
       aspect_ratio: payload.aspectRatio,
       quantity: payload.quantity,
+      language: payload.language,
     }),
   })
   const data = await response.json()
