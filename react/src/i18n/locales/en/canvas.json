@@ -59,7 +59,10 @@
     "shape": "Shape",
     "arrow": "Arrow",
     "line": "Line",
-    "zoomFit": "Zoom to fit"
+    "freedraw": "Free Draw",
+    "zoomFit": "Zoom to fit",
+    "relayout": "Relayout Images",
+    "moreTools": "More Tools"
   },
   "popbar": {
     "addToChat": "Add to chat",

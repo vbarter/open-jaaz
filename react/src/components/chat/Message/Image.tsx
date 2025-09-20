@@ -133,7 +133,10 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
       if (content.image_url.url.includes('/api/file/')) {
         // 处理 /api/file/xxx.png 格式
         filename = content.image_url.url.split('/api/file/')[1]?.split('?')[0]
-      } else if (content.image_url.url.includes('cos.') && content.image_url.url.includes('myqcloud.com')) {
+      } else if (
+        content.image_url.url.includes('cos.') &&
+        content.image_url.url.includes('myqcloud.com')
+      ) {
         // 处理腾讯云URL格式
         // 腾讯云URL可能是: https://xxx.cos.xxx.myqcloud.com/im_xxx.png.avif
         // 需要提取 im_xxx.png 部分
@@ -167,7 +170,7 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
       // 如果提取到文件名，尝试在canvas files中查找
       if (filename) {
         // 首先尝试直接匹配文件名作为ID
-        const directFileMatch = filesArray.find(file => file.id === filename)
+        const directFileMatch = filesArray.find((file) => file.id === filename)
         if (directFileMatch) {
           id = filename
           console.log('🎯 MessageImage: 通过文件名直接匹配找到ID:', id)
@@ -175,7 +178,7 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
           // 如果文件名有扩展名，尝试去掉扩展名匹配
           const filenameWithoutExt = filename.replace(/\.[^/.]+$/, '')
 
-          const matchWithoutExt = filesArray.find(file => file.id === filenameWithoutExt)
+          const matchWithoutExt = filesArray.find((file) => file.id === filenameWithoutExt)
           if (matchWithoutExt) {
             id = filenameWithoutExt
             console.log('🎯 MessageImage: 通过去扩展名匹配找到ID:', id)
@@ -187,13 +190,13 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
               filenameWithoutExt,
               `im_${filename}`,
               `im_${filenameWithoutExt}`,
-              filename.replace(/^im_/, ''),  // 去掉im_前缀再试
-              filenameWithoutExt.replace(/^im_/, '')
+              filename.replace(/^im_/, ''), // 去掉im_前缀再试
+              filenameWithoutExt.replace(/^im_/, ''),
             ]
 
             let foundMatch = false
             for (const possibleId of possibleIds) {
-              const match = filesArray.find(file => file.id === possibleId)
+              const match = filesArray.find((file) => file.id === possibleId)
               if (match) {
                 id = match.id
                 foundMatch = true
@@ -204,7 +207,7 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
 
             if (!foundMatch) {
               // 尝试部分匹配：canvas ID可能包含文件名，或文件名包含canvas ID
-              const partialMatch = filesArray.find(file => {
+              const partialMatch = filesArray.find((file) => {
                 // 尝试多种匹配方式
                 const idInFilename = filename.includes(file.id)
                 const filenameInId = file.id.includes(filenameWithoutExt)
@@ -216,14 +219,13 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
 
               if (partialMatch) {
                 id = partialMatch.id
-                console.log('🎯 MessageImage: 通过部分匹配找到ID:', id)
               } else {
                 console.log('❌ MessageImage: 无法找到匹配的canvas元素', {
                   canvasElementId,
                   imageUrl: content.image_url.url,
                   filename,
                   filesCount: filesArray.length,
-                  possibleIds
+                  possibleIds,
                 })
               }
             }
@@ -234,10 +236,10 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
   }
 
   return (
-    <div className="w-full">
+    <div className='w-full'>
       <PhotoView src={content.image_url.url}>
         <span
-          className="group block relative overflow-hidden rounded-md my-2 last:mb-4"
+          className='group block relative overflow-hidden rounded-md my-2 last:mb-4'
           onTouchStart={handleMobileTouch}
         >
           <img
@@ -245,18 +247,16 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
               isUserMessage ? 'max-h-[140px] object-cover' : 'object-contain'
             }`}
             src={content.image_url.url}
-            alt="Image"
+            alt='Image'
           />
 
           {/* 定位按钮 - 右上角 */}
           {id && (
             <Button
-              variant="secondary"
+              variant='secondary'
               className={`absolute top-2 right-2 z-10 transition-opacity duration-200 ${
                 // 移动端：根据状态显示，桌面端：hover显示
-                showMobileButtons
-                  ? 'opacity-100'
-                  : 'opacity-0 md:group-hover:opacity-100'
+                showMobileButtons ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
               }`}
               onClick={(e) => {
                 e.stopPropagation()
@@ -269,13 +269,11 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
 
           {/* 下载按钮 - 右下角 */}
           <Button
-            variant="secondary"
-            size="icon"
+            variant='secondary'
+            size='icon'
             className={`absolute bottom-2 right-2 z-10 transition-opacity duration-200 h-8 w-8 ${
               // 移动端：根据状态显示，桌面端：hover显示
-              showMobileButtons
-                ? 'opacity-100'
-                : 'opacity-0 md:group-hover:opacity-100'
+              showMobileButtons ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
             }`}
             onClick={(e) => {
               e.stopPropagation()
@@ -291,7 +289,7 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
             }}
             title={t('common:download') || 'Download'}
           >
-            <Download className="h-4 w-4" />
+            <Download className='h-4 w-4' />
           </Button>
         </span>
       </PhotoView>
