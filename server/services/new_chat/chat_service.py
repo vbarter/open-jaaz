@@ -894,28 +894,29 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
     # 策略1: 如果有图片，肯定是图片或视频生成
     if has_image:
         # 通过文本内容判断是视频还是图片
-        prompt = f"""你是一个意图识别专家。请分析用户的消息，判断用户想要：
-1. 如果用户想生成视频，返回 “video”
-* case1: 帮我生成一个视频
-* case2: 来个视频
-* case3: 制作一个视频
-* case4: 制作一个动画
-* case5: 制作一个动画视频
-
-2. 如果用户想生成图片/画图，返回 “image” 
-* case1: 帮我生成一个图片
-* case2: 来个图片
-* case3: 制作一个图片
-* case4: 制作一个图片
-* case5: 画一个...
-
-只返回一个词：video、image
-
-用户输入: {text_content}
-返回:"""
+        prompt = f"""
+你是用户意图识别专家。请分析用户输入，判断用户想要图片生成、视频生成还是文本问答。
+**分析思路：**
+1. **识别核心动词**：
+   - 创作类动词（画、生成、制作、设计）→ 视觉生成需求
+   - 询问类动词（问、解释、告诉、帮助）→ 文本问答需求
+2. **判断媒体类型**：
+   - 静态描述词（一张图、画面、海报、logo）→ image
+   - 动态描述词（视频、动画、播放、动作序列）→ video  
+   - 无媒体需求（纯信息咨询、知识问答）→ text
+3. **语境确认**：
+   - 有具体视觉要求 → image/video
+   - 纯粹信息需求 → text
+**输出规则：**
+- 图片生成需求：输出 image
+- 视频生成需求：输出 video  
+- 文本问答需求：输出 text
+- 只输出一个英文单词，无需其他解释
+现在分析: {text_content}
+"""
         
         response = await intent_client.chat.completions.create(
-                         model="gpt-5-all",
+                         model="gpt-5-2025-08-07",
                          messages=[{"role": "user", "content": prompt}],
                          max_tokens=100,
                          temperature=0.1)
@@ -928,27 +929,26 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
         return result
     else:
         # 通过文本内容判断是视频还是图片
-        prompt = f"""你是一个意图识别专家。请分析用户的消息，判断用户想要：
-1. 如果用户想生成视频，返回 “video”
-* case1: 帮我生成一个视频
-* case2: 来个视频
-* case3: 制作一个视频
-* case4: 制作一个动画
-* case5: 制作一个动画视频
-
-2. 如果用户想生成图片/画图，返回 “image” 
-* case1: 帮我生成一个图片
-* case2: 来个图片
-* case3: 制作一个图片
-* case4: 制作一个图片
-* case5: 画一个...
-
-3. 除了上述情况，其他都是文本对话 - 返回 "text"
-
-只返回一个词：video、image、text
-
-用户输入: {text_content}
-返回:"""
+        prompt = f"""
+你是用户意图识别专家。请分析用户输入，判断用户想要图片生成、视频生成还是文本问答。
+**分析思路：**
+1. **识别核心动词**：
+   - 创作类动词（画、生成、制作、设计）→ 视觉生成需求
+   - 询问类动词（问、解释、告诉、帮助）→ 文本问答需求
+2. **判断媒体类型**：
+   - 静态描述词（一张图、画面、海报、logo）→ image
+   - 动态描述词（视频、动画、播放、动作序列）→ video  
+   - 无媒体需求（纯信息咨询、知识问答）→ text
+3. **语境确认**：
+   - 有具体视觉要求 → image/video
+   - 纯粹信息需求 → text
+**输出规则：**
+- 图片生成需求：输出 image
+- 视频生成需求：输出 video  
+- 文本问答需求：输出 text
+- 只输出一个英文单词，无需其他解释
+现在分析: {text_content}
+"""
         
         response = await intent_client.chat.completions.create(
                          model="gpt-5-2025-08-07",
