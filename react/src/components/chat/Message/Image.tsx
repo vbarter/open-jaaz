@@ -22,6 +22,7 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
   const { excalidrawAPI } = useCanvas()
   const { t } = useTranslation()
   const [filesArray, setFilesArray] = useState<{ id: string; url: string }[]>([])
+  const [showMobileButtons, setShowMobileButtons] = useState(false)
 
   // 更新files数组，包括延迟重试以处理时序问题
   useEffect(() => {
@@ -96,6 +97,16 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
     } catch (error) {
       console.error('❌ [MessageImage] 图片下载失败:', error)
     }
+  }
+
+  // 移动端触摸交互处理
+  const handleMobileTouch = () => {
+    setShowMobileButtons(true)
+
+    // 3秒后自动隐藏按钮
+    setTimeout(() => {
+      setShowMobileButtons(false)
+    }, 3000)
   }
 
   // 改进的ID匹配逻辑：借鉴Markdown.tsx的复杂匹配逻辑
@@ -225,7 +236,10 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
   return (
     <div className="w-full">
       <PhotoView src={content.image_url.url}>
-        <span className="group block relative overflow-hidden rounded-md my-2 last:mb-4">
+        <span
+          className="group block relative overflow-hidden rounded-md my-2 last:mb-4"
+          onTouchStart={handleMobileTouch}
+        >
           <img
             className={`cursor-pointer group-hover:scale-105 transition-transform duration-300 w-full h-auto rounded-md border border-border ${
               isUserMessage ? 'max-h-[140px] object-cover' : 'object-contain'
@@ -238,7 +252,12 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
           {id && (
             <Button
               variant="secondary"
-              className="group-hover:opacity-100 opacity-0 absolute top-2 right-2 z-10 transition-opacity duration-200"
+              className={`absolute top-2 right-2 z-10 transition-opacity duration-200 ${
+                // 移动端：根据状态显示，桌面端：hover显示
+                showMobileButtons
+                  ? 'opacity-100'
+                  : 'opacity-0 md:group-hover:opacity-100'
+              }`}
               onClick={(e) => {
                 e.stopPropagation()
                 handleImagePositioning(id)
@@ -252,7 +271,12 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
           <Button
             variant="secondary"
             size="icon"
-            className="group-hover:opacity-100 opacity-0 absolute bottom-2 right-2 z-10 transition-opacity duration-200 h-8 w-8"
+            className={`absolute bottom-2 right-2 z-10 transition-opacity duration-200 h-8 w-8 ${
+              // 移动端：根据状态显示，桌面端：hover显示
+              showMobileButtons
+                ? 'opacity-100'
+                : 'opacity-0 md:group-hover:opacity-100'
+            }`}
             onClick={(e) => {
               e.stopPropagation()
               // 提取文件名用于下载

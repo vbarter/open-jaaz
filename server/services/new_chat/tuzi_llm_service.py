@@ -353,6 +353,8 @@ class TuziLLMService:
                 logger.info("🔗 检测到链接处理意图，执行链接处理流程")
                 user_prompt = f"{user_prompt} \n 请你仔细阅读这个网页，根据内容生成详细的英文绘图prompt"
                 prompt = await self._generate_prompt_by_url(user_prompt)
+                if prompt.strip() == "":
+                    raise Exception("相关url，生成提示词为空")
                 logger.info(f"🔍 [DEBUG] 生成提示词: {prompt}")
                 return await self._handle_image_generation("gemini-2.5-flash-image", prompt, user_info, aspect_ratio, quantity)
         except Exception as e:
@@ -683,8 +685,7 @@ class TuziLLMService:
         Returns:
             str: 优化后的提示词
         """
-        try:
-            logger.info(f"🔧 [DEBUG] 开始生成优化提示词，模型: {model_name}")    
+        try: 
             # 构建请求数据
             request_data = {
                 "contents": [

@@ -17,6 +17,7 @@ const NonMemoizedMarkdown: React.FC<MarkdownProps> = ({ children }) => {
   const [filesArray, setFilesArray] = useState<{ id: string; url: string }[]>([])
   const { t } = useTranslation()
   const [isThinkExpanded, setIsThinkExpanded] = useState(false)
+  const [showMobileButtons, setShowMobileButtons] = useState<Record<string, boolean>>({})
 
 
   // 更新files数组，包括延迟重试以处理时序问题
@@ -151,6 +152,20 @@ const NonMemoizedMarkdown: React.FC<MarkdownProps> = ({ children }) => {
     } catch (error) {
       console.error('❌ [Markdown IMG] 图片下载失败:', error)
     }
+  }
+
+  // 移动端触摸交互处理
+  const handleMobileTouch = (elementId: string) => {
+    setShowMobileButtons(prev => ({ ...prev, [elementId]: true }))
+
+    // 3秒后自动隐藏按钮
+    setTimeout(() => {
+      setShowMobileButtons(prev => {
+        const newState = { ...prev }
+        delete newState[elementId] // 清理状态
+        return newState
+      })
+    }, 3000)
   }
 
   const components: Components = {
@@ -385,8 +400,15 @@ const NonMemoizedMarkdown: React.FC<MarkdownProps> = ({ children }) => {
       const isVideo = props.alt && props.alt.includes('video_id:')
 
       if (isVideo) {
+        // 为每个特殊视频生成唯一ID用于移动端按钮状态管理
+        const videoElementId = `video-special-${props.src?.replace(/[^a-zA-Z0-9]/g, '-') || Math.random()}`
+        const isVideoButtonsVisible = showMobileButtons[videoElementId]
+
         return (
-          <span className="group block relative overflow-hidden rounded-md my-2 last:mb-4">
+          <span
+            className="group block relative overflow-hidden rounded-md my-2 last:mb-4"
+            onTouchStart={() => handleMobileTouch(videoElementId)}
+          >
             <video
               className="w-full max-w-full h-auto rounded-md cursor-pointer group-hover:scale-105 transition-transform duration-300"
               controls
@@ -401,7 +423,12 @@ const NonMemoizedMarkdown: React.FC<MarkdownProps> = ({ children }) => {
             {id && (
               <Button
                 variant="secondary"
-                className="group-hover:opacity-100 opacity-0 absolute top-2 right-2 z-10 transition-opacity duration-200"
+                className={`absolute top-2 right-2 z-10 transition-opacity duration-200 ${
+                  // 移动端：根据状态显示，桌面端：hover显示
+                  isVideoButtonsVisible
+                    ? 'opacity-100'
+                    : 'opacity-0 md:group-hover:opacity-100'
+                }`}
                 onClick={(e) => {
                   e.stopPropagation()
                   handleImagePositioning(id)
@@ -415,7 +442,12 @@ const NonMemoizedMarkdown: React.FC<MarkdownProps> = ({ children }) => {
             <Button
               variant="secondary"
               size="icon"
-              className="group-hover:opacity-100 opacity-0 absolute bottom-2 right-2 z-10 transition-opacity duration-200 h-8 w-8"
+              className={`absolute bottom-2 right-2 z-10 transition-opacity duration-200 h-8 w-8 ${
+                // 移动端：根据状态显示，桌面端：hover显示
+                isVideoButtonsVisible
+                  ? 'opacity-100'
+                  : 'opacity-0 md:group-hover:opacity-100'
+              }`}
               onClick={(e) => {
                 e.stopPropagation()
                 // 提取文件名用于下载
@@ -434,9 +466,16 @@ const NonMemoizedMarkdown: React.FC<MarkdownProps> = ({ children }) => {
         )
       }
 
+      // 为每个图片生成唯一ID用于移动端按钮状态管理
+      const elementId = `img-${props.src?.replace(/[^a-zA-Z0-9]/g, '-') || Math.random()}`
+      const isButtonsVisible = showMobileButtons[elementId]
+
       return (
         <PhotoView src={props.src}>
-          <span className="group block relative overflow-hidden rounded-md my-2 last:mb-4">
+          <span
+            className="group block relative overflow-hidden rounded-md my-2 last:mb-4"
+            onTouchStart={() => handleMobileTouch(elementId)}
+          >
             <img
               className="cursor-pointer group-hover:scale-105 transition-transform duration-300"
               {...props}
@@ -446,7 +485,12 @@ const NonMemoizedMarkdown: React.FC<MarkdownProps> = ({ children }) => {
             {id && (
               <Button
                 variant="secondary"
-                className="group-hover:opacity-100 opacity-0 absolute top-2 right-2 z-10 transition-opacity duration-200"
+                className={`absolute top-2 right-2 z-10 transition-opacity duration-200 ${
+                  // 移动端：根据状态显示，桌面端：hover显示
+                  isButtonsVisible
+                    ? 'opacity-100'
+                    : 'opacity-0 md:group-hover:opacity-100'
+                }`}
                 onClick={(e) => {
                   e.stopPropagation()
                   handleImagePositioning(id)
@@ -460,7 +504,12 @@ const NonMemoizedMarkdown: React.FC<MarkdownProps> = ({ children }) => {
             <Button
               variant="secondary"
               size="icon"
-              className="group-hover:opacity-100 opacity-0 absolute bottom-2 right-2 z-10 transition-opacity duration-200 h-8 w-8"
+              className={`absolute bottom-2 right-2 z-10 transition-opacity duration-200 h-8 w-8 ${
+                // 移动端：根据状态显示，桌面端：hover显示
+                isButtonsVisible
+                  ? 'opacity-100'
+                  : 'opacity-0 md:group-hover:opacity-100'
+              }`}
               onClick={(e) => {
                 e.stopPropagation()
                 // 提取文件名用于下载
@@ -483,8 +532,15 @@ const NonMemoizedMarkdown: React.FC<MarkdownProps> = ({ children }) => {
     },
     video: ({ node, children, ...props }) => {
       const id = filesArray.find((file) => props.src?.includes(file.url))?.id
+      // 为每个视频生成唯一ID用于移动端按钮状态管理
+      const elementId = `video-${props.src?.replace(/[^a-zA-Z0-9]/g, '-') || Math.random()}`
+      const isButtonsVisible = showMobileButtons[elementId]
+
       return (
-        <span className="group block relative overflow-hidden rounded-md my-2 last:mb-4">
+        <span
+          className="group block relative overflow-hidden rounded-md my-2 last:mb-4"
+          onTouchStart={() => handleMobileTouch(elementId)}
+        >
           <video
             className="w-full max-w-full h-auto rounded-md"
             controls
@@ -498,7 +554,12 @@ const NonMemoizedMarkdown: React.FC<MarkdownProps> = ({ children }) => {
           {id && (
             <Button
               variant="secondary"
-              className="group-hover:opacity-100 opacity-0 absolute top-2 right-2 z-10 transition-opacity duration-200"
+              className={`absolute top-2 right-2 z-10 transition-opacity duration-200 ${
+                // 移动端：根据状态显示，桌面端：hover显示
+                isButtonsVisible
+                  ? 'opacity-100'
+                  : 'opacity-0 md:group-hover:opacity-100'
+              }`}
               onClick={(e) => {
                 e.stopPropagation()
                 handleImagePositioning(id)
@@ -512,7 +573,12 @@ const NonMemoizedMarkdown: React.FC<MarkdownProps> = ({ children }) => {
           <Button
             variant="secondary"
             size="icon"
-            className="group-hover:opacity-100 opacity-0 absolute bottom-2 right-2 z-10 transition-opacity duration-200 h-8 w-8"
+            className={`absolute bottom-2 right-2 z-10 transition-opacity duration-200 h-8 w-8 ${
+              // 移动端：根据状态显示，桌面端：hover显示
+              isButtonsVisible
+                ? 'opacity-100'
+                : 'opacity-0 md:group-hover:opacity-100'
+            }`}
             onClick={(e) => {
               console.log('💾 [Markdown VIDEO] 点击下载视频按钮')
               e.stopPropagation()
