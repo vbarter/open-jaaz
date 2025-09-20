@@ -918,7 +918,7 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
         response = await intent_client.chat.completions.create(
                          model="gpt-5-2025-08-07",
                          messages=[{"role": "user", "content": prompt}],
-                         max_tokens=100,
+                         max_tokens=2000,
                          temperature=0.1)
 
         result = response.choices[0].message.content.strip().lower()
@@ -953,7 +953,7 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
         response = await intent_client.chat.completions.create(
                          model="gpt-5-2025-08-07",
                          messages=[{"role": "user", "content": prompt}],
-                         max_tokens=100,
+                         max_tokens=2000,
                          temperature=0.1)
 
         result = response.choices[0].message.content.strip().lower()
