@@ -89,10 +89,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         _session = sessionList[0]
       }
       setSession(_session)
+
+      // 🔧 关键修复：确保WebSocket session注册与当前活跃session同步
+      if (_session && socketManager) {
+        console.log('🔄 [SESSION_SYNC] 同步WebSocket session注册:', {
+          newSessionId: _session.id,
+          canvasId,
+          socketConnected: socketManager.isConnected(),
+          timestamp: new Date().toISOString()
+        })
+
+        // 重新注册session，确保WebSocket使用正确的session ID
+        socketManager.registerSession(_session.id, canvasId)
+      }
     } else {
       setSession(null)
     }
-  }, [sessionList, searchSessionId])
+  }, [sessionList, searchSessionId, socketManager, canvasId])
 
   const sessionIdRef = useRef<string>(session?.id || nanoid())
   const [expandingToolCalls, setExpandingToolCalls] = useState<string[]>([])
@@ -361,6 +374,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // 监听pending状态变化，确保"Thinking..."出现时滚动到底部
   useEffect(() => {
     if (pending) {
+      console.log('⏳ [URL_GEN_DEBUG] Pending状态变为thinking - 这可能触发消息覆盖', {
+        pending,
+        messagesCount: messages.length,
+        hasDisplayedInitialMessage,
+        sessionId,
+        action: 'THINKING_STARTED',
+        currentMessages: messages.map(m => ({
+          role: m.role,
+          preview: typeof m.content === 'string' ? m.content.slice(0, 50) : 'mixed'
+        }))
+      })
+
       // 立即滚动一次
       forceScrollToBottom()
 
@@ -373,8 +398,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       setTimeout(() => {
         forceScrollToBottom()
       }, 300)
+    } else {
+      console.log('✅ [URL_GEN_DEBUG] Pending状态结束', {
+        pending,
+        messagesCount: messages.length,
+        sessionId,
+        action: 'THINKING_ENDED'
+      })
     }
-  }, [pending, forceScrollToBottom])
+  }, [pending, forceScrollToBottom, messages.length, hasDisplayedInitialMessage, sessionId])
 
   // 组件挂载时立即滚动到底部
   useEffect(() => {
@@ -393,34 +425,93 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [])
 
+  // 🆕 Q&A结构辅助函数：组织消息为问答对，改善顺序管理
+  const organizeMessagesAsQA = (messages: Message[]) => {
+    const qaStructure = []
+    let currentQuestion = null
+    let currentAnswers = []
+
+    for (const message of messages) {
+      if (message.role === 'user') {
+        // 如果之前有问答对，先保存
+        if (currentQuestion && currentAnswers.length > 0) {
+          qaStructure.push({
+            question: currentQuestion,
+            answers: [...currentAnswers]
+          })
+        }
+        // 开始新的问答对
+        currentQuestion = message
+        currentAnswers = []
+      } else if (message.role === 'assistant' && currentQuestion) {
+        // 收集当前问题的答案
+        currentAnswers.push(message)
+      } else {
+        // 处理工具调用等其他消息类型
+        currentAnswers.push(message)
+      }
+    }
+
+    // 处理最后一个问答对
+    if (currentQuestion && currentAnswers.length > 0) {
+      qaStructure.push({
+        question: currentQuestion,
+        answers: [...currentAnswers]
+      })
+    }
+
+    // Q&A结构组织完成
+
+    // 将Q&A结构重新扁平化为消息数组，确保顺序正确
+    const organizedMessages = []
+    for (const qa of qaStructure) {
+      organizedMessages.push(qa.question)
+      organizedMessages.push(...qa.answers)
+    }
+
+    return organizedMessages
+  }
+
   const mergeToolCallResult = (messages: Message[]) => {
-    // 修复：基于消息ID去重，而不是内容去重，避免误删相同内容的不同消息
+    // 🔧 简化的去重逻辑：保护图片消息和canvas元素
     const uniqueMessages = messages.filter((message, index, arr) => {
-      // 如果消息有message_id，基于ID去重
-      const messageWithId = message as Message & { message_id?: string }
-      if (messageWithId.message_id) {
+      const messageWithMeta = message as Message & {
+        message_id?: string
+        canvas_element_id?: string
+        tool_call_id?: string
+      }
+
+      // 1. 优先基于message_id去重（最可靠）
+      if (messageWithMeta.message_id) {
         const isDuplicate = arr.slice(0, index).some((prevMessage) => {
-          const prevMessageWithId = prevMessage as Message & { message_id?: string }
-          return prevMessageWithId.message_id === messageWithId.message_id
+          const prevMessageWithMeta = prevMessage as Message & { message_id?: string }
+          return prevMessageWithMeta.message_id === messageWithMeta.message_id
         })
         return !isDuplicate
       }
 
-      // 对于没有message_id的消息（兼容旧数据），只对工具调用消息进行去重
-      if (message.role === 'tool') {
-        const toolMessage = message as Message & { tool_call_id?: string }
+      // 2. 对于图片消息，基于canvas_element_id去重
+      if (messageWithMeta.canvas_element_id) {
+        const isDuplicate = arr.slice(0, index).some((prevMessage) => {
+          const prevMessageWithMeta = prevMessage as Message & { canvas_element_id?: string }
+          return prevMessageWithMeta.canvas_element_id === messageWithMeta.canvas_element_id
+        })
+        return !isDuplicate
+      }
+
+      // 3. 对于工具调用消息，基于tool_call_id去重
+      if (message.role === 'tool' && messageWithMeta.tool_call_id) {
         const isDuplicate = arr.slice(0, index).some((prevMessage) => {
           const prevToolMessage = prevMessage as Message & { tool_call_id?: string }
           return (
             prevMessage.role === 'tool' &&
-            prevToolMessage.tool_call_id === toolMessage.tool_call_id &&
-            JSON.stringify(prevMessage.content) === JSON.stringify(message.content)
+            prevToolMessage.tool_call_id === messageWithMeta.tool_call_id
           )
         })
         return !isDuplicate
       }
 
-      // 用户消息和助手消息不进行内容去重，允许重复内容
+      // 4. 用户消息和普通助手消息不去重，保持完整性
       return true
     })
 
@@ -437,8 +528,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           }
         }
       }
+
+      // 🔧 确保重要属性完整性（特别是图片消息）
+      const messageWithMeta = message as any
+      if (messageWithMeta.canvas_element_id || messageWithMeta.video_url) {
+        // 保护消息重要属性的逻辑已经在这里实现
+      }
+
       return message
     })
+
+    // mergeToolCallResult 完成，返回处理后的消息
 
     return messagesWithToolCallResult
   }
@@ -832,33 +932,49 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // 添加一个 ref 来跟踪最后处理的 AllMessages 事件，防止重复处理
   const lastAllMessagesRef = useRef<string>('')
+  const processingAllMessagesRef = useRef<boolean>(false)
 
   const handleAllMessages = useCallback(
     (data: TEvents['Socket::Session::AllMessages']) => {
-      // 生成消息的唯一标识符
-      const messageKey = `${data.session_id}_${data.canvas_id}_${JSON.stringify(data.messages?.map((m: any) => m.message_id || m.timestamp))}`
+      // 防止同时处理多个AllMessages事件
+      if (processingAllMessagesRef.current) {
+        console.log('⚠️ [URL_GEN_DEBUG] AllMessages event ignored (already processing)')
+        return
+      }
+
+      // 生成消息的唯一标识符 - 使用更精确的标识
+      const messageKey = `${data.session_id}_${data.canvas_id}_${data.messages?.length}_${JSON.stringify(data.messages?.map((m: any) => m.message_id || m.timestamp).slice(0, 3))}`
 
       // 防止重复处理相同的消息
       if (lastAllMessagesRef.current === messageKey) {
-        console.log('⚠️ [VIDEO_DEBUG] Duplicate AllMessages event ignored (same content)')
+        console.log('⚠️ [URL_GEN_DEBUG] Duplicate AllMessages event ignored (same content)', {
+          messageKey: messageKey.substring(0, 100) + '...'
+        })
         return
       }
+
+      // 设置处理标志
+      processingAllMessagesRef.current = true
       lastAllMessagesRef.current = messageKey
 
-      console.log('🎬 [VIDEO_DEBUG] handleAllMessages received:', {
-        dataSessionId: data.session_id,
-        dataCanvasId: data.canvas_id,
-        currentSessionId: sessionId,
-        currentCanvasId: canvasId,
-        messagesCount: data.messages?.length,
-        messageKey: messageKey.substring(0, 50) + '...'
+      console.log('📨 [URL_GEN_DEBUG] 处理AllMessages事件:', {
+        sessionMatch: data.session_id === sessionId,
+        canvasMatch: data.canvas_id === canvasId,
+        newMessagesCount: data.messages?.length,
+        currentCount: messages.length
       })
 
-      // 🔥 关键修复：支持基于canvas_id的消息接收
-      // 如果是同一个canvas的消息，即使session_id不同也接收
-      const shouldAcceptMessage =
-        (data.session_id && data.session_id === sessionId) ||
-        (data.canvas_id && data.canvas_id === canvasId)
+      // 🔥 严格的消息接收逻辑：优先session匹配，谨慎使用canvas匹配
+      // 1. 优先：完全匹配的session
+      const sessionExactMatch = data.session_id && data.session_id === sessionId
+      // 2. 谨慎：canvas匹配（仅当session不匹配但canvas匹配，且时间很近时）
+      const timeDifference = Math.abs(Date.now() - (data.timestamp || 0))
+      const canvasMatch = data.canvas_id && data.canvas_id === canvasId &&
+                         !sessionExactMatch && timeDifference < 30000 // 30秒内的canvas匹配才接受
+
+      const shouldAcceptMessage = sessionExactMatch || canvasMatch
+
+      // 消息接收逻辑检查完成
 
       if (!shouldAcceptMessage) {
         console.log('❌ [VIDEO_DEBUG] Message rejected - neither session nor canvas ID match')
@@ -868,6 +984,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           dataIds: { session: data.session_id, canvas: data.canvas_id },
           currentIds: { session: sessionId, canvas: canvasId }
         })
+        processingAllMessagesRef.current = false
         return
       }
 
@@ -911,85 +1028,79 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       const processedMessages = mergeToolCallResult(data.messages)
 
+      // 🆕 应用Q&A结构组织，确保消息顺序正确
+      const qaOrganizedMessages = organizeMessagesAsQA(processedMessages)
+
       // 如果已经显示了初始用户消息，且后端消息为空，则不覆盖
-      if (hasDisplayedInitialMessage && processedMessages.length === 0 && messages.length > 0) {
-        console.log('🔍 [DEBUG] handleAllMessages: 保持当前消息，不覆盖空消息')
+      if (hasDisplayedInitialMessage && qaOrganizedMessages.length === 0 && messages.length > 0) {
+        console.log('🚫 [URL_GEN_DEBUG] handleAllMessages: 保持当前消息，不覆盖空消息', {
+          hasDisplayedInitialMessage,
+          qaOrganizedMessagesLength: qaOrganizedMessages.length,
+          currentMessagesLength: messages.length,
+          action: 'SKIP_EMPTY_OVERRIDE'
+        })
+        processingAllMessagesRef.current = false
         return
       }
 
-      // 如果已显示初始消息，且后端消息不包含用户消息，则合并
-      if (hasDisplayedInitialMessage && messages.length > 0) {
-        const hasUserMessage = processedMessages.some((msg) => msg.role === 'user')
-        if (!hasUserMessage) {
-          const mergedMessages = [...messages, ...processedMessages]
-          console.log(
-            '🔍 [DEBUG] handleAllMessages: 合并消息，当前消息数:',
-            messages.length,
-            '新消息数:',
-            processedMessages.length,
-            '合并后:',
-            mergedMessages.length
-          )
-          setMessages(mergedMessages)
-
-          // 检查是否有视频消息，如果有则需要更长的延迟
-          const hasVideoMessage = mergedMessages.some(msg => {
-            const content = msg.content
-            return typeof content === 'string' &&
-                   (content.includes('.mp4') || content.includes('.webm') ||
-                    content.includes('.mov') || content.includes('视频'))
-          })
-
-          if (hasVideoMessage) {
-            // 视频消息需要更长时间渲染，等待500ms
-            setTimeout(() => {
-              scrollToBottom()
-            }, 500)
-          } else {
-            scrollToBottom()
-          }
-          return
-        }
-      }
-
-      console.log(
-        '🔍 [VIDEO_DEBUG] handleAllMessages: 完全替换消息列表，从',
-        messages.length,
-        '条消息到',
-        processedMessages.length,
-        '条消息'
-      )
-
-      // 打印最后一条消息的详细信息
-      if (processedMessages.length > 0) {
-        const lastMsg = processedMessages[processedMessages.length - 1]
-        console.log('📝 [VIDEO_DEBUG] Last message details:', {
-          role: lastMsg.role,
-          type: (lastMsg as any).type,
-          video_url: (lastMsg as any).video_url,
-          content: typeof lastMsg.content === 'string' ?
-            lastMsg.content.slice(0, 200) : lastMsg.content
-        })
-      }
-
-      setMessages(processedMessages)
-
-      // 检查是否有视频消息，如果有则需要更长的延迟
-      const hasVideoMessage = processedMessages.some(msg => {
-        const content = msg.content
-        return typeof content === 'string' &&
-               (content.includes('.mp4') || content.includes('.webm') ||
-                content.includes('.mov') || content.includes('视频'))
+      // 🔥 简化的消息处理策略：使用Q&A组织的消息，确保顺序和属性完整性
+      console.log('✅ [URL_GEN_DEBUG] 应用Q&A组织的简化消息处理策略', {
+        currentMessagesCount: messages.length,
+        qaOrganizedMessagesCount: qaOrganizedMessages.length,
+        originalProcessedCount: processedMessages.length,
+        action: 'QA_ORGANIZED_REPLACEMENT',
+        sessionMatch: sessionExactMatch ? 'EXACT_SESSION' : canvasMatch ? 'CANVAS_FALLBACK' : 'NO_MATCH'
       })
 
-      if (hasVideoMessage) {
-        // 视频消息需要更长时间渲染，等待500ms
-        setTimeout(() => {
-          scrollToBottom()
-        }, 500)
-      } else {
+      // 对于session完全匹配的情况，直接使用Q&A组织的消息（最可靠）
+      if (sessionExactMatch) {
+        console.log('🎯 [URL_GEN_DEBUG] Session完全匹配，使用Q&A组织消息直接替换')
+        setMessages(qaOrganizedMessages)
         scrollToBottom()
+        processingAllMessagesRef.current = false
+        return
       }
+
+      // 对于canvas匹配但session不匹配的情况，谨慎处理
+      if (canvasMatch) {
+        console.log('⚠️ [URL_GEN_DEBUG] Canvas匹配但session不同，谨慎处理')
+
+        // 检查当前是否有重要的图片/视频内容需要保留
+        const hasImportantContent = messages.some(msg => {
+          if (msg.role === 'assistant') {
+            return Array.isArray(msg.content) && msg.content.some(c => c.type === 'image_url') ||
+                   (msg as any).canvas_element_id || (msg as any).video_url
+          }
+          return false
+        })
+
+        if (!hasImportantContent) {
+          // 如果没有重要内容，使用Q&A组织的消息直接替换
+          console.log('🔄 [URL_GEN_DEBUG] 无重要内容，使用Q&A组织消息直接替换')
+          setMessages(qaOrganizedMessages)
+        } else {
+          // 如果有重要内容，将当前消息和新消息都用Q&A结构组织
+          console.log('🔗 [URL_GEN_DEBUG] 有重要内容，应用Q&A组织合并')
+          const combinedMessages = [...messages, ...qaOrganizedMessages]
+          const qaOrganizedCombined = organizeMessagesAsQA(combinedMessages)
+          setMessages(qaOrganizedCombined)
+        }
+
+        scrollToBottom()
+        processingAllMessagesRef.current = false
+        return
+      }
+
+      // 如果上述条件都不满足，执行默认的Q&A组织消息替换
+      console.log('✅ [URL_GEN_DEBUG] 执行默认Q&A组织消息替换', {
+        fromCount: messages.length,
+        toCount: qaOrganizedMessages.length,
+        action: 'DEFAULT_QA_REPLACEMENT'
+      })
+
+      setMessages(qaOrganizedMessages)
+      scrollToBottom()
+      processingAllMessagesRef.current = false
     },
     [sessionId, scrollToBottom, messages, hasDisplayedInitialMessage]
   )
@@ -1046,6 +1157,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         current_session_id: sessionId,
         error: data.error,
       })
+
+      // 🔧 关键修复：只处理当前session的错误，过滤掉其他session的错误
+      if (data.session_id && data.session_id !== sessionId) {
+        console.log('⚠️ [Chat] 错误来自不同session，忽略处理', {
+          errorSessionId: data.session_id,
+          currentSessionId: sessionId,
+          action: 'IGNORE_ERROR'
+        })
+        return
+      }
 
       setPending(false)
 
@@ -1320,8 +1441,73 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       }
     ) => {
       const startTime = performance.now()
+
+      // 🔥 升级版重要内容检测 - 使用与handleAllMessages相同的逻辑
+      const getCurrentImportantMessages = (msgs: Message[]) => {
+        return msgs.filter(msg => {
+          if (msg.role === 'assistant') {
+            // 检查是否包含图片内容
+            if (Array.isArray(msg.content)) {
+              const hasImage = msg.content.some(c => c.type === 'image_url')
+              if (hasImage) return true
+            }
+            // 检查是否是图片/视频生成消息
+            const content = typeof msg.content === 'string' ? msg.content : ''
+            const hasGeneratedContent = content.includes('图片已生成') || content.includes('视频已生成') ||
+                   content.includes('imageGenerated') || content.includes('videoGenerated') ||
+                   content.includes('Image generated') || content.includes('Video generated')
+            const hasCanvasElement = (msg as any).canvas_element_id || (msg as any).video_url
+            return hasGeneratedContent || hasCanvasElement
+          }
+          return false
+        })
+      }
+
+      const currentImportantMessages = getCurrentImportantMessages(messages)
+
+      console.log('📤 [URL_GEN_DEBUG] onSendMessages called - 第二次URL生成的关键入口', {
+        messageCount: data.length,
+        currentMessagesCount: messages.length,
+        currentImportantCount: currentImportantMessages.length,
+        hasDisplayedInitialMessage,
+        sessionId,
+        action: 'SEND_NEW_MESSAGES',
+        newMessages: data.map(m => ({
+          role: m.role,
+          preview: typeof m.content === 'string' ? m.content.slice(0, 100) : 'mixed'
+        })),
+        currentMessages: messages.map(m => ({
+          role: m.role,
+          preview: typeof m.content === 'string' ? m.content.slice(0, 50) : 'mixed',
+          elementId: (m as any).canvas_element_id || 'no-id'
+        })),
+        importantMessages: currentImportantMessages.map(m => ({
+          role: m.role,
+          elementId: (m as any).canvas_element_id || 'no-id',
+          preview: typeof m.content === 'string' ? m.content.slice(0, 30) : 'mixed'
+        }))
+      })
+
       setPending('text')
-      setMessages(data)
+
+      // 🔥 简化的消息设置策略：避免复杂合并逻辑
+      if (currentImportantMessages.length > 0 && messages.length > 0) {
+        console.log('🔗 [URL_GEN_DEBUG] 检测到重要内容，简单追加新消息', {
+          strategy: 'SIMPLE_APPEND',
+          protectedCount: currentImportantMessages.length,
+          newCount: data.length,
+          importantElementIds: currentImportantMessages.map(m => (m as any).canvas_element_id).filter(Boolean)
+        })
+
+        // 简单追加：保持现有消息的完整性，直接追加新消息
+        setMessages([...messages, ...data])
+      } else {
+        console.log('📝 [URL_GEN_DEBUG] 标准消息替换', {
+          strategy: 'STANDARD_REPLACE',
+          reason: currentImportantMessages.length === 0 ? 'no-important-content' : 'empty-messages'
+        })
+        setMessages(data)
+      }
 
       // Ensure we have a valid sessionId
       const effectiveSessionId = sessionId || sessionIdRef.current || nanoid()

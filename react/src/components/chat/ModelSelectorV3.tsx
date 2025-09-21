@@ -151,7 +151,8 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
 
   // Group models by provider
   const groupModelsByProvider = (models: typeof allTools) => {
-    console.log('🔧 [ModelSelectorV3] 分组模型', models)
+    // 检查下是否不停调用
+    // console.log('🔧 [ModelSelectorV3] 分组模型', models)
     const grouped: { [provider: string]: typeof allTools } = {}
     models?.forEach((model) => {
       if (!grouped[model.provider]) {

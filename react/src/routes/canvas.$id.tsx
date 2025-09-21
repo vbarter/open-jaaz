@@ -179,34 +179,57 @@ function Canvas() {
               })
             }
           } else {
-            // 如果没有任何sessions，自动创建一个默认的session
-            console.log('没有找到任何sessions，自动创建默认session')
+            // 如果没有任何sessions，检查是否有URL传递的sessionId
+            console.log('没有找到任何sessions，检查URL传递的sessionId:', searchSessionId)
 
-            // 生成新的会话ID
-            const defaultSessionId = nanoid()
-            const defaultSessionName = t('newChatWithNumber', { number: 1 })
+            if (searchSessionId) {
+              // 🔧 修复：如果URL中有sessionId，使用它创建新session（来自首页跳转）
+              console.log('使用URL传递的sessionId创建新session:', searchSessionId)
 
-            // 创建默认session对象
-            const defaultSession: Session = {
-              id: defaultSessionId,
-              title: defaultSessionName,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              model: textModel?.model || 'gpt-4o',
-              provider: textModel?.provider || 'openai',
+              const urlSession: Session = {
+                id: searchSessionId,
+                title: t('newChatWithNumber', { number: 1 }),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                model: textModel?.model || 'gpt-4o',
+                provider: textModel?.provider || 'openai',
+              }
+
+              // 立即将URL session添加到sessionList中
+              setSessionList([urlSession])
+              console.log('已创建并添加URL session:', searchSessionId, urlSession.title)
+
+              // 不需要再次导航，URL已经包含正确的sessionId
+            } else {
+              // 只有在没有URL sessionId时才创建新的默认session
+              console.log('没有URL sessionId，自动创建默认session')
+
+              // 生成新的会话ID
+              const defaultSessionId = nanoid()
+              const defaultSessionName = t('newChatWithNumber', { number: 1 })
+
+              // 创建默认session对象
+              const defaultSession: Session = {
+                id: defaultSessionId,
+                title: defaultSessionName,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                model: textModel?.model || 'gpt-4o',
+                provider: textModel?.provider || 'openai',
+              }
+
+              // 立即将默认session添加到sessionList中
+              setSessionList([defaultSession])
+              console.log('已创建并添加默认session:', defaultSessionId, defaultSessionName)
+
+              // 导航到默认session
+              navigate({
+                to: '/canvas/$id',
+                params: { id: id },
+                search: { sessionId: defaultSessionId },
+                replace: true // 使用replace避免影响浏览器历史
+              })
             }
-
-            // 立即将默认session添加到sessionList中
-            setSessionList([defaultSession])
-            console.log('已创建并添加默认session:', defaultSessionId, defaultSessionName)
-
-            // 导航到默认session
-            navigate({
-              to: '/canvas/$id',
-              params: { id: id },
-              search: { sessionId: defaultSessionId },
-              replace: true // 使用replace避免影响浏览器历史
-            })
           }
           // Video elements now handled by native Excalidraw embeddable elements
         }
