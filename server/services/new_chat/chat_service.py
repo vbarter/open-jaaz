@@ -601,7 +601,7 @@ async def _process_generation(
     # 先获取最新的assistant消息（如果存在）
     existing_assistant_message = None
     try:
-        recent_history = await db_service.get_chat_history(session_id, user_uuid or '', limit=5)
+        recent_history = await db_service.get_chat_history(session_id, user_uuid or '')
         # 查找最近的assistant消息
         for msg in reversed(recent_history):
             if msg.get('role') == 'assistant':

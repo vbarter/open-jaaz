@@ -168,7 +168,10 @@ class DatabaseService:
             """, (session_id, role, message, user_uuid))
             await db.commit()
 
-    async def get_chat_history(self, session_id: str, user_uuid: str = None) -> List[Dict[str, Any]]:
+    async def get_chat_history(self, 
+                               session_id: str, 
+                               user_uuid: str = None,
+                               limit: int = 20) -> List[Dict[str, Any]]:
         """Get chat history for a session"""
         # 如果没有提供user_uuid，使用匿名用户的UUID
         if user_uuid is None:
