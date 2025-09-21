@@ -1,9 +1,5 @@
 import { Button } from '@/components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { Grid3X3 } from 'lucide-react'
 import React from 'react'
@@ -21,10 +17,7 @@ const RelayoutButton = ({ onClick, disabled }: RelayoutButtonProps) => {
     e.preventDefault()
     e.stopPropagation()
 
-    console.log('🔧 RelayoutButton 被点击', { disabled })
-
     if (!disabled && onClick) {
-      console.log('✅ 调用 onClick 回调')
       onClick()
     } else if (disabled) {
       console.log('⚠️ 按钮被禁用，忽略点击')
@@ -37,8 +30,8 @@ const RelayoutButton = ({ onClick, disabled }: RelayoutButtonProps) => {
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          variant="ghost"
-          size="icon"
+          variant='ghost'
+          size='icon'
           disabled={disabled}
           className={cn(
             'p-2 rounded-md cursor-pointer hover:bg-primary/5',
@@ -47,12 +40,10 @@ const RelayoutButton = ({ onClick, disabled }: RelayoutButtonProps) => {
           onClick={handleClick}
           onMouseDown={handleClick}
         >
-          <Grid3X3 className="size-4" />
+          <Grid3X3 className='size-4' />
         </Button>
       </TooltipTrigger>
-      <TooltipContent>
-        {t('canvas:tool.relayout')}
-      </TooltipContent>
+      <TooltipContent>{t('canvas:tool.relayout')}</TooltipContent>
     </Tooltip>
   )
 }

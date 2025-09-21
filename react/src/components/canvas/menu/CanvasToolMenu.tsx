@@ -23,8 +23,6 @@ const CanvasToolMenu = () => {
   }
 
   const handleRelayout = () => {
-    console.log('🔧 开始重新排布操作')
-
     if (!excalidrawAPI) {
       console.error('❌ excalidrawAPI 未初始化')
       toast.error(t('canvas:tool.relayoutError', { defaultValue: '重排版失败：画布API未初始化' }))
@@ -36,18 +34,8 @@ const CanvasToolMenu = () => {
       const currentElements = excalidrawAPI.getSceneElements()
       const currentFiles = excalidrawAPI.getFiles()
 
-      console.log('📊 画布元素统计:', {
-        totalElements: currentElements.length,
-        files: Object.keys(currentFiles).length,
-      })
-
       // 筛选出图片元素
       const imageElements = currentElements.filter((el) => el.type === 'image' && !el.isDeleted)
-
-      console.log('🖼️ 图片元素详情:', {
-        totalImages: imageElements.length,
-        imageIds: imageElements.map((el) => ({ id: el.id, x: el.x, y: el.y, type: el.type })),
-      })
 
       if (imageElements.length === 0) {
         console.warn('⚠️ 没有找到图片元素，重排版操作已取消')
@@ -59,13 +47,7 @@ const CanvasToolMenu = () => {
       const layoutManager = new ImageLayoutManager()
 
       // 重新排列图片
-      console.log('🔄 开始重新排列图片...')
       const relayoutedImages = layoutManager.relayoutImages(currentElements)
-
-      console.log('✅ 重排版结果:', {
-        relayoutedCount: relayoutedImages.length,
-        expectedCount: imageElements.length,
-      })
 
       if (relayoutedImages.length === 0) {
         console.error('❌ 重排版失败：没有生成重排版后的图片')
@@ -91,25 +73,19 @@ const CanvasToolMenu = () => {
       // 使用多层延迟确保重排版完全完成
       requestAnimationFrame(() => {
         setTimeout(() => {
-          console.log('📍 开始滚动到重排版后的内容')
-
           // 方案1：尝试滚动到第一张图片（第一行第一列）
           const firstImageInfo = layoutManager.getFirstImageInfo()
           if (firstImageInfo) {
             try {
-              console.log('📍 滚动到第一张图片:', firstImageInfo)
               excalidrawAPI.scrollToContent(firstImageInfo.id, {
                 animate: true,
               })
               return
             } catch (error) {
-              console.warn('⚠️ 滚动到第一张图片失败，尝试备选方案:', error)
-
               // 方案1.5：滚动到第一行的视野区域
               const firstRowViewArea = layoutManager.getFirstRowViewArea()
               if (firstRowViewArea) {
                 try {
-                  console.log('📍 滚动到第一行视野区域:', firstRowViewArea)
                   // 使用updateScene设置视窗位置
                   const currentAppState = excalidrawAPI.getAppState()
                   excalidrawAPI.updateScene({
@@ -171,32 +147,7 @@ const CanvasToolMenu = () => {
     setActiveTool(appState.activeTool.type as ToolType)
   })
 
-  // 检查是否有图片元素，用于控制重排版按钮是否可用
-  const hasImages = () => {
-    if (!excalidrawAPI) {
-      console.log('🔍 hasImages: excalidrawAPI 未初始化')
-      return false
-    }
-
-    const elements = excalidrawAPI.getSceneElements()
-    const imageElements = elements.filter((el) => el.type === 'image' && !el.isDeleted)
-
-    // 每次检查时输出详细信息，便于调试
-    // console.log('🔍 hasImages 检查结果:', {
-    //   totalElements: elements.length,
-    //   imageCount: imageElements.length,
-    //   allElementTypes: [...new Set(elements.map((el) => el.type))],
-    //   imageElementDetails: imageElements.map((el) => ({
-    //     id: el.id,
-    //     type: el.type,
-    //     isDeleted: el.isDeleted,
-    //     x: el.x,
-    //     y: el.y,
-    //   })),
-    // })
-
-    return imageElements.length > 0
-  }
+  // 🔧 已移除 hasImages 函数，因为重排版按钮现在一直保持可用状态
 
   // 所有可用的工具
   const allTools: ToolType[] = [
@@ -239,7 +190,7 @@ const CanvasToolMenu = () => {
           type: 'relayout' as const,
           icon: Grid3X3,
           label: t('canvas:tool.relayout'),
-          disabled: !hasImages(),
+          disabled: false, // 🔧 修复：移除禁用逻辑，按钮一直保持可用
           onClick: handleRelayout,
         },
       ]
@@ -290,7 +241,7 @@ const CanvasToolMenu = () => {
       {!isMobile && <Separator orientation='vertical' className='h-6! bg-primary/5' />}
 
       {/* 重排版按钮（仅桌面端显示） */}
-      {!isMobile && <RelayoutButton onClick={handleRelayout} disabled={!hasImages()} />}
+      {!isMobile && <RelayoutButton onClick={handleRelayout} disabled={false} />}
     </div>
   )
 }
