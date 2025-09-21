@@ -828,6 +828,26 @@ async def auto_select_model_by_intent(intent: str, data: Dict[str, Any]) -> tupl
     logger.warning(f"⚠️ [Model Selection] 意图无法识别: {intent}，使用默认文本模型")
     return 'gpt-4o', 'openai'
 
+def _contains_url(text: str) -> bool:
+    """
+    检查字符串中是否包含 HTTP/HTTPS 链接地址
+    
+    Args:
+        text: 要检查的文本字符串
+        
+    Returns:
+        bool: 如果包含链接返回 True，否则返回 False
+    """
+    import re
+    
+    if not text or not isinstance(text, str):
+        return False
+    
+    # 匹配 http:// 或 https:// 开头的 URL
+    url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
+    
+    return bool(re.search(url_pattern, text, re.IGNORECASE))
+
 
 async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
     """
@@ -865,6 +885,8 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
 
     if not text_content:
         return 'text'
+    elif _contains_url(content):
+        return 'url'
     
     from openai import AsyncOpenAI
 

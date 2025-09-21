@@ -352,11 +352,50 @@ class TuziLLMService:
                 return await self.generate_video(user_prompt, model_name, input_images=image_content)
             elif user_has_drawing_intent == "url":
                 logger.info("🔗 检测到链接处理意图，执行链接处理流程")
-                user_prompt = f"{user_prompt} \n 请你仔细阅读这个网页，根据内容生成详细的绘图prompt, 输出语言采用{user_language}"
+                user_prompt = f"""
+**角色 (Role):**
+你是一位顶级的AI艺术提示词工程师，专门为AI图像生成器创建提示词。你的任务是分析网页并生成完整详细的绘图指令。
+
+**任务流程 (Workflow):**
+
+1.  **接收输入 (Receive Input):** 我会提供一个网页URL。帮我读取全部内容
+2.  **根据网页内容，生成详细的英文prompt
+3.  **格式化输出 (Format the Output):**
+    *   将你生成的最终结果封装在一个**严格的JSON格式**中。
+    *   **不要在JSON代码块的之前或之后添加任何解释、说明或额外文字。**
+    *   输出语言 `{user_language}` 指的是，如果我用中文提问，你输出的JSON中的`prompt`字段里的描述性文字可以是中文，但核心关键词和风格词汇建议保留英文或附上英文。为了达到最佳绘图效果，我们统一要求`prompt`字段的**全部内容为英文**。
+
+**JSON输出格式 (JSON Output Schema):**
+```json
+{{
+    "prompt": "一个完全由英文构成、细节丰富、逗号分隔的绘图提示词。",
+    "aspect_ratio": "根据内容判断最合适的比例，默认为 '1:1'。如果是风景则用 '16:9'，如果是人物肖像或海报则用 '2:3'。",
+    "quantity": 1
+}}
+```
+
+**示例 (Example):**
+
+*   **如果我输入的URL是:** `https://www.nationalgeographic.com/animals/mammals/facts/red-panda`
+*   **你应输出的最终结果是:**
+```json
+{{
+    "prompt": "...",
+    "aspect_ratio": "1:1",
+    "quantity": 1
+}}
+```
+
+用户输入: {user_prompt} 
+"""
                 logger.info(f"🔍 [DEBUG] 生成提示词: {user_prompt}")
-                prompt = await self._generate_prompt_by_url(user_prompt)
-                if prompt.strip() == "":
-                    raise Exception("相关url，生成提示词为空")
+                prompt_json = await self._generate_prompt_by_url(user_prompt)
+                prompt = f"""
+generate image by the following prompt: 
+{prompt_json.get("prompt", "")}
+"""
+                # aspect_ratio = prompt_json.get("aspect_ratio", "1:1")
+                # quantity = prompt_json.get("quantity", 1)
                 logger.info(f"🔍 [DEBUG] 生成提示词: {prompt}")
                 return await self._handle_image_generation(model_name, prompt, user_info, aspect_ratio, quantity)
         except Exception as e:
@@ -729,10 +768,25 @@ class TuziLLMService:
                             candidate = result['candidates'][0]
                             if candidate.get('content') and candidate['content'].get('parts'):
                                 parts = candidate['content']['parts']
-                                if len(parts) > 0 and parts[0].get('text'):
-                                    optimized_prompt = parts[0]['text']
-                                    logger.info(f"✅ [DEBUG] 提示词优化完成: {optimized_prompt[:100]}...")
-                                    return optimized_prompt
+                                # 遍历所有parts，寻找包含JSON的text
+                                for part in parts:
+                                    if part.get('text'):
+                                        text_content = part['text']
+                                        # 查找JSON代码块
+                                        if '```json' in text_content and '```' in text_content:
+                                            # 提取JSON内容
+                                            start_idx = text_content.find('```json') + 7
+                                            end_idx = text_content.find('```', start_idx)
+                                            if end_idx > start_idx:
+                                                json_str = text_content[start_idx:end_idx].strip()
+                                                try:
+                                                    import json
+                                                    json_data = json.loads(json_str)
+                                                    logger.info(f"✅ [DEBUG] 成功解析JSON: {json_data}")
+                                                    return json_data
+                                                except json.JSONDecodeError as e:
+                                                    logger.error(f"❌ JSON解析失败: {e}")
+                                                    continue
                         
                         logger.warning("⚠️ 提示词优化失败，使用原始提示词")
                         return user_prompt
@@ -1030,14 +1084,14 @@ user input: {prompt}
                 
                 # 将aspect_ratio转换为size参数
                 size_map = {
-                    "1:1": "1024x1024",
-                    "4:3": "1024x1024",  # 近似，OpenAI不支持精确的4:3
-                    "3:4": "1024x1024",  # 近似，OpenAI不支持精确的3:4
+                    "1:1": "512x512",
+                    "4:3": "512x512",  # 近似，OpenAI不支持精确的4:3
+                    "3:4": "512x512",  # 近似，OpenAI不支持精确的3:4
                     "16:9": "1536x1024",
                     "9:16": "1024x1536",
-                    "auto": "1024x1024"  # 默认
+                    "auto": "auto"  # 默认
                 }
-                size = size_map.get(aspect_ratio, "1024x1024")
+                size = size_map.get(aspect_ratio, "512x512")
                 logger.info(f"📐 [Image Generation] aspect_ratio: {aspect_ratio} -> size: {size}, quantity: {quantity}")
 
                 # 使用 asyncio.wait_for 添加额外的超时保护
