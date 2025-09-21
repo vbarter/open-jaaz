@@ -56,7 +56,6 @@ export default function AgentStudio() {
 
   const saveGraph = useRef(
     debounce((nodes, edges) => {
-      console.log('Saving graph', nodes, edges)
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ nodes, edges }))
     }, 500)
   ).current
@@ -97,11 +96,11 @@ export default function AgentStudio() {
       {selectedNode && (
         <>
           <div
-            className="absolute right-0 top-0 left-0 bottom-0"
+            className='absolute right-0 top-0 left-0 bottom-0'
             onClick={() => setSelectedNode(null)}
           />
           <div
-            className="absolute right-0 top-0 h-[100vh] w-96 bg-sidebar"
+            className='absolute right-0 top-0 h-[100vh] w-96 bg-sidebar'
             style={{
               width: '25%',
               padding: '16px',
@@ -110,22 +109,19 @@ export default function AgentStudio() {
             }}
           >
             <input
-              type="text"
-              placeholder="Enter Agent Name"
-              className="w-full text-lg font-semibold outline-none border-none mb-2"
+              type='text'
+              placeholder='Enter Agent Name'
+              className='w-full text-lg font-semibold outline-none border-none mb-2'
             />
             <textarea
-              placeholder="Enter Agent Description"
-              className="w-full text-sm outline-none border-none resize-none mb-2"
+              placeholder='Enter Agent Description'
+              className='w-full text-sm outline-none border-none resize-none mb-2'
             />
-            <div className="flex flex-col gap-2">
+            <div className='flex flex-col gap-2'>
               <p>
                 <strong>System Prompt</strong>
               </p>
-              <Textarea
-                className="w-full text-sm mb-2 h-48"
-                placeholder="Enter System Prompt"
-              />
+              <Textarea className='w-full text-sm mb-2 h-48' placeholder='Enter System Prompt' />
             </div>
           </div>
         </>

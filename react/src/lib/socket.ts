@@ -2,6 +2,11 @@ import * as ISocket from '@/types/socket'
 import { io, Socket } from 'socket.io-client'
 import { eventBus } from './event'
 
+// 🔧 Debug 控制 - 通过环境变量精确控制日志输出
+const DEBUG_ENABLED = import.meta.env.VITE_SOCKET_DEBUG === 'true' ||
+  (import.meta.env.DEV && import.meta.env.VITE_SOCKET_DEBUG !== 'false')
+const debugLog = DEBUG_ENABLED ? console.log : () => {}
+
 export interface SocketConfig {
   serverUrl?: string
   autoConnect?: boolean
@@ -37,8 +42,8 @@ export class SocketIOManager {
       })
 
       this.socket.on('connect', () => {
-        console.log('✅ Socket.IO connected:', this.socket?.id)
-        console.log('🔥 [CRITICAL_DEBUG] WebSocket连接建立:', {
+        debugLog('✅ Socket.IO connected:', this.socket?.id)
+        debugLog('🔥 [CRITICAL_DEBUG] WebSocket连接建立:', {
           socket_id: this.socket?.id,
           timestamp: new Date().toISOString(),
           url: url
@@ -48,7 +53,7 @@ export class SocketIOManager {
 
         // 🔗 连接成功后自动注册session
         setTimeout(() => {
-          console.log('🔥 [CRITICAL_DEBUG] 准备自动注册session...')
+          debugLog('🔥 [CRITICAL_DEBUG] 准备自动注册session...')
           this.autoRegisterSessionFromURL()
         }, 100) // 稍微延迟确保连接稳定
 
@@ -70,7 +75,7 @@ export class SocketIOManager {
       })
 
       this.socket.on('disconnect', (reason) => {
-        console.log('🔌 Socket.IO disconnected:', reason)
+        debugLog('🔌 Socket.IO disconnected:', reason)
         this.connected = false
       })
 
@@ -82,15 +87,15 @@ export class SocketIOManager {
     if (!this.socket) return
 
     this.socket.on('connected', (data) => {
-      console.log('🔗 Socket.IO connection confirmed:', data)
+      debugLog('🔗 Socket.IO connection confirmed:', data)
     })
 
     this.socket.on('init_done', (data) => {
-      console.log('🔗 Server initialization done:', data)
+      debugLog('🔗 Server initialization done:', data)
     })
 
     this.socket.on('session_update', (data) => {
-      console.log('🔥 [CRITICAL_DEBUG] 原始WebSocket session_update事件接收:', {
+      debugLog('🔥 [CRITICAL_DEBUG] 原始WebSocket session_update事件接收:', {
         raw_data: data,
         timestamp: new Date().toISOString(),
         socket_id: this.socket?.id
@@ -99,11 +104,11 @@ export class SocketIOManager {
     })
 
     this.socket.on('pong', (data) => {
-      console.log('🔗 Pong received:', data)
+      debugLog('🔗 Pong received:', data)
     })
 
     this.socket.on('session_registered', (data) => {
-      console.log('✅ [SOCKET_DEBUG] Session注册成功:', data)
+      debugLog('✅ [SOCKET_DEBUG] Session注册成功:', data)
     })
 
     this.socket.on('registration_failed', (data) => {
@@ -114,7 +119,7 @@ export class SocketIOManager {
   private handleSessionUpdate(data: ISocket.SessionUpdateEvent) {
     const { session_id, type } = data
 
-    console.log('📡 [SOCKET_DEBUG] 收到session更新:', {
+    debugLog('📡 [SOCKET_DEBUG] 收到session更新:', {
       session_id,
       type,
       timestamp: new Date().toISOString(),
@@ -128,7 +133,7 @@ export class SocketIOManager {
 
     // 特别监控生成状态事件
     if (type.startsWith('generation_')) {
-      console.log('🧠 [THINKING_DEBUG] 接收到生成状态事件:', {
+      debugLog('🧠 [THINKING_DEBUG] 接收到生成状态事件:', {
         type,
         session_id,
         message: (data as any).message,
@@ -137,7 +142,7 @@ export class SocketIOManager {
       })
     }
 
-    console.log('🔍 [TYPE_DEBUG] 事件类型匹配检查:', {
+    debugLog('🔍 [TYPE_DEBUG] 事件类型匹配检查:', {
       received_type: type,
       available_types: Object.values(ISocket.SessionEventType),
       is_generation_progress: type === ISocket.SessionEventType.GenerationProgress,
@@ -192,26 +197,26 @@ export class SocketIOManager {
         break
       // 生成状态事件处理
       case ISocket.SessionEventType.GenerationStarted:
-        console.log('🚀 [THINKING_DEBUG] 触发GenerationStarted事件', data)
+        debugLog('🚀 [THINKING_DEBUG] 触发GenerationStarted事件', data)
         eventBus.emit('Socket::Session::GenerationStarted', data)
         break
       case ISocket.SessionEventType.GenerationProgress:
-        console.log('⏳ [THINKING_DEBUG] 触发GenerationProgress事件', data)
-        console.log('🔥 [CRITICAL_DEBUG] 准备发射GenerationProgress事件到eventBus...')
+        debugLog('⏳ [THINKING_DEBUG] 触发GenerationProgress事件', data)
+        debugLog('🔥 [CRITICAL_DEBUG] 准备发射GenerationProgress事件到eventBus...')
         eventBus.emit('Socket::Session::GenerationProgress', data)
-        console.log('✅ [CRITICAL_DEBUG] GenerationProgress事件已发射到eventBus')
+        debugLog('✅ [CRITICAL_DEBUG] GenerationProgress事件已发射到eventBus')
         break
       case ISocket.SessionEventType.GenerationComplete:
-        console.log('✅ [THINKING_DEBUG] 触发GenerationComplete事件', data)
+        debugLog('✅ [THINKING_DEBUG] 触发GenerationComplete事件', data)
         eventBus.emit('Socket::Session::GenerationComplete', data)
         break
       default:
-        console.log('⚠️ Unknown session update type:', type)
+        debugLog('⚠️ Unknown session update type:', type)
     }
   }
 
   registerSession(sessionId: string, canvasId?: string) {
-    console.log('🔥 [CRITICAL_DEBUG] registerSession调用:', {
+    debugLog('🔥 [CRITICAL_DEBUG] registerSession调用:', {
       sessionId,
       canvasId,
       socket_exists: !!this.socket,
@@ -220,7 +225,7 @@ export class SocketIOManager {
     })
 
     if (this.socket && this.connected) {
-      console.log('🔗 [SOCKET_DEBUG] 注册session到WebSocket:', { sessionId, canvasId })
+      debugLog('🔗 [SOCKET_DEBUG] 注册session到WebSocket:', { sessionId, canvasId })
       this.socket.emit('register_session', { session_id: sessionId, canvas_id: canvasId })
     } else {
       console.error('❌ [CRITICAL_DEBUG] 无法注册session: socket未连接!', {
@@ -237,13 +242,13 @@ export class SocketIOManager {
       const sessionId = url.searchParams.get('sessionId')
       const canvasId = url.pathname.includes('/canvas/') ? url.pathname.split('/canvas/')[1]?.split('?')[0] : undefined
       
-      console.log('🔍 [SOCKET_DEBUG] 自动检测URL中的session信息:', { sessionId, canvasId, url: url.href })
-      
+      debugLog('🔍 [SOCKET_DEBUG] 自动检测URL中的session信息:', { sessionId, canvasId, url: url.href })
+
       if (sessionId) {
         this.registerSession(sessionId, canvasId)
-        console.log('✅ [SOCKET_DEBUG] 成功自动注册session')
+        debugLog('✅ [SOCKET_DEBUG] 成功自动注册session')
       } else {
-        console.log('ℹ️ [SOCKET_DEBUG] URL中没有sessionId，跳过自动注册')
+        debugLog('ℹ️ [SOCKET_DEBUG] URL中没有sessionId，跳过自动注册')
       }
     } catch (error) {
       console.error('❌ [SOCKET_DEBUG] 自动注册session失败:', error)
@@ -261,7 +266,7 @@ export class SocketIOManager {
       this.socket.disconnect()
       this.socket = null
       this.connected = false
-      console.log('🔌 Socket.IO manually disconnected')
+      debugLog('🔌 Socket.IO manually disconnected')
     }
   }
 

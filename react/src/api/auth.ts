@@ -116,7 +116,6 @@ export async function getAuthStatus(): Promise<AuthStatus> {
   // 🧹 步骤0：检查是否有logout标记，如果有则强制清理
   const logoutFlag = sessionStorage.getItem('force_logout')
   if (logoutFlag === 'true') {
-    console.log('🚨 Logout flag detected, force clearing all auth data...')
     await clearAuthData()
     sessionStorage.removeItem('force_logout')
     return {
@@ -135,15 +134,14 @@ export async function getAuthStatus(): Promise<AuthStatus> {
   }
 
   // 🔄 首先检查后端httpOnly cookie是否存在
-  const hasBackendAuthCookie = document.cookie.includes('auth_token=') && document.cookie.includes('user_uuid=')
-  
+  const hasBackendAuthCookie =
+    document.cookie.includes('auth_token=') && document.cookie.includes('user_uuid=')
+
   if (hasBackendAuthCookie) {
-    console.log('✅ Backend auth cookies detected, attempting to get real user info from API...')
-    
     // 先检查是否有可用的前端token和用户信息
     let token = getAuthCookie(AUTH_COOKIES.ACCESS_TOKEN)
     let userInfoStr = getAuthCookie(AUTH_COOKIES.USER_INFO)
-    
+
     try {
       // 调用后端API获取真实的用户信息（包括正确的level）
       const response = await fetch(`${BASE_API_URL}/api/auth/check-status`, {
@@ -153,17 +151,14 @@ export async function getAuthStatus(): Promise<AuthStatus> {
           'Content-Type': 'application/json',
         },
       })
-      
+
       if (response.ok) {
         const authData = await response.json()
-        
+
         if (authData.is_logged_in && authData.user_info && authData.token) {
-          console.log('🔄 Got real user info from backend API:', authData.user_info)
-          
           // 始终同步最新的用户信息，确保level是最新的
-          console.log('🔄 Syncing latest backend auth state to frontend...')
           saveAuthData(authData.token, authData.user_info)
-          
+
           return {
             status: 'logged_in' as const,
             is_logged_in: true,
@@ -176,7 +171,7 @@ export async function getAuthStatus(): Promise<AuthStatus> {
     } catch (error) {
       console.error('❌ Failed to get user info from backend API:', error)
     }
-    
+
     // Fallback：如果API调用失败，使用现有的前端cookie数据（如果有的话）
     if (token && userInfoStr) {
       console.log('🔄 Fallback: Using existing frontend cookie data...')
@@ -191,11 +186,11 @@ export async function getAuthStatus(): Promise<AuthStatus> {
         console.error('❌ Failed to parse user info from frontend cookie:', error)
       }
     }
-    
+
     // 最后的fallback：使用基本的cookie信息创建用户信息
     const userUuid = getCookieValue('user_uuid')
     const userEmail = getCookieValue('user_email')
-    
+
     if (userUuid && userEmail) {
       console.log('🔄 Last fallback: Creating user info from basic cookies...')
       const backendUserInfo = {
@@ -203,12 +198,12 @@ export async function getAuthStatus(): Promise<AuthStatus> {
         username: userEmail.split('@')[0],
         email: userEmail,
         provider: 'google',
-        level: 'base' // 基于数据库信息，这个用户应该是base级别
+        level: 'base', // 基于数据库信息，这个用户应该是base级别
       }
-      
+
       const tempToken = `temp_${userUuid}_${Date.now()}`
       saveAuthData(tempToken, backendUserInfo)
-      
+
       return {
         status: 'logged_in' as const,
         is_logged_in: true,
@@ -337,10 +332,6 @@ export async function getAuthStatus(): Promise<AuthStatus> {
 
 // 手动删除cookie的工具函数
 function deleteCookieManually(name: string): void {
-  console.log(`🗑️ === DELETING COOKIE: ${name} ===`)
-  console.log(`🔍 Cookie before deletion: ${document.cookie}`)
-  console.log(`🔍 Cookie ${name} exists before deletion: ${document.cookie.includes(`${name}=`)}`)
-
   // 尝试多种path和domain组合确保删除成功
   const paths = ['/', '/api', '']
   const domains = [
@@ -391,12 +382,8 @@ function deleteCookieManually(name: string): void {
     })
   })
 
-  console.log(`🗑️ Executed ${deleteCommands.length} delete commands for ${name}`)
-  console.log(`🔍 Cookie after deletion: ${document.cookie}`)
-
   // 验证删除结果
   const stillExists = document.cookie.includes(`${name}=`)
-  console.log(`🔍 Cookie ${name} still exists after deletion: ${stillExists}`)
 
   if (stillExists) {
     console.error(`❌ FAILED TO DELETE COOKIE: ${name}`)
@@ -407,8 +394,6 @@ function deleteCookieManually(name: string): void {
 
 // 暴力清理所有cookie的函数
 function nukeAllCookies(): void {
-  console.log('💣 Nuclear option: deleting ALL cookies...')
-
   // 获取当前所有cookie
   const cookies = document.cookie.split(';')
 
@@ -439,11 +424,6 @@ function nukeAllCookies(): void {
 
 // 清理认证数据的辅助函数
 export async function clearAuthData(): Promise<void> {
-  console.log('🧹 === STARTING COMPREHENSIVE AUTH DATA CLEANUP ===')
-  console.log(`🔍 Initial cookie state: ${document.cookie}`)
-
-  // 🍪 手动删除所有可能的认证cookie
-  console.log('🍪 Manually clearing all auth cookies...')
   const allAuthCookies = [
     // 前端使用的cookie
     'jaaz_access_token',
@@ -459,33 +439,21 @@ export async function clearAuthData(): Promise<void> {
     'refresh_token',
   ]
 
-  console.log(`🎯 Targeting ${allAuthCookies.length} auth cookies:`, allAuthCookies)
-
   allAuthCookies.forEach((cookieName, index) => {
-    console.log(`\n🗑️ [${index + 1}/${allAuthCookies.length}] Processing cookie: ${cookieName}`)
     deleteCookieManually(cookieName)
   })
-
-  console.log('\n📋 Checking remaining auth cookies...')
   const remainingAuthCookies = allAuthCookies.filter((name) => document.cookie.includes(`${name}=`))
-  console.log(`⚠️ Remaining auth cookies: [${remainingAuthCookies.join(', ')}]`)
 
   // 💣 如果还有认证相关的cookie存在，使用核武器方案
   if (remainingAuthCookies.length > 0) {
-    console.log('💣 Some auth cookies still exist, using nuclear option...')
     nukeAllCookies()
-
     // 再次检查
     const finalRemainingCookies = allAuthCookies.filter((name) =>
       document.cookie.includes(`${name}=`)
     )
-    console.log(
-      `🔍 After nuclear option, remaining auth cookies: [${finalRemainingCookies.join(', ')}]`
-    )
   }
 
   // 🧹 清理localStorage中所有可能的认证数据（包括备份数据）
-  console.log('📦 Clearing localStorage...')
   const authKeys = [
     'jaaz_access_token',
     'jaaz_user_info',
@@ -497,26 +465,22 @@ export async function clearAuthData(): Promise<void> {
     'user_email',
     // 🔄 清理所有备份数据
     'backup_jaaz_access_token',
-    'backup_jaaz_user_info', 
+    'backup_jaaz_user_info',
     'backup_jaaz_token_expires',
     'backup_jaaz_access_token_expires',
     'backup_jaaz_user_info_expires',
   ]
 
   // 记录清理前的状态
-  console.log('📋 localStorage before clearing:')
   authKeys.forEach((key) => {
     const value = localStorage.getItem(key)
-    console.log(`  ${key}: ${value ? value.substring(0, 20) + '...' : 'null'}`)
   })
 
   authKeys.forEach((key) => {
     localStorage.removeItem(key)
-    console.log(`🗑️ Removed localStorage key: ${key}`)
   })
 
   // 验证清理结果
-  console.log('📋 localStorage after clearing:')
   authKeys.forEach((key) => {
     const value = localStorage.getItem(key)
     if (value) {
@@ -527,13 +491,11 @@ export async function clearAuthData(): Promise<void> {
   })
 
   // 🧹 清理sessionStorage中可能的认证数据
-  console.log('📝 Clearing sessionStorage...')
   authKeys.forEach((key) => {
     sessionStorage.removeItem(key)
   })
-  
+
   // 🧹 清理所有以jaaz_或backup_开头的localStorage项
-  console.log('🔍 Scanning for remaining jaaz/backup data in localStorage...')
   const allLocalStorageKeys = []
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i)
@@ -541,38 +503,39 @@ export async function clearAuthData(): Promise<void> {
       allLocalStorageKeys.push(key)
     }
   }
-  
-  const jaazKeys = allLocalStorageKeys.filter(key => 
-    key.startsWith('jaaz_') || 
-    key.startsWith('backup_jaaz_') || 
-    key.startsWith('backup_auth') ||
-    key.includes('auth') ||
-    key.includes('token') ||
-    key.includes('user')
-  )
-  
-  console.log(`🎯 Found ${jaazKeys.length} potential auth keys:`, jaazKeys)
-  jaazKeys.forEach(key => {
-    localStorage.removeItem(key)
-    console.log(`🗑️ Removed additional key: ${key}`)
-  })
-  
-  // 🧹 清理sessionStorage中的logout标志以外的所有认证相关数据
-  console.log('🔍 Scanning sessionStorage for auth data...')
-  const sessionKeys = []
-  for (let i = 0; i < sessionStorage.length; i++) {
-    const key = sessionStorage.key(i)
-    if (key && !key.includes('logout') && (
-      key.startsWith('jaaz_') || 
+
+  const jaazKeys = allLocalStorageKeys.filter(
+    (key) =>
+      key.startsWith('jaaz_') ||
+      key.startsWith('backup_jaaz_') ||
+      key.startsWith('backup_auth') ||
       key.includes('auth') ||
       key.includes('token') ||
       key.includes('user')
-    )) {
+  )
+
+  jaazKeys.forEach((key) => {
+    localStorage.removeItem(key)
+    console.log(`🗑️ Removed additional key: ${key}`)
+  })
+
+  // 🧹 清理sessionStorage中的logout标志以外的所有认证相关数据
+  const sessionKeys = []
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i)
+    if (
+      key &&
+      !key.includes('logout') &&
+      (key.startsWith('jaaz_') ||
+        key.includes('auth') ||
+        key.includes('token') ||
+        key.includes('user'))
+    ) {
       sessionKeys.push(key)
     }
   }
-  
-  sessionKeys.forEach(key => {
+
+  sessionKeys.forEach((key) => {
     sessionStorage.removeItem(key)
     console.log(`🗑️ Removed sessionStorage key: ${key}`)
   })
@@ -584,54 +547,36 @@ export async function clearAuthData(): Promise<void> {
   } catch (error) {
     console.error('Failed to clear jaaz api key:', error)
   }
-
-  console.log('✅ Auth data cleanup completed')
-
-  // 🔍 验证清理结果
-  console.log('🔍 Verifying cleanup results...')
-  console.log('Current cookies:', document.cookie)
 }
 
 export async function logout(): Promise<{ status: string; message: string }> {
-  console.log('🚪 === STARTING LOGOUT PROCESS ===')
-  console.log(`🔍 Cookie state before logout: ${document.cookie}`)
-
   try {
     // 🚨 步骤0：设置退出登录标记，阻止getAuthStatus重新设置cookie
-    console.log('🚨 Setting logout flags...')
     sessionStorage.setItem('is_logging_out', 'true')
     sessionStorage.setItem('force_logout', 'true')
 
     // 🧹 步骤1：立即清理前端认证数据（不调用后端）
-    console.log('🧹 Clearing client-side auth data immediately...')
     await clearAuthData()
 
-    console.log(`🔍 Cookie state after clearAuthData: ${document.cookie}`)
-
     // 📢 步骤2：立即更新本标签页的UI状态
-    console.log('🎯 Updating local auth state immediately...')
-    window.dispatchEvent(new CustomEvent('auth-logout-detected', {
-      detail: { source: 'local-logout' }
-    }))
+    window.dispatchEvent(
+      new CustomEvent('auth-logout-detected', {
+        detail: { source: 'local-logout' },
+      })
+    )
 
     // 📢 步骤3：通知其他标签页用户已登出
-    console.log('📢 Notifying other tabs...')
     crossTabSync.notifyLogout()
 
     // 🔄 步骤4：调用后端API删除httponly cookie
-    console.log('🔗 Calling backend logout API to delete httponly cookies...')
-
     try {
       const response = await fetch(`${BASE_API_URL}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include', // 重要：包含cookie以便后端清理
       })
 
-      console.log(`✅ Backend logout API response status: ${response.status}`)
-
       if (response.ok) {
         const data = await response.json()
-        console.log('✅ Backend logout successful:', data)
       } else {
         console.warn(`⚠️ Backend logout API returned status: ${response.status}`)
       }
@@ -640,17 +585,11 @@ export async function logout(): Promise<{ status: string; message: string }> {
       // 继续执行，不让API失败阻止logout流程
     }
 
-    console.log(`🔍 Cookie state after backend logout: ${document.cookie}`)
-
-    // 🔄 步骤5：清理logout标记，让UI自然更新
-    console.log('🧹 Cleaning up logout flags...')
-    
     // 给UI足够时间更新状态
     setTimeout(() => {
-      console.log(`🔍 Final cookie state: ${document.cookie}`)
       // 清理is_logging_out标记，但保留force_logout标记一段时间防止恢复
       sessionStorage.removeItem('is_logging_out')
-      
+
       // 延迟清理force_logout标记，确保不会意外恢复登录状态
       setTimeout(() => {
         sessionStorage.removeItem('force_logout')
@@ -667,26 +606,25 @@ export async function logout(): Promise<{ status: string; message: string }> {
 
     // 🛡️ 兜底方案：即使出错也要确保本地数据被清理
     try {
-      console.log('🛡️ Executing fallback logout...')
       sessionStorage.setItem('is_logging_out', 'true')
       sessionStorage.setItem('force_logout', 'true')
       await clearAuthData()
-      
+
       // 立即更新本地UI状态
-      window.dispatchEvent(new CustomEvent('auth-logout-detected', {
-        detail: { source: 'fallback-logout' }
-      }))
-      
+      window.dispatchEvent(
+        new CustomEvent('auth-logout-detected', {
+          detail: { source: 'fallback-logout' },
+        })
+      )
+
       crossTabSync.notifyLogout()
 
       // 尝试调用后端API作为fallback
       try {
-        console.log('🔗 Fallback: calling backend logout API...')
         await fetch(`${BASE_API_URL}/api/auth/logout`, {
           method: 'POST',
           credentials: 'include',
         })
-        console.log('✅ Fallback backend logout completed')
       } catch (backendError) {
         console.warn('⚠️ Fallback backend logout failed:', backendError)
       }
@@ -729,24 +667,13 @@ export async function getUserProfile(): Promise<UserInfo> {
 
 // Helper function to save auth data to cookies
 export function saveAuthData(token: string, userInfo: UserInfo) {
-  console.log('💾 === ATTEMPTING TO SAVE AUTH DATA ===')
-  console.log(`🔍 Current cookies before save: ${document.cookie}`)
-
   // 🚨 检查是否在退出登录过程中，如果是则阻止保存
   const isLoggingOut = sessionStorage.getItem('is_logging_out')
   const forceLogout = sessionStorage.getItem('force_logout')
 
   if (isLoggingOut === 'true' || forceLogout === 'true') {
-    console.error('🚨 BLOCKED: Attempted to save auth data during logout process!')
-    console.log('🚪 Logout flags detected, refusing to save auth data')
     return
   }
-
-  console.log('💾 Saving auth data to cookies...', {
-    tokenLength: token ? token.length : 0,
-    userEmail: userInfo?.email,
-    userId: userInfo?.id,
-  })
 
   try {
     // 🍪 保存到cookie，30天过期
@@ -756,8 +683,6 @@ export function saveAuthData(token: string, userInfo: UserInfo) {
     // 📅 保存token过期时间，用于更精确的过期检查
     const tokenExpireTime = getTokenRemainingTime(token) + Math.floor(Date.now() / 1000)
     setAuthCookie(AUTH_COOKIES.TOKEN_EXPIRES, tokenExpireTime.toString(), 30)
-
-    console.log(`🔍 Cookies after save attempt: ${document.cookie}`)
 
     // 验证保存是否成功
     const savedToken = getAuthCookie(AUTH_COOKIES.ACCESS_TOKEN)

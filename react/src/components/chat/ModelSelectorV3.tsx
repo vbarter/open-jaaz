@@ -62,11 +62,8 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
     }
 
     const loadUserModels = async () => {
-      console.log('📥 [ModelSelectorV3] 开始加载用户保存的模型，用户:', user.email)
       const savedModels = await userModelService.getUserModels()
       if (savedModels) {
-        console.log('📥 [ModelSelectorV3] 成功加载用户保存的模型:', savedModels)
-
         // Load text model
         if (savedModels.text_model && textModels) {
           const matchedModel = textModels.find(
