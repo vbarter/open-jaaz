@@ -182,18 +182,18 @@ const CanvasToolMenu = () => {
     const imageElements = elements.filter((el) => el.type === 'image' && !el.isDeleted)
 
     // 每次检查时输出详细信息，便于调试
-    console.log('🔍 hasImages 检查结果:', {
-      totalElements: elements.length,
-      imageCount: imageElements.length,
-      allElementTypes: [...new Set(elements.map((el) => el.type))],
-      imageElementDetails: imageElements.map((el) => ({
-        id: el.id,
-        type: el.type,
-        isDeleted: el.isDeleted,
-        x: el.x,
-        y: el.y,
-      })),
-    })
+    // console.log('🔍 hasImages 检查结果:', {
+    //   totalElements: elements.length,
+    //   imageCount: imageElements.length,
+    //   allElementTypes: [...new Set(elements.map((el) => el.type))],
+    //   imageElementDetails: imageElements.map((el) => ({
+    //     id: el.id,
+    //     type: el.type,
+    //     isDeleted: el.isDeleted,
+    //     x: el.x,
+    //     y: el.y,
+    //   })),
+    // })
 
     return imageElements.length > 0
   }

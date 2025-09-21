@@ -11,7 +11,7 @@ import { useConfigs } from '@/contexts/configs'
 import { Session } from '@/types/types'
 import { createFileRoute, useParams, useSearch, useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { nanoid } from 'nanoid'
 import { generateChatSessionTitle } from '@/utils/formatDate'
 import { useTranslation } from 'react-i18next'
@@ -253,15 +253,53 @@ function Canvas() {
     }
   }, [id])
 
-  // 🔧 监听路由参数变化，在切换到新画布时立即清空数据
+  // 🔧 智能监听路由参数变化，只在真正切换画布时清空数据
+  const previousCanvasIdRef = useRef<string>('')
+  const isProcessingRef = useRef<boolean>(false)
+
   useEffect(() => {
-    console.log('🔄 Canvas ID 变化，清空当前数据，准备加载新画布:', id)
-    setCanvas(null)
-    setSessionList([])
-    setProjectName('')
-    setCanvasName('')
-    setOriginalCanvasName('')
-    setCurrentSessionTitle('')
+    // 🔧 防止在组件初始化时误清空数据
+    if (!previousCanvasIdRef.current) {
+      previousCanvasIdRef.current = id
+      return
+    }
+
+    // 🔧 只有当Canvas ID真正改变时才清空数据
+    if (previousCanvasIdRef.current !== id) {
+      console.log('🔄 检测到Canvas切换:', {
+        from: previousCanvasIdRef.current,
+        to: id,
+        isProcessing: isProcessingRef.current
+      })
+
+      // 🔧 如果正在处理图生图，延迟清空以避免数据丢失
+      if (isProcessingRef.current) {
+        console.log('⚠️ 图片处理中，延迟清空数据')
+        const timeoutId = setTimeout(() => {
+          if (previousCanvasIdRef.current !== id) {
+            console.log('🔄 延迟清空画布数据')
+            setCanvas(null)
+            setSessionList([])
+            setProjectName('')
+            setCanvasName('')
+            setOriginalCanvasName('')
+            setCurrentSessionTitle('')
+          }
+        }, 2000) // 2秒延迟
+
+        return () => clearTimeout(timeoutId)
+      } else {
+        console.log('🔄 立即清空画布数据')
+        setCanvas(null)
+        setSessionList([])
+        setProjectName('')
+        setCanvasName('')
+        setOriginalCanvasName('')
+        setCurrentSessionTitle('')
+      }
+
+      previousCanvasIdRef.current = id
+    }
   }, [id])
 
   // 监听session变化，更新当前session标题
@@ -434,6 +472,7 @@ function Canvas() {
           sessionId={searchSessionId}
           onNewSession={handleNewSession}
           onSessionNameChange={handleSessionNameChange}
+          isProcessingRef={isProcessingRef}
         />
       </div>
     </CanvasProvider>

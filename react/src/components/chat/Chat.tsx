@@ -49,6 +49,7 @@ type ChatInterfaceProps = {
   sessionList: Session[]
   setSessionList: Dispatch<SetStateAction<Session[]>>
   sessionId: string
+  isProcessingRef?: React.MutableRefObject<boolean>
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -56,6 +57,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   sessionList,
   setSessionList,
   sessionId: searchSessionId,
+  isProcessingRef,
 }) => {
   const { t } = useTranslation(['chat', 'common'])
   const [session, setSession] = useState<Session | null>(null)
@@ -970,11 +972,42 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         return
       }
 
+      // 🔧 增强的用户输入保护逻辑
+      if (isProcessingRef?.current && messages.length > 0) {
+        const hasUserImages = messages.some(msg =>
+          msg.role === 'user' &&
+          Array.isArray(msg.content) &&
+          msg.content.some(content => content.type === 'image_url')
+        )
+
+        if (hasUserImages) {
+          // 检查新消息是否会覆盖用户的重要输入
+          const wouldLoseUserInput = qaOrganizedMessages.length === 0 ||
+            !qaOrganizedMessages.some(msg =>
+              msg.role === 'user' &&
+              Array.isArray(msg.content) &&
+              msg.content.some(content => content.type === 'image_url')
+            )
+
+          if (wouldLoseUserInput) {
+            debugLog('🛡️ 图片处理中，保护用户输入不被覆盖', {
+              currentUserMessages: messages.filter(m => m.role === 'user').length,
+              newMessagesCount: qaOrganizedMessages.length,
+              isProcessing: isProcessingRef.current,
+              reason: qaOrganizedMessages.length === 0 ? 'empty-new-messages' : 'missing-user-images'
+            })
+            processingAllMessagesRef.current = false
+            return
+          }
+        }
+      }
+
       // 🔥 简化的消息处理策略：使用Q&A组织的消息，确保顺序和属性完整性
       debugLog('✅ 应用Q&A组织的消息处理策略', {
         currentCount: messages.length,
         qaCount: qaOrganizedMessages.length,
-        sessionMatch: sessionExactMatch ? 'EXACT_SESSION' : canvasMatch ? 'CANVAS_FALLBACK' : 'NO_MATCH'
+        sessionMatch: sessionExactMatch ? 'EXACT_SESSION' : canvasMatch ? 'CANVAS_FALLBACK' : 'NO_MATCH',
+        isProcessing: isProcessingRef?.current || false
       })
 
       // 对于session完全匹配的情况，直接使用Q&A组织的消息（最可靠）
@@ -1056,6 +1089,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       }
 
       setPending(false)
+
+      // 🔧 重置处理状态，图片处理完成
+      if (isProcessingRef) {
+        debugLog('✅ 图片处理完成，重置处理状态为false')
+        isProcessingRef.current = false
+      }
+
       scrollToBottom()
 
       // 聊天输出完毕后更新余额
@@ -1358,6 +1398,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     ) => {
       const startTime = performance.now()
 
+      // 🔧 检测是否包含图片，如果有则设置处理状态
+      const hasImages = data.some(msg =>
+        Array.isArray(msg.content) &&
+        msg.content.some(content => content.type === 'image_url')
+      )
+
+      if (hasImages && isProcessingRef) {
+        debugLog('🖼️ 检测到图片上传，设置处理状态为true')
+        isProcessingRef.current = true
+      }
+
       // 🔥 升级版重要内容检测 - 使用与handleAllMessages相同的逻辑
       const getCurrentImportantMessages = (msgs: Message[]) => {
         return msgs.filter(msg => {
@@ -1389,8 +1440,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       setPending('text')
 
-      // 🔥 简化的消息设置策略：避免复杂合并逻辑
-      if (currentImportantMessages.length > 0 && messages.length > 0) {
+      // 🔥 升级的消息设置策略：优先保护图片输入
+      if (hasImages) {
+        debugLog('🖼️ 检测到图片上传，保护用户输入并追加新消息', {
+          currentCount: messages.length,
+          newCount: data.length,
+          hasImportantContent: currentImportantMessages.length > 0
+        })
+
+        // 图片上传时，无论如何都要保护现有消息，追加新消息
+        setMessages(messages.length > 0 ? [...messages, ...data] : data)
+      } else if (currentImportantMessages.length > 0 && messages.length > 0) {
         debugLog('🔗 检测到重要内容，简单追加新消息', {
           protectedCount: currentImportantMessages.length,
           newCount: data.length

@@ -870,7 +870,7 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
 
     intent_client = AsyncOpenAI(
                 api_key="sk-l3f6rcO4mZ3EZBLlUr6Gw7UHAszGOTQClJInVpUa6cgGezjp",
-                base_url="https://api.apiplus.org/v1",
+                base_url="https://yunwu.zeabur.app/v1",
                 timeout=30.0,
                 max_retries=0
     )

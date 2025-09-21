@@ -140,9 +140,7 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
         }
       })
     }
-
     setSelectedModels(newSelectedModels)
-    console.log('🔧 [ModelSelectorV3] 同步选择状态', newSelectedModels)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isModelInitialized, textModel, selectedImageTool, selectedVideoTool, selectedTools])
 
