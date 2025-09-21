@@ -11,7 +11,7 @@ import { useConfigs } from '@/contexts/configs'
 import { Session } from '@/types/types'
 import { createFileRoute, useParams, useSearch, useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { nanoid } from 'nanoid'
 import { generateChatSessionTitle } from '@/utils/formatDate'
 import { useTranslation } from 'react-i18next'
@@ -179,34 +179,57 @@ function Canvas() {
               })
             }
           } else {
-            // 如果没有任何sessions，自动创建一个默认的session
-            console.log('没有找到任何sessions，自动创建默认session')
+            // 如果没有任何sessions，检查是否有URL传递的sessionId
+            console.log('没有找到任何sessions，检查URL传递的sessionId:', searchSessionId)
 
-            // 生成新的会话ID
-            const defaultSessionId = nanoid()
-            const defaultSessionName = t('newChatWithNumber', { number: 1 })
+            if (searchSessionId) {
+              // 🔧 修复：如果URL中有sessionId，使用它创建新session（来自首页跳转）
+              console.log('使用URL传递的sessionId创建新session:', searchSessionId)
 
-            // 创建默认session对象
-            const defaultSession: Session = {
-              id: defaultSessionId,
-              title: defaultSessionName,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              model: textModel?.model || 'gpt-4o',
-              provider: textModel?.provider || 'openai',
+              const urlSession: Session = {
+                id: searchSessionId,
+                title: t('newChatWithNumber', { number: 1 }),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                model: textModel?.model || 'gpt-4o',
+                provider: textModel?.provider || 'openai',
+              }
+
+              // 立即将URL session添加到sessionList中
+              setSessionList([urlSession])
+              console.log('已创建并添加URL session:', searchSessionId, urlSession.title)
+
+              // 不需要再次导航，URL已经包含正确的sessionId
+            } else {
+              // 只有在没有URL sessionId时才创建新的默认session
+              console.log('没有URL sessionId，自动创建默认session')
+
+              // 生成新的会话ID
+              const defaultSessionId = nanoid()
+              const defaultSessionName = t('newChatWithNumber', { number: 1 })
+
+              // 创建默认session对象
+              const defaultSession: Session = {
+                id: defaultSessionId,
+                title: defaultSessionName,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                model: textModel?.model || 'gpt-4o',
+                provider: textModel?.provider || 'openai',
+              }
+
+              // 立即将默认session添加到sessionList中
+              setSessionList([defaultSession])
+              console.log('已创建并添加默认session:', defaultSessionId, defaultSessionName)
+
+              // 导航到默认session
+              navigate({
+                to: '/canvas/$id',
+                params: { id: id },
+                search: { sessionId: defaultSessionId },
+                replace: true // 使用replace避免影响浏览器历史
+              })
             }
-
-            // 立即将默认session添加到sessionList中
-            setSessionList([defaultSession])
-            console.log('已创建并添加默认session:', defaultSessionId, defaultSessionName)
-
-            // 导航到默认session
-            navigate({
-              to: '/canvas/$id',
-              params: { id: id },
-              search: { sessionId: defaultSessionId },
-              replace: true // 使用replace避免影响浏览器历史
-            })
           }
           // Video elements now handled by native Excalidraw embeddable elements
         }
@@ -230,15 +253,53 @@ function Canvas() {
     }
   }, [id])
 
-  // 🔧 监听路由参数变化，在切换到新画布时立即清空数据
+  // 🔧 智能监听路由参数变化，只在真正切换画布时清空数据
+  const previousCanvasIdRef = useRef<string>('')
+  const isProcessingRef = useRef<boolean>(false)
+
   useEffect(() => {
-    console.log('🔄 Canvas ID 变化，清空当前数据，准备加载新画布:', id)
-    setCanvas(null)
-    setSessionList([])
-    setProjectName('')
-    setCanvasName('')
-    setOriginalCanvasName('')
-    setCurrentSessionTitle('')
+    // 🔧 防止在组件初始化时误清空数据
+    if (!previousCanvasIdRef.current) {
+      previousCanvasIdRef.current = id
+      return
+    }
+
+    // 🔧 只有当Canvas ID真正改变时才清空数据
+    if (previousCanvasIdRef.current !== id) {
+      console.log('🔄 检测到Canvas切换:', {
+        from: previousCanvasIdRef.current,
+        to: id,
+        isProcessing: isProcessingRef.current
+      })
+
+      // 🔧 如果正在处理图生图，延迟清空以避免数据丢失
+      if (isProcessingRef.current) {
+        console.log('⚠️ 图片处理中，延迟清空数据')
+        const timeoutId = setTimeout(() => {
+          if (previousCanvasIdRef.current !== id) {
+            console.log('🔄 延迟清空画布数据')
+            setCanvas(null)
+            setSessionList([])
+            setProjectName('')
+            setCanvasName('')
+            setOriginalCanvasName('')
+            setCurrentSessionTitle('')
+          }
+        }, 2000) // 2秒延迟
+
+        return () => clearTimeout(timeoutId)
+      } else {
+        console.log('🔄 立即清空画布数据')
+        setCanvas(null)
+        setSessionList([])
+        setProjectName('')
+        setCanvasName('')
+        setOriginalCanvasName('')
+        setCurrentSessionTitle('')
+      }
+
+      previousCanvasIdRef.current = id
+    }
   }, [id])
 
   // 监听session变化，更新当前session标题
@@ -411,6 +472,7 @@ function Canvas() {
           sessionId={searchSessionId}
           onNewSession={handleNewSession}
           onSessionNameChange={handleSessionNameChange}
+          isProcessingRef={isProcessingRef}
         />
       </div>
     </CanvasProvider>

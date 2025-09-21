@@ -29,9 +29,6 @@ console.error = (...args) => {
   origLog(`[${time}][ERROR]`, ...args)
 }
 
-// Initial log entry
-console.log('🟢 Jaaz Electron app starting...')
-
 const { app, BrowserWindow, ipcMain, dialog, session } = require('electron')
 const { spawn } = require('child_process')
 
@@ -57,7 +54,6 @@ function findAvailablePort(startPort, maxAttempts = 100) {
 
       server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-          console.log(`Port ${port} is in use, trying next port...`)
           server.close()
           tryPort(port + 1)
         } else {
@@ -68,7 +64,6 @@ function findAvailablePort(startPort, maxAttempts = 100) {
       // 明确指定 host 为 127.0.0.1，确保检测到端口占用
       server.listen(port, '127.0.0.1', () => {
         server.close(() => {
-          console.log(`Found available port: ${port}`)
           resolve(port)
         })
       })

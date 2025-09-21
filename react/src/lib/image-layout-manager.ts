@@ -334,12 +334,7 @@ export class ImageLayoutManager {
     // 筛选出所有图片元素
     const imageElements = elements.filter((el) => el.type === 'image' && !el.isDeleted)
 
-    console.log('🔧 ImageLayoutManager.relayoutImages 开始:')
-    console.log('  - 输入元素总数:', elements.length)
-    console.log('  - 筛选出的图片数:', imageElements.length)
-
     if (imageElements.length === 0) {
-      console.log('  - 没有图片元素，返回空数组')
       return []
     }
 
@@ -351,11 +346,6 @@ export class ImageLayoutManager {
     for (let i = 0; i < imageElements.length; i += this.IMAGES_PER_ROW) {
       rows.push(imageElements.slice(i, i + this.IMAGES_PER_ROW))
     }
-
-    console.log(`📐 分成 ${rows.length} 行:`)
-    rows.forEach((row, index) => {
-      console.log(`  行 ${index}: ${row.length} 张图片`)
-    })
 
     // 第二步：计算每行的最大高度和每列的最大宽度
     const rowHeights: number[] = []
@@ -457,21 +447,17 @@ export class ImageLayoutManager {
   getFirstRowViewArea(): { x: number; y: number; width: number; height: number } | null {
     const images = this.getAllImages()
     if (images.length === 0) {
-      console.log('🎯 getFirstRowViewArea: 没有图片')
       return null
     }
 
     // 获取第一行的所有图片
     const firstRowImages = images.filter((img) => img.row === 0)
     if (firstRowImages.length === 0) {
-      console.log('🎯 getFirstRowViewArea: 没有第一行图片')
       return null
     }
 
     // 按列顺序排序
     firstRowImages.sort((a, b) => a.col - b.col)
-
-    console.log(`🎯 第一行包含 ${firstRowImages.length} 张图片`)
 
     // 计算第一行的边界框
     let minX = Infinity,
@@ -494,11 +480,6 @@ export class ImageLayoutManager {
       width: maxX - minX + padding * 2,
       height: maxY - minY + padding * 2,
     }
-
-    console.log(
-      `🎯 第一行视野区域: (${Math.round(viewArea.x)}, ${Math.round(viewArea.y)}) ${Math.round(viewArea.width)}x${Math.round(viewArea.height)}`
-    )
-
     return viewArea
   }
 
@@ -509,7 +490,6 @@ export class ImageLayoutManager {
   getMiddleImageInfo(): { id: string; x: number; y: number } | null {
     const images = this.getAllImages()
     if (images.length === 0) {
-      console.log('🎯 getMiddleImageInfo: 没有图片')
       return null
     }
 
@@ -519,25 +499,13 @@ export class ImageLayoutManager {
       return a.col - b.col
     })
 
-    console.log(`🎯 getMiddleImageInfo: 总共 ${images.length} 张图片`)
-
     // 找到中间位置的图片
     const middleIndex = Math.floor(images.length / 2)
     const middleImage = sortedImages[middleIndex]
 
-    console.log(
-      `🎯 选择中间图片: 索引 ${middleIndex}, 行 ${middleImage.row}, 列 ${middleImage.col}`
-    )
-    console.log(`🎯 中间图片ID: ${middleImage.id}`)
-    console.log(
-      `🎯 中间图片位置: (${Math.round(middleImage.x)}, ${Math.round(middleImage.y)}) 尺寸: ${Math.round(middleImage.width)}x${Math.round(middleImage.height)}`
-    )
-
     // 返回图片信息
     const centerX = middleImage.x + middleImage.width / 2
     const centerY = middleImage.y + middleImage.height / 2
-
-    console.log(`🎯 中间图片中心点: (${Math.round(centerX)}, ${Math.round(centerY)})`)
 
     return {
       id: middleImage.id,

@@ -1,6 +1,11 @@
 import React from 'react'
 import { motion } from 'motion/react'
 
+// 🔧 Debug 控制 - 通过环境变量精确控制日志输出
+const DEBUG_ENABLED = import.meta.env.VITE_TIMESTAMP_DEBUG === 'true' ||
+  (import.meta.env.DEV && import.meta.env.VITE_TIMESTAMP_DEBUG !== 'false')
+const debugLog = DEBUG_ENABLED ? console.log : () => {}
+
 interface TimestampProps {
   timestamp?: number | string
   align?: 'left' | 'right'
@@ -23,7 +28,7 @@ const Timestamp: React.FC<TimestampProps> = ({
 
   // 格式化时间戳
   const formatTimestamp = (ts: number | string): string => {
-    console.log('🕒 [TIMESTAMP_DEBUG] 格式化时间戳:', {
+    debugLog('🕒 [TIMESTAMP_DEBUG] 格式化时间戳:', {
       raw_timestamp: ts,
       type: typeof ts,
       align,
@@ -64,7 +69,7 @@ const Timestamp: React.FC<TimestampProps> = ({
       result = `${dateStr} ${timeStr}`
     }
 
-    console.log('✅ [TIMESTAMP_DEBUG] 时间格式化完成:', {
+    debugLog('✅ [TIMESTAMP_DEBUG] 时间格式化完成:', {
       original_timestamp: ts,
       formatted_result: result,
       is_today: isToday,
@@ -76,7 +81,7 @@ const Timestamp: React.FC<TimestampProps> = ({
 
   const formattedTime = formatTimestamp(effectiveTimestamp)
 
-  console.log('🎨 [TIMESTAMP_DEBUG] 渲染Timestamp组件:', {
+  debugLog('🎨 [TIMESTAMP_DEBUG] 渲染Timestamp组件:', {
     formatted_time: formattedTime,
     align,
     effective_timestamp: effectiveTimestamp,

@@ -83,13 +83,18 @@ export type TEvents = {
   // ********** Material events - End **********
 }
 
+// 🔧 Debug 控制 - 通过环境变量精确控制日志输出
+const DEBUG_ENABLED = process.env.VITE_EVENTBUS_DEBUG === 'true' ||
+  (process.env.NODE_ENV === 'development' && process.env.VITE_EVENTBUS_DEBUG !== 'false')
+const debugLog = DEBUG_ENABLED ? console.log : () => {}
+
 // 创建eventBus实例
 const eventBusInstance = mitt<TEvents>()
 
 // 包装emit方法以添加调试日志
 const originalEmit = eventBusInstance.emit
-eventBusInstance.emit = function(type, event) {
-  console.log('🚀 [EVENTBUS_DEBUG] 发射事件:', {
+eventBusInstance.emit = function<Key extends keyof TEvents>(type: Key, event: TEvents[Key]) {
+  debugLog('🚀 [EVENTBUS] 发射事件:', {
     type,
     event,
     timestamp: new Date().toISOString(),
@@ -100,8 +105,8 @@ eventBusInstance.emit = function(type, event) {
 
 // 包装on方法以添加调试日志
 const originalOn = eventBusInstance.on
-eventBusInstance.on = function(type, handler) {
-  console.log('🎯 [EVENTBUS_DEBUG] 注册事件监听器:', {
+eventBusInstance.on = function<Key extends keyof TEvents>(type: Key, handler: (event: TEvents[Key]) => void) {
+  debugLog('🎯 [EVENTBUS] 注册事件监听器:', {
     type,
     handler_name: handler.name || 'anonymous',
     timestamp: new Date().toISOString()

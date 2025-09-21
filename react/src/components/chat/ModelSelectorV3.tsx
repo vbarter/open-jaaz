@@ -62,11 +62,8 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
     }
 
     const loadUserModels = async () => {
-      console.log('📥 [ModelSelectorV3] 开始加载用户保存的模型，用户:', user.email)
       const savedModels = await userModelService.getUserModels()
       if (savedModels) {
-        console.log('📥 [ModelSelectorV3] 成功加载用户保存的模型:', savedModels)
-
         // Load text model
         if (savedModels.text_model && textModels) {
           const matchedModel = textModels.find(
@@ -143,15 +140,14 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
         }
       })
     }
-
     setSelectedModels(newSelectedModels)
-    console.log('🔧 [ModelSelectorV3] 同步选择状态', newSelectedModels)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isModelInitialized, textModel, selectedImageTool, selectedVideoTool, selectedTools])
 
   // Group models by provider
   const groupModelsByProvider = (models: typeof allTools) => {
-    console.log('🔧 [ModelSelectorV3] 分组模型', models)
+    // 检查下是否不停调用
+    // console.log('🔧 [ModelSelectorV3] 分组模型', models)
     const grouped: { [provider: string]: typeof allTools } = {}
     models?.forEach((model) => {
       if (!grouped[model.provider]) {

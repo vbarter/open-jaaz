@@ -33,9 +33,8 @@ export async function updateJaazApiKey(token: string): Promise<void> {
     }
 
     await updateConfig(config)
-    console.log('Successfully updated jaaz provider api_key')
   } catch (error) {
-    console.error('Error updating jaaz provider api_key:', error)
+    console.error('Error updating provider api_key:', error)
   }
 }
 
@@ -47,9 +46,9 @@ export async function clearJaazApiKey(): Promise<void> {
     if (config.jaaz) {
       config.jaaz.api_key = ''
       await updateConfig(config)
-      console.log('Successfully cleared jaaz provider api_key')
+      console.log('Successfully cleared provider api_key')
     }
   } catch (error) {
-    console.error('Error clearing jaaz provider api_key:', error)
+    console.error('Error clearing provider api_key:', error)
   }
 }

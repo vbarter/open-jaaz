@@ -44,9 +44,6 @@ export async function listModels(): Promise<{
       // 🚨 抛出错误而不是返回空数组，让React Query使用placeholderData
       throw new Error(`Failed to fetch tools: ${err.message}`)
     })
-
-  console.log('🔧 [listModels] 模型列表', modelsResp)
-  console.log('🔧 [listModels] 工具列表', toolsResp)
   return {
     llm: modelsResp || [],
     tools: toolsResp || [],

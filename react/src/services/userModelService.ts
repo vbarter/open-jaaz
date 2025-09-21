@@ -29,14 +29,10 @@ class UserModelService {
       const response = await api.get('/api/user_models')
 
       if (response.success && response.data) {
-        console.log('📥 [UserModelService] 获取用户模型配置:', response.data)
         return response.data
       }
-
-      console.log('ℹ️ [UserModelService] 用户没有保存的模型配置')
       return null
     } catch (error) {
-      console.error('❌ [UserModelService] 获取用户模型失败:', error)
       return null
     }
   }
@@ -46,19 +42,12 @@ class UserModelService {
    */
   async saveUserModels(models: UserModels): Promise<boolean> {
     try {
-      console.log('💾 [UserModelService] 保存用户模型配置:', models)
-
       const response = await api.post('/api/user_models', models)
-
       if (response.success) {
-        console.log('✅ [UserModelService] 模型配置保存成功')
         return true
       }
-
-      console.error('❌ [UserModelService] 模型配置保存失败:', response)
       return false
     } catch (error) {
-      console.error('❌ [UserModelService] 保存用户模型失败:', error)
       return false
     }
   }
@@ -71,14 +60,10 @@ class UserModelService {
       const response = await api.delete('/api/user_models')
 
       if (response.success) {
-        console.log('✅ [UserModelService] 模型配置删除成功')
         return true
       }
-
-      console.error('❌ [UserModelService] 模型配置删除失败:', response)
       return false
     } catch (error) {
-      console.error('❌ [UserModelService] 删除用户模型失败:', error)
       return false
     }
   }

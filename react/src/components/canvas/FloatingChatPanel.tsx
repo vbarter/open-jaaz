@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Dispatch, SetStateAction } from 'react'
 import { Button } from '@/components/ui/button'
 import ChatInterface from '@/components/chat/Chat'
 import { ChatPanelHeader } from './ChatPanelHeader'
@@ -10,10 +10,11 @@ import { useNavigate } from '@tanstack/react-router'
 interface FloatingChatPanelProps {
   canvasId: string
   sessionList: Session[]
-  setSessionList: (sessions: Session[]) => void
+  setSessionList: Dispatch<SetStateAction<Session[]>>
   sessionId: string
   onNewSession?: () => void
   onSessionNameChange?: (sessionId: string, newName: string) => void
+  isProcessingRef?: React.MutableRefObject<boolean>
 }
 
 export function FloatingChatPanel({
@@ -23,6 +24,7 @@ export function FloatingChatPanel({
   sessionId,
   onNewSession,
   onSessionNameChange,
+  isProcessingRef,
 }: FloatingChatPanelProps) {
   const [isOpen, setIsOpen] = useState(true)
   const navigate = useNavigate()
@@ -98,6 +100,7 @@ export function FloatingChatPanel({
               sessionList={sessionList}
               setSessionList={setSessionList}
               sessionId={sessionId}
+              isProcessingRef={isProcessingRef}
             />
           </div>
         </div>
@@ -123,6 +126,7 @@ export function FloatingChatPanel({
               sessionList={sessionList}
               setSessionList={setSessionList}
               sessionId={sessionId}
+              isProcessingRef={isProcessingRef}
             />
           </div>
         </div>

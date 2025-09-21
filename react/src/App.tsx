@@ -78,8 +78,6 @@ function PaymentSuccessHandler() {
       const orderId = urlParams.get('order_id')
 
       if (payment === 'success') {
-        console.log('🎉 Payment success detected:', { points, level, orderId })
-        
         // 显示成功通知
         toast.success(t('common:toast.paymentSuccess'), {
           description: `恭喜您获得 ${points} 积分，等级已升级为 ${level}`,
@@ -91,9 +89,11 @@ function PaymentSuccessHandler() {
         window.history.replaceState({}, document.title, newUrl)
 
         // 触发认证状态刷新，确保积分和等级更新
-        window.dispatchEvent(new CustomEvent('auth-force-refresh', {
-          detail: { source: 'payment-success' }
-        }))
+        window.dispatchEvent(
+          new CustomEvent('auth-force-refresh', {
+            detail: { source: 'payment-success' },
+          })
+        )
       }
     }
 
@@ -107,7 +107,6 @@ function App() {
   const { theme } = useTheme()
   const { t } = useTranslation()
 
-
   // Auto-start ComfyUI on app startup
   useEffect(() => {
     const autoStartComfyUI = async () => {
@@ -115,12 +114,10 @@ function App() {
         // Check if ComfyUI is installed
         const isInstalled = await window.electronAPI?.checkComfyUIInstalled()
         if (!isInstalled) {
-          console.log('ComfyUI is not installed, skipping auto-start')
           return
         }
 
         // Start ComfyUI process
-        console.log('Auto-starting ComfyUI...')
         const result = await window.electronAPI?.startComfyUIProcess()
 
         if (result?.success) {
@@ -140,14 +137,11 @@ function App() {
   }, [])
 
   return (
-    <ThemeProvider defaultTheme={theme} storageKey="vite-ui-theme">
-      <PersistQueryClientProvider
-        client={queryClient}
-        persistOptions={{ persister }}
-      >
+    <ThemeProvider defaultTheme={theme} storageKey='vite-ui-theme'>
+      <PersistQueryClientProvider client={queryClient} persistOptions={{ persister }}>
         <AuthProvider>
           <ConfigsProvider>
-            <div className="app-container">
+            <div className='app-container'>
               <RouterProvider router={router} />
 
               {/* Payment Success Handler */}
@@ -168,7 +162,7 @@ function App() {
           </ConfigsProvider>
         </AuthProvider>
       </PersistQueryClientProvider>
-      <Toaster position="top-center" richColors />
+      <Toaster position='top-center' richColors />
     </ThemeProvider>
   )
 }
