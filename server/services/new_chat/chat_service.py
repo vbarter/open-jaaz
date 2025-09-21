@@ -133,17 +133,22 @@ async def handle_chat(data: Dict[str, Any]) -> None:
     quantity: int = data.get('quantity', 1)
     user_language: str = data.get('language', 'en')
 
-
-    # 1 最先做意图理解，确认用户想干嘛
-    # user_has_drawing_intent: 'text', 'video', 'image'
-    if template_id:
-        await _push_user_images_to_frontend(messages, session_id, template_id, canvas_id)
-        if template_id == "1":
-            user_has_drawing_intent = "url"
+    try:
+        # 1 最先做意图理解，确认用户想干嘛
+        # user_has_drawing_intent: 'text', 'video', 'image'
+        if template_id:
+            await _push_user_images_to_frontend(messages, session_id, template_id, canvas_id)
+            if template_id == "1":
+                user_has_drawing_intent = "url"
+            else:
+                user_has_drawing_intent = "image"
         else:
-            user_has_drawing_intent = "image"
-    else:
-        user_has_drawing_intent = await _check_video_or_image(messages)
+            user_has_drawing_intent = await _check_video_or_image(messages)
+    except Exception as e:
+        logger.error(f"❌ [API_ERROR] 意图识别服务异常: {e}")
+        # 发送用户友好的错误消息
+        await _send_service_busy_error(session_id, canvas_id, user_info, user_language)
+        return
 
     # 2 根据意图自动选择合适的模型
     model_name, provider = await auto_select_model_by_intent(user_has_drawing_intent, data)
@@ -355,6 +360,13 @@ async def handle_chat(data: Dict[str, Any]) -> None:
         await task
     except asyncio.exceptions.CancelledError:
         logger.warn(f"🛑Magic generation session {session_id} cancelled")
+    except Exception as e:
+        logger.error(f"❌ [API_ERROR] AI生成过程异常: {e}")
+        # 移除任务
+        remove_stream_task(session_id)
+        # 发送用户友好的错误消息
+        await _send_service_busy_error(session_id, canvas_id, user_info, user_language)
+        return
     finally:
         # Always remove the task from stream_tasks after completion/cancellation
         remove_stream_task(session_id)
@@ -476,16 +488,25 @@ async def _process_generation(
         # 3. 执行AI生成
         # 原来是基于云端生成
         # ai_response = await create_jaaz_response(messages, session_id, canvas_id)
-        ai_response = await create_local_response(messages,
-                                                  session_id,
-                                                  canvas_id,
-                                                  model_name,
-                                                  user_info,
-                                                  provider=provider,
-                                                  aspect_ratio=aspect_ratio,
-                                                  quantity=quantity,
-                                                  user_has_drawing_intent=user_has_drawing_intent,
-                                                  user_language=user_language)
+        try:
+            ai_response = await create_local_response(messages,
+                                                      session_id,
+                                                      canvas_id,
+                                                      model_name,
+                                                      user_info,
+                                                      provider=provider,
+                                                      aspect_ratio=aspect_ratio,
+                                                      quantity=quantity,
+                                                      user_has_drawing_intent=user_has_drawing_intent,
+                                                      user_language=user_language)
+        except Exception as e:
+            logger.error(f"❌ [API_ERROR] AI生成服务异常: {e}")
+            # 检查是否是连接错误
+            error_str = str(e).lower()
+            if 'connection' in error_str or 'timeout' in error_str or 'network' in error_str:
+                logger.error(f"❌ [CONNECTION_ERROR] 检测到网络连接错误: {e}")
+            # 重新抛出异常，让上层的error handler处理
+            raise
         
         # 4. 检查生成结果是否包含图片，或者检查用户是否有画图意图
         logger.info(f"🔍 [DEBUG] 检查AI响应内容: {str(ai_response.get('content', ''))[:200]}...")
@@ -878,18 +899,23 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
 现在分析: {text_content}
 """
         
-        response = await intent_client.chat.completions.create(
-                         model="gpt-5-2025-08-07",
-                         messages=[{"role": "user", "content": prompt}],
-                         max_tokens=2000,
-                         temperature=0.1)
+        try:
+            response = await intent_client.chat.completions.create(
+                             model="gpt-5-2025-08-07",
+                             messages=[{"role": "user", "content": prompt}],
+                             max_tokens=2000,
+                             temperature=0.1)
 
-        result = response.choices[0].message.content.strip().lower()
-        logger.info(f"🔍 [DEBUG] 带图片上传，意图识别结果: {result}")
-        # 确保返回有效的意图
-        if result not in ['video', 'image']:
-            return 'image'  # 默认返回文本意图
-        return result
+            result = response.choices[0].message.content.strip().lower()
+            logger.info(f"🔍 [DEBUG] 带图片上传，意图识别结果: {result}")
+            # 确保返回有效的意图
+            if result not in ['video', 'image']:
+                return 'image'  # 默认返回图片意图
+            return result
+        except Exception as e:
+            logger.error(f"❌ [API_ERROR] 意图识别API调用失败: {e}")
+            # 当API失败时，返回默认的图片意图（因为用户上传了图片）
+            return 'image'
     else:
         # 通过文本内容判断是视频还是图片
         prompt = f"""
@@ -926,15 +952,75 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
 现在分析："{text_content}"
 """
         
-        response = await intent_client.chat.completions.create(
-                         model="gpt-5-2025-08-07",
-                         messages=[{"role": "user", "content": prompt}],
-                         max_tokens=2000,
-                         temperature=0.1)
+        try:
+            response = await intent_client.chat.completions.create(
+                             model="gpt-5-2025-08-07",
+                             messages=[{"role": "user", "content": prompt}],
+                             max_tokens=2000,
+                             temperature=0.1)
 
-        result = response.choices[0].message.content.strip().lower()
-        logger.info(f"🔍 [DEBUG] 不带图片上传，意图识别结果: {result}")
-        # 确保返回有效的意图
-        if result not in ['video', 'image', 'text', 'url']:
-            return 'text'  # 默认返回文本意图
-        return result
+            result = response.choices[0].message.content.strip().lower()
+            logger.info(f"🔍 [DEBUG] 不带图片上传，意图识别结果: {result}")
+            # 确保返回有效的意图
+            if result not in ['video', 'image', 'text', 'url']:
+                return 'text'  # 默认返回文本意图
+            return result
+        except Exception as e:
+            logger.error(f"❌ [API_ERROR] 意图识别API调用失败: {e}")
+            # 当API失败时，返回默认的文本意图（继续进行对话）
+            return 'text'
+
+
+async def _send_service_busy_error(session_id: str, canvas_id: str, user_info: Dict[str, Any], user_language: str) -> None:
+    """
+    发送服务繁忙错误消息给用户
+
+    Args:
+        session_id: 会话ID
+        canvas_id: 画布ID
+        user_info: 用户信息
+        user_language: 用户语言
+    """
+    try:
+        # 生成多语言的服务繁忙消息
+        if user_language.startswith('zh'):
+            error_message = "当前服务忙,请稍后重试"
+        else:
+            error_message = "Service is currently busy, please try again later"
+
+        logger.info(f"🌍 [ERROR_HANDLER] 发送服务繁忙消息 (语言: {user_language}): {error_message}")
+
+        # 创建AI助手错误回复消息
+        assistant_response = {
+            'role': 'assistant',
+            'content': error_message,
+            'timestamp': int(time.time() * 1000),
+            'message_id': f"{session_id}_{int(time.time() * 1000)}_{str(uuid.uuid4())[:8]}",
+            'error_type': 'service_busy'
+        }
+
+        # 保存消息到数据库
+        user_uuid = user_info.get('uuid') if user_info else None
+        if user_uuid:
+            await db_service.create_message(session_id, 'assistant', json.dumps(assistant_response), user_uuid)
+
+        # 发送错误消息到前端
+        await send_to_websocket(session_id, {
+            'type': 'all_messages',
+            'messages': [assistant_response],
+            'canvas_id': canvas_id,
+            'error_type': 'service_busy'
+        }, canvas_id)
+
+        # 发送done信号结束处理
+        await send_to_websocket(session_id, {'type': 'done', 'canvas_id': canvas_id}, canvas_id)
+
+        logger.info(f"✅ [ERROR_HANDLER] 服务繁忙消息已发送到session: {session_id}")
+
+    except Exception as e:
+        logger.error(f"❌ [ERROR_HANDLER] 发送服务繁忙消息失败: {e}")
+        # 如果连发送错误消息都失败了，至少发送done信号
+        try:
+            await send_to_websocket(session_id, {'type': 'done', 'canvas_id': canvas_id}, canvas_id)
+        except:
+            pass

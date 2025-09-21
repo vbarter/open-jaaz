@@ -961,8 +961,26 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         sessionMatch: data.session_id === sessionId,
         canvasMatch: data.canvas_id === canvasId,
         newMessagesCount: data.messages?.length,
-        currentCount: messages.length
+        currentCount: messages.length,
+        errorType: data.error_type
       })
+
+      // 🚨 检查是否是服务繁忙错误
+      if (data.error_type === 'service_busy') {
+        console.log('🚨 [ERROR_HANDLER] 检测到服务繁忙错误，显示友好提示')
+
+        // 检查消息中是否包含服务繁忙的错误信息
+        const hasServiceBusyMessage = data.messages?.some((msg: any) =>
+          msg.error_type === 'service_busy' ||
+          (typeof msg.content === 'string' &&
+           (msg.content.includes('当前服务忙') || msg.content.includes('Service is currently busy')))
+        )
+
+        if (hasServiceBusyMessage) {
+          console.log('✅ [ERROR_HANDLER] 服务繁忙消息将正常显示在聊天中')
+          // 继续正常处理，让错误消息显示在聊天记录中
+        }
+      }
 
       // 🔥 严格的消息接收逻辑：优先session匹配，谨慎使用canvas匹配
       // 1. 优先：完全匹配的session
@@ -1606,6 +1624,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         message={message}
                         content={typeof message.content === 'string' ? message.content : '🎬 视频已生成'}
                       />
+                    ) : (message as any).error_type === 'service_busy' ? (
+                      // 🚨 服务繁忙错误消息 - 特殊样式显示
+                      <div className='flex justify-start mb-4'>
+                        <div className='bg-orange-50 border border-orange-200 rounded-lg p-4 max-w-[80%]'>
+                          <div className='flex items-center gap-2 mb-2'>
+                            <div className='w-2 h-2 bg-orange-400 rounded-full'></div>
+                            <span className='text-orange-700 font-medium text-sm'>
+                              {t('chat:error.serviceStatus', { defaultValue: '服务状态' })}
+                            </span>
+                          </div>
+                          <div className='text-orange-800'>
+                            {typeof message.content === 'string' ? message.content : '当前服务忙，请稍后重试'}
+                          </div>
+                          <Timestamp
+                            timestamp={message.timestamp}
+                            align='left'
+                          />
+                        </div>
+                      </div>
                     ) : typeof message.content === 'string' ? (
                       // 字符串内容消息
                       <MessageRegular message={message} content={message.content} />
