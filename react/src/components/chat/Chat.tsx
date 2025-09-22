@@ -163,14 +163,24 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // 立即检查并显示初始用户消息 - 组件挂载时就检查
   useEffect(() => {
     const checkAndDisplayInitialMessage = () => {
+      // 🔥 关键修复：使用原子操作防止重复读取
+      // 先尝试获取并立即删除，防止其他实例重复读取
       const initialMessageData = localStorage.getItem('initial_user_message')
+
+      if (!initialMessageData) {
+        return false
+      }
+
+      // 立即删除，防止重复读取（原子操作）
+      localStorage.removeItem('initial_user_message')
+
       debugLog('🔍 检查初始用户消息', {
-        hasData: !!initialMessageData,
+        hasData: true,
         hasDisplayed: hasDisplayedInitialMessage,
         sessionId: searchSessionId,
       })
 
-      if (initialMessageData && !hasDisplayedInitialMessage) {
+      if (!hasDisplayedInitialMessage) {
         try {
           const {
             sessionId: storedSessionId,
@@ -203,121 +213,30 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               setTimeout(() => forceScrollToBottom(), 200)
               setTimeout(() => forceScrollToBottom(), 500)
 
-              // 延迟清除localStorage，给后端推送时间
-              setTimeout(() => {
-                localStorage.removeItem('initial_user_message')
-              }, 2000)
               return true
             } else {
               debugLog('❌ SessionId不匹配，不显示消息')
+              // 如果不应该显示，把消息放回去供其他实例使用
+              localStorage.setItem('initial_user_message', initialMessageData)
             }
           } else {
-            debugLog('⏰ 消息已过期，清除localStorage')
-            localStorage.removeItem('initial_user_message')
+            debugLog('⏰ 消息已过期，已清除')
           }
         } catch (error) {
           console.error('❌ 解析初始消息失败', error)
-          localStorage.removeItem('initial_user_message')
         }
+      } else {
+        // 如果已经显示过，把消息放回去（可能是其他实例需要）
+        localStorage.setItem('initial_user_message', initialMessageData)
       }
       return false
     }
 
     // 立即检查一次
-    const displayed = checkAndDisplayInitialMessage()
+    checkAndDisplayInitialMessage()
+  }, [searchSessionId])
 
-    // 如果没有显示，等待一小段时间再检查一次（防止sessionId延迟）
-    if (!displayed && !hasDisplayedInitialMessage) {
-      const timeoutId = setTimeout(() => {
-        debugLog('🔄 延迟重新检查初始消息')
-        checkAndDisplayInitialMessage()
-      }, 200)
-
-      return () => clearTimeout(timeoutId)
-    }
-  }, [searchSessionId, hasDisplayedInitialMessage, forceScrollToBottom])
-
-  // 当sessionId变化时也检查一次（兜底逻辑）
-  useEffect(() => {
-    if (!hasDisplayedInitialMessage && sessionId) {
-      const initialMessageData = localStorage.getItem('initial_user_message')
-      debugLog('🔄 SessionId变化时检查初始消息', { sessionId, hasData: !!initialMessageData })
-
-      if (initialMessageData) {
-        try {
-          const {
-            sessionId: storedSessionId,
-            message,
-            timestamp,
-            canvasId,
-          } = JSON.parse(initialMessageData)
-
-          const isWithinTimeLimit = Date.now() - timestamp < 5 * 60 * 1000
-          const shouldDisplayMessage =
-            storedSessionId === sessionId ||
-            (canvasId && window.location.pathname.includes(canvasId))
-
-          if (shouldDisplayMessage && isWithinTimeLimit) {
-            debugLog('✅ SessionId变化时显示初始消息')
-            setMessages([message])
-            setHasDisplayedInitialMessage(true)
-
-            pendingTimeoutRef.current = setTimeout(() => {
-              setPending('text')
-            }, 300)
-
-            setTimeout(() => forceScrollToBottom(), 50)
-            setTimeout(() => forceScrollToBottom(), 200)
-
-            setTimeout(() => {
-              localStorage.removeItem('initial_user_message')
-            }, 2000)
-          }
-        } catch (error) {
-          console.error('❌ SessionId变化时解析失败', error)
-          setTimeout(() => {
-            localStorage.removeItem('initial_user_message')
-          }, 1000)
-        }
-      }
-    }
-  }, [sessionId, hasDisplayedInitialMessage, forceScrollToBottom])
-
-  // 🔧 增加兜底检查 - 如果前面的逻辑都没有显示消息，则更积极地尝试
-  useEffect(() => {
-    if (!hasDisplayedInitialMessage) {
-      const timeoutId = setTimeout(() => {
-        const initialMessageData = localStorage.getItem('initial_user_message')
-        if (initialMessageData) {
-          try {
-            const { message, timestamp } = JSON.parse(initialMessageData)
-
-            // 如果消息还在有效期内，无论sessionId如何，都显示
-            if (Date.now() - timestamp < 30 * 1000) {
-              debugLog('🚨 兜底显示初始消息（忽略sessionId检查）')
-              setMessages([message])
-              setHasDisplayedInitialMessage(true)
-
-              pendingTimeoutRef.current = setTimeout(() => {
-                setPending('text')
-              }, 300)
-
-              setTimeout(() => forceScrollToBottom(), 100)
-              setTimeout(() => forceScrollToBottom(), 300)
-
-              setTimeout(() => {
-                localStorage.removeItem('initial_user_message')
-              }, 2000)
-            }
-          } catch (error) {
-            console.error('❌ 兜底解析失败', error)
-          }
-        }
-      }, 1000) // 1秒后检查
-
-      return () => clearTimeout(timeoutId)
-    }
-  }, [hasDisplayedInitialMessage, forceScrollToBottom])
+  // 移除重复的检查逻辑，避免多次读取localStorage导致重复显示
 
   // 监听messages变化，确保用户消息显示后立即滚动
   useEffect(() => {
@@ -373,11 +292,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     const qaStructure = []
     let currentQuestion = null
     let currentAnswers = []
+    let orphanedMessages = [] // 存储没有问题的消息
 
     for (const message of messages) {
       if (message.role === 'user') {
-        // 如果之前有问答对，先保存
-        if (currentQuestion && currentAnswers.length > 0) {
+        // 如果之前有问答对，先保存（无论是否有答案）
+        if (currentQuestion) {
           qaStructure.push({
             question: currentQuestion,
             answers: [...currentAnswers]
@@ -386,17 +306,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         // 开始新的问答对
         currentQuestion = message
         currentAnswers = []
-      } else if (message.role === 'assistant' && currentQuestion) {
-        // 收集当前问题的答案
+      } else if (currentQuestion) {
+        // 有当前问题，收集答案
         currentAnswers.push(message)
       } else {
-        // 处理工具调用等其他消息类型
-        currentAnswers.push(message)
+        // 没有当前问题的消息（孤立消息）
+        orphanedMessages.push(message)
       }
     }
 
-    // 处理最后一个问答对
-    if (currentQuestion && currentAnswers.length > 0) {
+    // 处理最后一个问答对（即使没有答案也要保存）
+    if (currentQuestion) {
       qaStructure.push({
         question: currentQuestion,
         answers: [...currentAnswers]
@@ -407,6 +327,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     // 将Q&A结构重新扁平化为消息数组，确保顺序正确
     const organizedMessages = []
+
+    // 先添加孤立的消息（如果有）
+    organizedMessages.push(...orphanedMessages)
+
+    // 然后添加Q&A对
     for (const qa of qaStructure) {
       organizedMessages.push(qa.question)
       organizedMessages.push(...qa.answers)
@@ -754,23 +679,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       debugLog('✅ Processing video_generated event')
 
-      // 添加视频消息到聊天记录
-      const videoMessage: Message = {
-        role: 'assistant',
-        content: t('chat:generation.videoGenerated', { defaultValue: '🎬 视频已生成并添加到画布' }),
-        type: 'video' as any,
-        video_url: data.video_url,
-        canvas_element_id: data.element?.id,
-        canvas_id: data.canvas_id,
-      } as any
+      // 🔥 关键修复：不再创建本地消息，因为后端 all_messages 已包含完整视频消息
+      // video_generated 事件仅用于：
+      // 1. 画布显示（已由后端处理）
+      // 2. 更新 pending 状态
+      // 3. 滚动到底部
 
-      debugLog('📝 Adding video message:', videoMessage.type)
-
-      setMessages(
-        produce((prev) => {
-          prev.push(videoMessage)
-        })
-      )
+      // 注意：聊天中的视频消息完全由后端 all_messages 事件提供
+      // 这样避免了重复显示的问题
 
       setPending(false) // 取消loading状态
       forceScrollToBottom()
@@ -795,35 +711,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       debugLog('⭐️dispatching image_generated', data)
 
-      // 添加图片消息到聊天记录
-      const imageMessage: Message = {
-        role: 'assistant',
-        content: [
-          {
-            type: 'text',
-            text: t('chat:generation.imageGenerated'),
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: data.image_url,
-            },
-          },
-        ] as MessageContent[],
-      }
+      // 🔥 关键修复：不再创建本地消息，因为后端 all_messages 已包含完整图片消息
+      // image_generated 事件仅用于：
+      // 1. 画布显示（已由后端处理）
+      // 2. 更新 pending 状态
+      // 3. 滚动到底部
 
-      // 添加canvas定位信息到消息（用于点击定位功能）
-      const messageWithCanvasInfo = {
-        ...imageMessage,
-        canvas_element_id: data.element.id, // 添加canvas元素ID
-        canvas_id: data.canvas_id, // 添加canvas ID
-      }
-
-      setMessages(
-        produce((prev) => {
-          prev.push(messageWithCanvasInfo)
-        })
-      )
+      // 注意：聊天中的图片消息完全由后端 all_messages 事件提供
+      // 这样避免了重复显示的问题
 
       setPending(false) // 取消loading状态
 
@@ -1002,58 +897,293 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         }
       }
 
-      // 🔥 简化的消息处理策略：使用Q&A组织的消息，确保顺序和属性完整性
-      debugLog('✅ 应用Q&A组织的消息处理策略', {
+      // 🔥 智能消息合并策略：增量更新而非完全替换
+      debugLog('✅ 应用智能消息合并策略', {
         currentCount: messages.length,
         qaCount: qaOrganizedMessages.length,
         sessionMatch: sessionExactMatch ? 'EXACT_SESSION' : canvasMatch ? 'CANVAS_FALLBACK' : 'NO_MATCH',
         isProcessing: isProcessingRef?.current || false
       })
 
-      // 对于session完全匹配的情况，直接使用Q&A组织的消息（最可靠）
+      // 对于session完全匹配的情况，智能合并消息而非直接替换
       if (sessionExactMatch) {
-        debugLog('🎯 Session完全匹配，直接替换')
-        setMessages(qaOrganizedMessages)
-        scrollToBottom()
-        processingAllMessagesRef.current = false
-        return
-      }
+        debugLog('🎯 Session完全匹配，执行智能合并')
 
-      // 对于canvas匹配但session不匹配的情况，谨慎处理
-      if (canvasMatch) {
-        debugLog('⚠️ Canvas匹配但session不同，谨慎处理')
+        // 🔥 改进：基于内容的去重，防止相同消息重复显示
+        const contentHashMap = new Map<string, Message>()
+        const existingMessageMap = new Map<string, Message>()
+        const existingTimestampMap = new Map<number, Message>()
+        const existingCanvasElementMap = new Map<string, Message>()
 
-        // 检查当前是否有重要的图片/视频内容需要保留
-        const hasImportantContent = messages.some(msg => {
-          if (msg.role === 'assistant') {
-            return Array.isArray(msg.content) && msg.content.some(c => c.type === 'image_url') ||
-                   (msg as any).canvas_element_id || (msg as any).video_url
+        // 为现有消息创建内容哈希
+        messages.forEach(msg => {
+          const msgWithMeta = msg as any
+
+          // 创建内容哈希用于去重
+          const contentHash = JSON.stringify({
+            role: msg.role,
+            content: msg.content,
+            canvas_element_id: msgWithMeta.canvas_element_id
+          })
+          contentHashMap.set(contentHash, msg)
+
+          if (msgWithMeta.message_id) {
+            existingMessageMap.set(msgWithMeta.message_id, msg)
           }
-          return false
+          if (msgWithMeta.timestamp) {
+            existingTimestampMap.set(msgWithMeta.timestamp, msg)
+          }
+          if (msgWithMeta.canvas_element_id) {
+            existingCanvasElementMap.set(msgWithMeta.canvas_element_id, msg)
+          }
         })
 
-        if (!hasImportantContent) {
-          debugLog('🔄 无重要内容，直接替换')
-          setMessages(qaOrganizedMessages)
-        } else {
-          debugLog('🔗 有重要内容，合并处理')
-          const combinedMessages = [...messages, ...qaOrganizedMessages]
-          const qaOrganizedCombined = organizeMessagesAsQA(combinedMessages)
-          setMessages(qaOrganizedCombined)
+        // 合并新消息，保留现有的图片和媒体内容
+        const mergedMessages: Message[] = []
+        const processedHashes = new Set<string>()
+        const processedIds = new Set<string>()
+        const processedTimestamps = new Set<number>()
+        const processedCanvasElements = new Set<string>()
+
+        qaOrganizedMessages.forEach(newMsg => {
+          const newMsgWithMeta = newMsg as any
+          const msgId = newMsgWithMeta.message_id
+          const timestamp = newMsgWithMeta.timestamp
+          const canvasElementId = newMsgWithMeta.canvas_element_id
+
+          // 创建内容哈希
+          const contentHash = JSON.stringify({
+            role: newMsg.role,
+            content: newMsg.content,
+            canvas_element_id: canvasElementId
+          })
+
+          // 🔥 根据时间戳去重，而不是内容
+          if (timestamp && processedTimestamps.has(timestamp)) {
+            debugLog('⚠️ 跳过重复消息（时间戳相同）', { timestamp })
+            return
+          }
+
+          // 通过各种方式查找现有消息
+          let existingMsg = canvasElementId ? existingCanvasElementMap.get(canvasElementId) : null
+
+          if (!existingMsg && msgId) {
+            existingMsg = existingMessageMap.get(msgId) || null
+          }
+
+          if (!existingMsg && timestamp) {
+            existingMsg = existingTimestampMap.get(timestamp) || null
+          }
+
+          if (!existingMsg) {
+            existingMsg = contentHashMap.get(contentHash) || null
+          }
+
+          if (existingMsg) {
+            // 合并消息，保留重要字段（特别是媒体内容）
+            const existingMsgWithMeta = existingMsg as any
+            const mergedMsg = {
+              ...newMsg,
+              // 保留现有的媒体字段
+              ...(existingMsgWithMeta.media && { media: existingMsgWithMeta.media }),
+              ...(existingMsgWithMeta.canvas_element_id && { canvas_element_id: existingMsgWithMeta.canvas_element_id }),
+              ...(existingMsgWithMeta.video_url && { video_url: existingMsgWithMeta.video_url }),
+              ...(existingMsgWithMeta.type && { type: existingMsgWithMeta.type }),
+              ...(existingMsgWithMeta.image_url && { image_url: existingMsgWithMeta.image_url })
+            }
+            mergedMessages.push(mergedMsg)
+            processedHashes.add(contentHash)
+            if (msgId) processedIds.add(msgId)
+            if (timestamp) processedTimestamps.add(timestamp)
+            if (canvasElementId) processedCanvasElements.add(canvasElementId)
+          } else {
+            // 新消息，直接添加
+            mergedMessages.push(newMsg)
+            processedHashes.add(contentHash)
+            if (msgId) processedIds.add(msgId)
+            if (timestamp) processedTimestamps.add(timestamp)
+            if (canvasElementId) processedCanvasElements.add(canvasElementId)
+          }
+        })
+
+        // 🔥 关键改进：不再重复添加本地消息，因为它们应该已经在合并中处理了
+        // 只有在后端完全没有返回消息时，才保留本地消息
+        if (qaOrganizedMessages.length === 0 && messages.length > 0) {
+          debugLog('⚠️ 后端无消息，保留所有本地消息')
+          processingAllMessagesRef.current = false
+          return
         }
 
+        // 按时间戳排序，确保消息顺序正确
+        const sortedMessages = mergedMessages.sort((a, b) => {
+          const aTime = (a as any).timestamp || 0
+          const bTime = (b as any).timestamp || 0
+          return aTime - bTime
+        })
+
+        debugLog('📊 消息合并完成', {
+          原始数量: messages.length,
+          新消息数量: qaOrganizedMessages.length,
+          合并后数量: sortedMessages.length
+        })
+
+        setMessages(sortedMessages)
         scrollToBottom()
         processingAllMessagesRef.current = false
         return
       }
 
-      // 如果上述条件都不满足，执行默认的Q&A组织消息替换
-      debugLog('✅ 执行默认Q&A组织消息替换', {
+      // 对于canvas匹配但session不同的情况，也使用智能合并
+      if (canvasMatch) {
+        debugLog('⚠️ Canvas匹配但session不同，执行智能合并')
+
+        // 创建基于message_id和timestamp的消息映射（与session匹配时相同的逻辑）
+        const existingMessageMap = new Map<string, Message>()
+        const existingTimestampMap = new Map<number, Message>()
+
+        messages.forEach(msg => {
+          const msgWithMeta = msg as any
+          if (msgWithMeta.message_id) {
+            existingMessageMap.set(msgWithMeta.message_id, msg)
+          }
+          if (msgWithMeta.timestamp) {
+            existingTimestampMap.set(msgWithMeta.timestamp, msg)
+          }
+        })
+
+        // 合并新消息，保留现有的图片和媒体内容
+        const mergedMessages: Message[] = []
+        const processedIds = new Set<string>()
+        const processedTimestamps = new Set<number>()
+
+        qaOrganizedMessages.forEach(newMsg => {
+          const newMsgWithMeta = newMsg as any
+          const msgId = newMsgWithMeta.message_id
+          const timestamp = newMsgWithMeta.timestamp
+
+          // 根据时间戳去重
+          if (timestamp && processedTimestamps.has(timestamp)) {
+            debugLog('⚠️ 跳过重复消息（时间戳相同）', { timestamp })
+            return
+          }
+
+          // 尝试通过message_id查找现有消息
+          let existingMsg = msgId ? existingMessageMap.get(msgId) : null
+
+          // 如果没有找到，尝试通过timestamp查找
+          if (!existingMsg && timestamp) {
+            existingMsg = existingTimestampMap.get(timestamp) || null
+          }
+
+          if (existingMsg) {
+            // 合并消息，保留重要字段
+            const existingMsgWithMeta = existingMsg as any
+            const mergedMsg = {
+              ...newMsg,
+              // 保留现有的媒体字段
+              ...(existingMsgWithMeta.media && { media: existingMsgWithMeta.media }),
+              ...(existingMsgWithMeta.canvas_element_id && { canvas_element_id: existingMsgWithMeta.canvas_element_id }),
+              ...(existingMsgWithMeta.video_url && { video_url: existingMsgWithMeta.video_url }),
+              ...(existingMsgWithMeta.type && { type: existingMsgWithMeta.type }),
+              ...(existingMsgWithMeta.image_url && { image_url: existingMsgWithMeta.image_url })
+            }
+            mergedMessages.push(mergedMsg)
+            if (msgId) processedIds.add(msgId)
+            if (timestamp) processedTimestamps.add(timestamp)
+          } else {
+            // 新消息，直接添加
+            mergedMessages.push(newMsg)
+            if (msgId) processedIds.add(msgId)
+            if (timestamp) processedTimestamps.add(timestamp)
+          }
+        })
+
+        // 添加本地存在但后端没有的重要消息
+        messages.forEach(msg => {
+          const msgWithMeta = msg as any
+          const msgId = msgWithMeta.message_id
+          const timestamp = msgWithMeta.timestamp
+
+          const notProcessed = (!msgId || !processedIds.has(msgId)) &&
+                              (!timestamp || !processedTimestamps.has(timestamp))
+
+          if (notProcessed) {
+            // 检查是否是重要的本地消息
+            const hasImportantContent =
+              msgWithMeta.media ||
+              msgWithMeta.canvas_element_id ||
+              msgWithMeta.video_url ||
+              (Array.isArray(msg.content) && msg.content.some(c => c.type === 'image_url'))
+
+            if (hasImportantContent) {
+              debugLog('💾 Canvas模式：保留重要的本地消息', {
+                role: msg.role,
+                hasMedia: !!msgWithMeta.media,
+                hasCanvas: !!msgWithMeta.canvas_element_id
+              })
+              mergedMessages.push(msg)
+            }
+          }
+        })
+
+        // 按时间戳排序
+        const sortedMessages = mergedMessages.sort((a, b) => {
+          const aTime = (a as any).timestamp || 0
+          const bTime = (b as any).timestamp || 0
+          return aTime - bTime
+        })
+
+        debugLog('📊 Canvas模式消息合并完成', {
+          原始数量: messages.length,
+          新消息数量: qaOrganizedMessages.length,
+          合并后数量: sortedMessages.length
+        })
+
+        setMessages(sortedMessages)
+        scrollToBottom()
+        processingAllMessagesRef.current = false
+        return
+      }
+
+      // 如果上述条件都不满足，也使用智能合并而非直接替换
+      debugLog('✅ 执行默认智能消息合并', {
         fromCount: messages.length,
         toCount: qaOrganizedMessages.length
       })
 
-      setMessages(qaOrganizedMessages)
+      // 即使没有精确匹配，也应该智能合并以防止消息丢失
+      const mergedMessagesDefault = [...messages]
+      qaOrganizedMessages.forEach(newMsg => {
+        const newMsgWithMeta = newMsg as any
+        const existingIndex = mergedMessagesDefault.findIndex(msg => {
+          const msgWithMeta = msg as any
+          return (msgWithMeta.message_id && msgWithMeta.message_id === newMsgWithMeta.message_id) ||
+                 (msgWithMeta.timestamp && msgWithMeta.timestamp === newMsgWithMeta.timestamp)
+        })
+
+        if (existingIndex >= 0) {
+          // 更新现有消息，但保留媒体内容
+          const existing = mergedMessagesDefault[existingIndex] as any
+          mergedMessagesDefault[existingIndex] = {
+            ...newMsg,
+            ...(existing.media && { media: existing.media }),
+            ...(existing.canvas_element_id && { canvas_element_id: existing.canvas_element_id }),
+            ...(existing.video_url && { video_url: existing.video_url })
+          }
+        } else {
+          // 添加新消息
+          mergedMessagesDefault.push(newMsg)
+        }
+      })
+
+      // 按时间戳排序
+      const sortedMessagesDefault = mergedMessagesDefault.sort((a, b) => {
+        const aTime = (a as any).timestamp || 0
+        const bTime = (b as any).timestamp || 0
+        return aTime - bTime
+      })
+
+      setMessages(sortedMessagesDefault)
       scrollToBottom()
       processingAllMessagesRef.current = false
     },
