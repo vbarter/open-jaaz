@@ -387,41 +387,44 @@ class TuziLLMService:
             
             
             # 获取用户文件目录
-            user_email = user_info.get('email') if user_info else None
-            user_id = user_info.get('uuid') if user_info else None
-            user_files_dir = get_user_files_dir(user_email=user_email, user_id=user_id)
+            # user_email = user_info.get('email') if user_info else None
+            # user_id = user_info.get('uuid') if user_info else None
+            # user_files_dir = get_user_files_dir(user_email=user_email, user_id=user_id)
     
 
             # 处理多个图片文件，生成file_path列表
-            file_paths: List[str] = []
+            # file_paths: List[str] = []
+
+            logger.info(f"🔍 [DEBUG] 接收到的图片内容: {image_content}")
             
-            for i, image_item in enumerate(image_content):
-                # 为每个图片生成唯一文件名
-                file_id = str(uuid.uuid4())
+            # for i, image_item in enumerate(image_content):
+            #     # 为每个图片生成唯一文件名
+            #     file_id = str(uuid.uuid4())
                 
-                if image_item.startswith('data:image/'):
-                    # 从data URL中提取格式和数据
-                    header, encoded = image_item.split(',', 1)
-                    image_format = header.split(';')[0].split('/')[1]  # 获取图片格式(jpeg, png等)
-                    image_data = base64.b64decode(encoded)
-                    file_path = os.path.join(user_files_dir, f"{file_id}.{image_format}")
-                else:
-                    # 假设是其他格式，默认保存为jpg
-                    image_data = image_item.encode() if isinstance(image_item, str) else image_item
-                    file_path = os.path.join(user_files_dir, f"{file_id}.jpg")
+            #     if image_item.startswith('data:image/'):
+            #         # 从data URL中提取格式和数据
+            #         header, encoded = image_item.split(',', 1)
+            #         image_format = header.split(';')[0].split('/')[1]  # 获取图片格式(jpeg, png等)
+            #         image_data = base64.b64decode(encoded)
+            #         file_path = os.path.join(user_files_dir, f"{file_id}.{image_format}")
+            #     else:
+            #         # 假设是其他格式，默认保存为jpg
+            #         image_data = image_item.encode() if isinstance(image_item, str) else image_item
+            #         file_path = os.path.join(user_files_dir, f"{file_id}.jpg")
         
-                # 写入文件
-                with open(file_path, 'wb') as f:
-                    f.write(image_data)
+            #     # 写入文件
+            #     with open(file_path, 'wb') as f:
+            #         f.write(image_data)
         
-                file_paths.append(file_path)
-                logger.info(f"✅ 图片 {i+1} 已保存到: {file_path}")
+            #     file_paths.append(file_path)
+            #     logger.info(f"✅ 图片 {i+1} 已保存到: {file_path}")
             
-            logger.info(f"✅ 总共保存了 {len(file_paths)} 个图片文件")
+            # logger.info(f"✅ 总共保存了 {len(file_paths)} 个图片文件")
             
             # 使用gemini进行图片编辑，传递aspect_ratio和quantity
-            result = await self.gemini_edit_image_by_tuzi(file_paths, user_prompt, model=model_name,
-                                                          aspect_ratio=aspect_ratio, quantity=quantity)
+            # result = await self.gemini_edit_image_by_tuzi(file_paths, user_prompt, model=model_name,
+            #                                               aspect_ratio=aspect_ratio, quantity=quantity)
+            result = await self.gemini_edit_image_by_yunwu(image_content, user_prompt)
             
             if result:
                 logger.info(f"✅ 图片编辑成功: {result.get('result_url')}")
@@ -808,6 +811,127 @@ class TuziLLMService:
             logger.error(f"❌ URL内容分析失败: {e}")
             return user_prompt
         
+    async def gemini_edit_image_by_yunwu(
+        self,
+        file_path: list[str],
+        prompt: str
+    ) -> Optional[Dict[str, str]]:
+        """
+        使用云雾AI编辑图片 - 异步任务模式
+
+        Args:
+            file_path: 图片文件路径列表
+                      - file_path[0]: 用户上传的目标图片（对应API的image参数）
+                      - file_path[1]: 模板图片（对应API的mask参数，可选）
+            prompt: 图片编辑提示词
+            model: 使用的模型
+            response_format: 响应格式，支持 "url" 或 "b64_json"
+            aspect_ratio: 图片比例
+            quantity: 生成数量
+
+        Returns:
+            Optional[Dict[str, str]]: 包含 result_url 的字典，失败时返回None
+        """
+        logger.info(f"🎯 [DEBUG] gemini_edit_image_by_yunwu 函数开始")
+        logger.info(f"🎯 [DEBUG] 接收到的参数: prompt='{prompt[:100]}...'")
+
+        try:
+            # 参数验证
+            # if not file_path or len(file_path) == 0:
+            #     logger.error("❌ file_path 不能为空")
+            #     return None
+                
+            # if not os.path.exists(file_path[0]):
+            #     logger.error(f"❌ 目标图片文件不存在: {file_path[0]}")
+            #     return None
+                
+            # if len(file_path) > 1 and not os.path.exists(file_path[1]):
+            #     logger.error(f"❌ 模板图片文件不存在: {file_path[1]}")
+            #     return None
+
+            
+
+            # 步骤2: 提交编辑任务
+            edit_url = "https://yunwu.ai/fal-ai/nano-banana/edit"
+            headers = {
+                'Authorization': f'Bearer {self.api_token}',
+                'content-type': 'application/json'
+            }
+            
+            request_data = {
+                "prompt": prompt,
+                "image_urls": file_path,
+                "num_images": 1
+            }
+            
+            logger.info(f"🚀 [DEBUG] 提交编辑任务到: {edit_url}")
+            logger.info(f"📝 [DEBUG] 请求数据: {request_data}")
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    edit_url,
+                    headers=headers,
+                    json=request_data,
+                    timeout=aiohttp.ClientTimeout(total=30.0)
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logger.error(f"❌ 提交任务失败，状态码: {response.status}, 错误: {error_text}")
+                        return None
+                    
+                    task_result = await response.json()
+                    logger.info(f"✅ [DEBUG] 任务提交成功: {task_result}")
+                    
+                    request_id = task_result.get('request_id')
+                    if not request_id:
+                        logger.error("❌ 未获取到任务ID")
+                        return None
+                    
+                    # 步骤3: 轮询查询任务状态
+                    query_url = f"https://yunwu.ai/fal-ai/nano-banana/requests/{request_id}"
+                    max_attempts = 60  # 最多查询60次
+                    attempt = 0
+                    
+                    logger.info(f"🔄 [DEBUG] 开始查询任务状态: {query_url}")
+                    
+                    while attempt < max_attempts:
+                        attempt += 1
+                        await asyncio.sleep(3)  # 等待3秒
+                        
+                        try:
+                            async with session.get(
+                                query_url,
+                                headers=headers,
+                                timeout=aiohttp.ClientTimeout(total=10.0)
+                            ) as query_response:
+                                if query_response.status == 200:
+                                    result = await query_response.json()
+                                    logger.info(f"🔍 [DEBUG] 第{attempt}次查询结果: {result}")
+                                    
+                                    # 检查是否有图片结果
+                                    if result.get('images') and len(result['images']) > 0:
+                                        image_info = result['images'][0]
+                                        image_url = image_info.get('url')
+                                        if image_url:
+                                            logger.info(f"✅ [DEBUG] 任务完成，获取到图片URL: {image_url}")
+                                            return {'result_url': image_url}
+                                    
+                                    # 如果还在处理中，继续等待
+                                    logger.info(f"⏳ [DEBUG] 任务仍在处理中，继续等待...")
+                                    
+                                else:
+                                    logger.warning(f"⚠️ [DEBUG] 查询状态失败，状态码: {query_response.status}")
+                                    
+                        except Exception as query_error:
+                            logger.warning(f"⚠️ [DEBUG] 查询异常: {query_error}")
+                    
+                    logger.error(f"❌ 任务超时，已查询{max_attempts}次仍未完成")
+                    return None
+                    
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"❌ 图片编辑失败: {type(e).__name__}: {error_msg}")
+            return None
 
     async def gemini_edit_image_by_tuzi(
         self,
