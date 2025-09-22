@@ -602,16 +602,28 @@ async def _process_generation(
     existing_assistant_message = None
     try:
         recent_history = await db_service.get_chat_history(session_id, user_uuid or '')
-        # 查找最近的assistant消息
-        for msg in reversed(recent_history):
-            if msg.get('role') == 'assistant':
-                # 检查是否是在同一个会话中的消息（时间差小于5分钟）
-                if 'timestamp' in msg:
-                    time_diff = int(time.time() * 1000) - msg.get('timestamp', 0)
-                    if time_diff < 300000:  # 5分钟内
-                        existing_assistant_message = msg
-                        logger.info(f"🔄 Found recent assistant message to merge media: {msg.get('message_id')}")
-                        break
+
+        # 检查最后一条消息是否是用户消息
+        # 如果是用户消息，说明这是对新问题的回答，不应该合并到之前的assistant消息
+        last_message_is_user = False
+        if recent_history:
+            last_msg = recent_history[-1]
+            if last_msg.get('role') == 'user':
+                last_message_is_user = True
+                logger.info(f"🔍 Last message is from user, will create new assistant message")
+
+        # 只有当最后一条消息不是用户消息时，才查找可以合并的assistant消息
+        if not last_message_is_user:
+            # 查找最近的assistant消息
+            for msg in reversed(recent_history):
+                if msg.get('role') == 'assistant':
+                    # 检查是否是在同一个会话中的消息（时间差小于5分钟）
+                    if 'timestamp' in msg:
+                        time_diff = int(time.time() * 1000) - msg.get('timestamp', 0)
+                        if time_diff < 300000:  # 5分钟内
+                            existing_assistant_message = msg
+                            logger.info(f"🔄 Found recent assistant message to merge media: {msg.get('message_id')}")
+                            break
     except Exception as e:
         logger.warning(f"Failed to get recent history for media merge: {e}")
 
