@@ -3,6 +3,7 @@
 # Import necessary modules
 import asyncio
 import json
+import time
 from typing import Dict, Any, List, Optional
 
 # Import service modules
@@ -60,14 +61,6 @@ async def handle_magic(data: Dict[str, Any]) -> None:
     user_uuid = user_info.get('uuid') if user_info else None
     user_id = user_info.get('id') if user_info else None
 
-    # 🧠 发送AI思考状态（让用户知道Magic Generation正在开始）
-    logger.info(f"🧠 [MAGIC_THINKING_DEBUG] 发送Magic Generation思考状态: session_id={session_id}, canvas_id={canvas_id}")
-    try:
-        await send_ai_thinking_status(session_id=session_id, canvas_id=canvas_id)
-        logger.info(f"✅ [MAGIC_THINKING_DEBUG] Magic思考状态发送成功: session_id={session_id}")
-    except Exception as e:
-        logger.error(f"❌ [MAGIC_THINKING_DEBUG] Magic思考状态发送失败: session_id={session_id}, error={e}")
-
     # 🎯 积分检查：画图前检查是否有足够积分
     if user_id and user_uuid:
         try:
@@ -115,12 +108,19 @@ async def handle_magic(data: Dict[str, Any]) -> None:
             session_id, messages[-1].get('role', 'user'), json.dumps(messages[-1]), user_uuid
         )
 
-    
-    # 注释掉模版图片推送，因为前端现在通过localStorage立即显示用户消息
-    # 这样可以避免重复显示和提高响应速度
-    # if template_id:
-    #     # 先推送用户上传的图片到前端显示
-    #     await _push_user_images_to_frontend(messages, session_id, template_id)
+
+    # 🚀 优化：立即通过WebSocket推送用户消息到前端，确保用户输入立即可见
+    # 这样用户的消息会立即显示在聊天界面，然后才开始AI处理
+    if len(messages) > 0:
+        await _push_user_message_to_frontend(messages, session_id, canvas_id, template_id, user_language)
+
+    # 🧠 发送AI思考状态（在用户消息显示后，让用户知道AI正在处理）
+    logger.info(f"🧠 [MAGIC_THINKING_DEBUG] 发送Magic Generation思考状态: session_id={session_id}, canvas_id={canvas_id}")
+    try:
+        await send_ai_thinking_status(session_id=session_id, canvas_id=canvas_id)
+        logger.info(f"✅ [MAGIC_THINKING_DEBUG] Magic思考状态发送成功: session_id={session_id}")
+    except Exception as e:
+        logger.error(f"❌ [MAGIC_THINKING_DEBUG] Magic思考状态发送失败: session_id={session_id}, error={e}")
 
     # Create and start magic generation task
     # 从data中获取用户信息，如果有的话
@@ -163,76 +163,51 @@ async def handle_magic(data: Dict[str, Any]) -> None:
     logger.info('[Magic Service] handle_magic处理完成')
 
 
-async def _push_user_images_to_frontend(messages: List[Dict[str, Any]], session_id: str, template_id: str) -> None:
+async def _push_user_message_to_frontend(messages: List[Dict[str, Any]], session_id: str, canvas_id: str, template_id: str, user_language: str = "en") -> None:
     """
-    推送用户上传的图片到前端canvas页面显示
-    
+    🚀 优化版：立即推送用户消息到前端canvas页面显示
+    确保用户输入在AI处理前就能看到，提升用户体验
+
     Args:
         messages: 用户消息列表
         session_id: 会话ID
+        canvas_id: 画布ID
+        template_id: 模板ID
+        user_language: 用户语言
     """
     try:
         # 获取最后一条用户消息
         if not messages:
             return
-            
+
         user_message = messages[-1]
         if user_message.get('role') != 'user':
             return
-            
-        content = user_message.get('content', [])
-        if not isinstance(content, list):
-            return
-            
-        # 提取所有图片内容
-        user_images = []
-        text_content = ""
 
-        # 根据template_id获取template_name
-        template_name = "未知模板"
-        if template_id:
-            try:
-                from routers.templates_router import TEMPLATES
-                template_id_int = int(template_id)
-                template = next((t for t in TEMPLATES if t["id"] == template_id_int), None)
-                if template:
-                    template_name = template.get("title", "未知模板")
-            except (ValueError, ImportError):
-                logger.error("出错了...")
-        
-        for content_item in content:
-            if content_item.get('type') == 'image_url':
-                image_url = content_item.get('image_url', {}).get('url', '')
-                if image_url:
-                    user_images.append({
-                        'type': 'image_url',
-                        'image_url': {'url': image_url}
-                    })
-            elif content_item.get('type') == 'text':
-                text_content = content_item.get('text', '')
-        
-        if user_images:
-            # 构造包含用户图片的消息
-            user_image_message = {
-                'role': 'user',
-                'content': [
-                    {
-                        'type': 'text',
-                        'text': f'📸 使用模版: {template_name} 画图'
-                    }
-                ] + user_images
-            }
-            
-            # 通过websocket推送到前端
-            await send_to_websocket(session_id, {
-                'type': 'user_images', 
-                'message': user_image_message
-            })
-            
-            logger.info(f"✅ 已推送 {len(user_images)} 张用户图片到前端")
-            
+        # 直接推送完整的用户消息
+        # 这样前端可以立即显示用户输入的文本和图片
+        logger.info(f"📤 [USER_MESSAGE] 准备推送用户消息到前端: session_id={session_id}, canvas_id={canvas_id}")
+
+        # 通过websocket推送用户消息
+        # 使用all_messages类型，因为前端已经定义了这个类型的处理器
+        await send_to_websocket(session_id, {
+            'type': 'all_messages',  # 使用all_messages类型推送消息
+            'messages': [user_message],  # 包装成数组格式
+            'timestamp': int(time.time() * 1000)
+        }, canvas_id=canvas_id)
+
+        # 获取消息内容统计
+        content = user_message.get('content', [])
+        if isinstance(content, list):
+            text_count = sum(1 for item in content if item.get('type') == 'text')
+            image_count = sum(1 for item in content if item.get('type') == 'image_url')
+            logger.info(f"✅ [USER_MESSAGE] 已推送用户消息到前端: {text_count}段文本, {image_count}张图片")
+        else:
+            logger.info(f"✅ [USER_MESSAGE] 已推送用户文本消息到前端")
+
     except Exception as e:
-        logger.error(f"❌ 推送用户图片失败: {e}")
+        logger.error(f"❌ [USER_MESSAGE] 推送用户消息失败: {e}")
+        logger.error(f"❌ [USER_MESSAGE] 错误详情: {type(e).__name__}: {e}")
 
 
 async def _process_magic_generation(
