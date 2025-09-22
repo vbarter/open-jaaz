@@ -5,6 +5,7 @@ import uuid
 import json
 import asyncio
 import aiohttp
+import re
 from typing import Dict, Any, Optional, List, Literal, AsyncGenerator, Union
 from utils.http_client import HttpClient
 from services.config_service import config_service
@@ -352,9 +353,9 @@ class TuziLLMService:
                 return await self.generate_video(user_prompt, model_name, input_images=image_content)
             elif user_has_drawing_intent == "url":
                 logger.info("🔗 检测到链接处理意图，执行链接处理流程")
-                user_prompt = f"{user_prompt} \n 请你仔细阅读这个网页，根据内容生成详细的绘图prompt, 输出语言采用{user_language}"
-                logger.info(f"🔍 [DEBUG] 生成提示词: {user_prompt}")
-                prompt = await self._generate_prompt_by_url(user_prompt)
+                # user_prompt = f"{user_prompt} \n 请你仔细阅读这个网页，根据内容生成详细的绘图prompt, 输出语言采用{user_language}"
+                # logger.info(f"🔍 [DEBUG] 生成提示词: {user_prompt}")
+                prompt = await self._generate_prompt_by_url(user_prompt, user_language=user_language)
                 if prompt.strip() == "":
                     raise Exception("相关url，生成提示词为空")
                 logger.info(f"🔍 [DEBUG] 生成提示词: {prompt}")
@@ -677,25 +678,64 @@ class TuziLLMService:
             yield f"[错误] 流式响应失败: {str(e)}"
 
     async def _generate_prompt_by_url(self, 
-                                      user_prompt: str) -> str:
+                                      user_prompt: str,
+                                      user_language: str = "en") -> str:
         """
-        生成优化的提示词
+        根据URL内容生成优化的绘图提示词
         
         Args:
-            user_prompt: 用户输入的提示词
-            model_name: 模型名称
+            user_prompt: 用户输入的提示词（包含URL和语言要求）
             
         Returns:
             str: 优化后的提示词
         """
-        try: 
+        try:   
+            # 构建新的提示词模板
+            enhanced_prompt = f"""
+**角色 (Role):**
+你是一位顶级的AI艺术提示词工程师，专门为AI图像生成器创建富有想象力和表现力的提示词。你的任务是分析网页内容，并将其核心概念、美学和情感转化为一个结构精良、细节丰富的绘图指令。
+
+**任务流程 (Workflow):**
+
+1.  **接收输入 (Receive Input):** 我会提供一个网页URL。帮我读取全部内容
+2.  **根据网页内容，生成详细的英文prompt
+3.  **格式化输出 (Format the Output):**
+    *   将你生成的最终结果封装在一个**严格的JSON格式**中。
+    *   **不要在JSON代码块的之前或之后添加任何解释、说明或额外文字。**
+    *   输出语言 `{user_language}` 指的是，如果我用中文提问，你输出的JSON中的`prompt`字段里的描述性文字可以是中文，但核心关键词和风格词汇建议保留英文或附上英文。为了达到最佳绘图效果，我们统一要求`prompt`字段的**全部内容为英文**。
+
+**JSON输出格式 (JSON Output Schema):**
+```json
+{{
+    "prompt": "一个完全由英文构成、细节丰富、逗号分隔的绘图提示词。",
+    "aspect_ratio": "根据内容判断最合适的比例，默认为 '1:1'。如果是风景则用 '16:9'，如果是人物肖像或海报则用 '2:3'。",
+    "quantity": 1
+}}
+```
+
+**示例 (Example):**
+
+*   **如果我输入的URL是:** `https://www.nationalgeographic.com/animals/mammals/facts/red-panda`
+*   **你应输出的最终结果是:**
+```json
+{{
+    "prompt": "...",
+    "aspect_ratio": "1:1",
+    "quantity": 1
+}}
+```
+
+用户输入: {user_prompt}
+返回: 
+"""
+            
             # 构建请求数据
             request_data = {
                 "contents": [
                     {
                         "role": "user",
                         "parts": [
-                            {"text": user_prompt}
+                            {"text": enhanced_prompt}
                         ]
                     }
                 ],
@@ -723,25 +763,49 @@ class TuziLLMService:
                 ) as response:
                     if response.status == 200:
                         result = await response.json()
-                        logger.info(f"🔍 [DEBUG] 提示词优化结果: {result}")
+                        logger.info(f"🔍 [DEBUG] URL内容分析结果: {result}")
+                        
                         # 解析响应
                         if result.get('candidates') and len(result['candidates']) > 0:
                             candidate = result['candidates'][0]
                             if candidate.get('content') and candidate['content'].get('parts'):
                                 parts = candidate['content']['parts']
                                 if len(parts) > 0 and parts[0].get('text'):
-                                    optimized_prompt = parts[0]['text']
-                                    logger.info(f"✅ [DEBUG] 提示词优化完成: {optimized_prompt[:100]}...")
-                                    return optimized_prompt
+                                    response_text = parts[0]['text']
+                                    logger.info(f"✅ [DEBUG] 原始响应: {response_text[:200]}...")
+                                                      # 尝试解析JSON响应
+                                    try:
+                                        # 查找JSON代码块
+                                        json_match = re.search(r'```json\s*(\{.*?\})\s*```', response_text, re.DOTALL)
+                                        if json_match:
+                                            json_str = json_match.group(1)
+                                        else:
+                                            # 如果没有代码块，尝试直接解析整个响应
+                                            json_str = response_text.strip()
+                                        
+                                        # 解析JSON
+                                        prompt_data = json.loads(json_str)
+                                        if isinstance(prompt_data, dict) and 'prompt' in prompt_data:
+                                            optimized_prompt = prompt_data['prompt']
+                                            logger.info(f"✅ [DEBUG] 成功提取JSON prompt: {optimized_prompt[:100]}...")
+                                            return optimized_prompt
+                                        else:
+                                            logger.warning("⚠️ JSON响应格式不正确，使用原始文本")
+                                            return response_text
+                                            
+                                    except json.JSONDecodeError as je:
+                                        logger.warning(f"⚠️ JSON解析失败: {je}，使用原始响应")
+                                        return response_text
                         
-                        logger.warning("⚠️ 提示词优化失败，使用原始提示词")
+                        logger.warning("⚠️ URL内容分析失败，使用原始提示词")
                         return user_prompt
                     else:
-                        logger.error(f"❌ API请求失败，状态码: {response.status}")
+                        error_text = await response.text()
+                        logger.error(f"❌ API请求失败，状态码: {response.status}, 错误: {error_text}")
                         return user_prompt
                         
         except Exception as e:
-            logger.error(f"❌ 提示词优化失败: {e}")
+            logger.error(f"❌ URL内容分析失败: {e}")
             return user_prompt
         
 
