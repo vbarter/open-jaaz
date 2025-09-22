@@ -854,7 +854,7 @@ class TuziLLMService:
             # 步骤2: 提交编辑任务
             edit_url = "https://yunwu.ai/fal-ai/nano-banana/edit"
             headers = {
-                'Authorization': f'Bearer {self.api_token}',
+                'Authorization': f'Bearer sk-T5GzBCTpRm92Po9G9WU9B19w1p1pxHJ8qwfcAcZ47MdZCzEM',
                 'content-type': 'application/json'
             }
             
@@ -865,7 +865,7 @@ class TuziLLMService:
             }
             
             logger.info(f"🚀 [DEBUG] 提交编辑任务到: {edit_url}")
-            logger.info(f"📝 [DEBUG] 请求数据: {request_data}")
+            # logger.info(f"📝 [DEBUG] 请求数据: {request_data}")
             
             async with aiohttp.ClientSession() as session:
                 async with session.post(
