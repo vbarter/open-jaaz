@@ -133,6 +133,77 @@ async def handle_chat(data: Dict[str, Any]) -> None:
     quantity: int = data.get('quantity', 1)
     user_language: str = data.get('language', 'en')
 
+    # Extract user information
+    user_uuid = user_info.get('uuid') if user_info else None
+
+    # If there is only one message, create a new magic session
+    if len(messages) == 1:
+        # create new session (只有在session不存在时才创建)
+        prompt = messages[0].get('content', '')
+        try:
+            title = prompt[:200] if isinstance(prompt, str) else ''
+            await db_service.create_chat_session(session_id, 'gpt', 'jaaz', canvas_id, user_uuid, title)
+        except Exception as e:
+            # 如果session已存在，忽略错误
+            if "UNIQUE constraint failed" in str(e):
+                logger.warn(f"Session {session_id} already exists, skipping creation")
+            else:
+                raise e
+
+    # 🔥 优化：立即处理用户消息，让它尽快显示在聊天窗口
+    # 1. 先获取历史消息
+    parsed_history = []
+    try:
+        chat_history = await db_service.get_chat_history(session_id, user_uuid)
+        logger.info(f"[DEBUG] 获取到历史消息数量: {len(chat_history)}")
+
+        for i, history_message in enumerate(chat_history):
+            try:
+                if not isinstance(history_message, dict):
+                    logger.warning(f"[WARNING] 历史消息 {i} 不是字典格式: {type(history_message)}")
+                    continue
+
+                if 'timestamp' not in history_message:
+                    history_message['timestamp'] = int(time.time() * 1000) - len(chat_history) + i
+
+                if 'message_id' not in history_message:
+                    history_message['message_id'] = f"{session_id}_{history_message.get('timestamp', i)}_{str(uuid.uuid4())[:8]}"
+
+                parsed_history.append(history_message)
+                logger.info(f"[DEBUG] 历史消息 {i}: {history_message.get('role', 'unknown')} - {str(history_message.get('content', ''))[:50]}...")
+
+            except Exception as e:
+                logger.error(f"[ERROR] 处理历史消息 {i} 时出错: {e}, 数据: {history_message}")
+                continue
+    except Exception as e:
+        logger.error(f"[ERROR] 获取历史消息失败: {e}")
+
+    # 2. 创建增强的用户消息并立即发送
+    enhanced_user_message = None
+    if len(messages) > 0:
+        # 为用户消息添加唯一时间戳，确保相同内容的消息也能被正确区分
+        user_message = messages[-1].copy()  # 创建副本避免修改原消息
+        user_message['timestamp'] = int(time.time() * 1000)  # 添加毫秒级时间戳
+        user_message['message_id'] = f"{session_id}_{user_message['timestamp']}_{str(uuid.uuid4())[:8]}"  # 添加唯一消息ID
+        enhanced_user_message = user_message
+
+        # 保存到数据库
+        await db_service.create_message(
+            session_id, user_message.get('role', 'user'), json.dumps(user_message), user_uuid
+        )
+
+        # 立即通过WebSocket发送完整消息列表（历史+新用户消息）
+        complete_messages = parsed_history + [user_message]
+        try:
+            await send_to_websocket(session_id, {
+                'type': 'all_messages',
+                'messages': complete_messages,  # 发送完整历史 + 新用户消息
+                'canvas_id': canvas_id
+            }, canvas_id)
+            logger.info(f"[DEBUG] ✅ 用户消息立即发送成功，总消息数: {len(complete_messages)}")
+        except Exception as e:
+            logger.error(f"[ERROR] ❌ 用户消息发送失败: {e}")
+
     try:
         # 1 最先做意图理解，确认用户想干嘛
         # user_has_drawing_intent: 'text', 'video', 'image'
@@ -159,91 +230,6 @@ async def handle_chat(data: Dict[str, Any]) -> None:
     if not session_id or session_id.strip() == '':
         logger.error("[error] session_id is required but missing or empty")
         raise ValueError("session_id is required")
-    
-    # Extract user information
-    user_uuid = user_info.get('uuid') if user_info else None
-
-    # If there is only one message, create a new magic session
-    if len(messages) == 1:
-        # create new session (只有在session不存在时才创建)
-        prompt = messages[0].get('content', '')
-        try:
-            title = prompt[:200] if isinstance(prompt, str) else ''
-            await db_service.create_chat_session(session_id, 'gpt', 'jaaz', canvas_id, user_uuid, title)
-        except Exception as e:
-            # 如果session已存在，忽略错误
-            if "UNIQUE constraint failed" in str(e):
-                logger.warn(f"Session {session_id} already exists, skipping creation")
-            else:
-                raise e
-
-    # 🔥 关键修复：获取历史消息，确保不清空历史对话
-    # 先获取当前会话的历史消息（get_chat_history返回已解析的消息列表）
-    parsed_history = []
-    try:
-        chat_history = await db_service.get_chat_history(session_id, user_uuid)
-        logger.info(f"[DEBUG] 获取到历史消息数量: {len(chat_history)}")
-        
-        # get_chat_history已经返回解析后的消息列表，直接使用
-        for i, history_message in enumerate(chat_history):
-            try:
-                # 确保消息格式正确
-                if not isinstance(history_message, dict):
-                    logger.warning(f"[WARNING] 历史消息 {i} 不是字典格式: {type(history_message)}")
-                    continue
-                
-                # 确保消息有基本字段，如果没有就添加
-                if 'timestamp' not in history_message:
-                    history_message['timestamp'] = int(time.time() * 1000) - len(chat_history) + i
-                
-                if 'message_id' not in history_message:
-                    history_message['message_id'] = f"{session_id}_{history_message.get('timestamp', i)}_{str(uuid.uuid4())[:8]}"
-                
-                parsed_history.append(history_message)
-                logger.info(f"[DEBUG] 历史消息 {i}: {history_message.get('role', 'unknown')} - {str(history_message.get('content', ''))[:50]}...")
-                
-            except Exception as e:
-                logger.error(f"[ERROR] 处理历史消息 {i} 时出错: {e}, 数据: {history_message}")
-                continue
-    except Exception as e:
-        logger.error(f"[ERROR] 获取历史消息失败: {e}")
-        # 如果获取历史失败，使用空历史
-    
-    # Save user message to database and immediately send to frontend
-    enhanced_user_message = None
-    if len(messages) > 0:
-        # 为用户消息添加唯一时间戳，确保相同内容的消息也能被正确区分
-        user_message = messages[-1].copy()  # 创建副本避免修改原消息
-        user_message['timestamp'] = int(time.time() * 1000)  # 添加毫秒级时间戳
-        user_message['message_id'] = f"{session_id}_{user_message['timestamp']}_{str(uuid.uuid4())[:8]}"  # 添加唯一消息ID
-        enhanced_user_message = user_message
-        
-        await db_service.create_message(
-            session_id, user_message.get('role', 'user'), json.dumps(user_message), user_uuid
-        )
-        
-        # 🔥 关键修复：发送包含完整历史的消息列表，保留历史对话
-        # 将新用户消息添加到历史消息列表中
-        complete_messages = parsed_history + [user_message]
-        logger.info(f"[DEBUG] 立即发送用户消息到前端，总消息数: {len(complete_messages)}")
-        
-        try:
-            await send_to_websocket(session_id, {
-                'type': 'all_messages',
-                'messages': complete_messages,  # 发送完整历史 + 新用户消息
-                'canvas_id': canvas_id  # 添加canvas_id支持跨session消息
-            }, canvas_id)
-            logger.info(f"[DEBUG] ✅ 用户消息发送成功")
-            
-            # 发送用户消息确认和开始处理状态 - 已删除，不再显示"AI正在思考中"提示
-            # await send_user_message_confirmation(
-            #     session_id=session_id,
-            #     canvas_id=canvas_id,
-            #     message=user_message
-            # )
-        except Exception as e:
-            logger.error(f"[ERROR] ❌ 用户消息发送失败: {e}")
-            # 即使 WebSocket 发送失败，也要继续处理
 
     
     logger.info(f"🔍 预检查用户意图: {user_has_drawing_intent}")
