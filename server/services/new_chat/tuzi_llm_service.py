@@ -395,7 +395,7 @@ class TuziLLMService:
             # 处理多个图片文件，生成file_path列表
             # file_paths: List[str] = []
 
-            logger.info(f"🔍 [DEBUG] 接收到的图片内容: {image_content}")
+            # logger.info(f"🔍 [DEBUG] 接收到的图片内容: {image_content}")
             
             # for i, image_item in enumerate(image_content):
             #     # 为每个图片生成唯一文件名
