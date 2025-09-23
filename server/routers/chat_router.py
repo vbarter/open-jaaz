@@ -61,9 +61,22 @@ async def cancel_chat(session_id: str):
         {"status": "cancelled"} if the task was cancelled.
         {"status": "not_found_or_done"} if no such task exists or it is already done.
     """
+    from services.websocket_service import send_thinking_complete
+
     task = get_stream_task(session_id)
     if task and not task.done():
         task.cancel()
+
+        # 立即发送 thinking_complete 事件，让前端的 ThinkingIndicator 消失
+        try:
+            await send_thinking_complete(
+                session_id=session_id,
+                canvas_id=None,  # canvas_id 可能不可用
+                message="Generation cancelled"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send thinking_complete on cancel: {e}")
+
         return {"status": "cancelled"}
     return {"status": "not_found_or_done"}
 
@@ -185,8 +198,21 @@ async def cancel_magic(session_id: str) -> Dict[str, str]:
         {"status": "cancelled"} if the task was cancelled.
         {"status": "not_found_or_done"} if no such task exists or it is already done.
     """
+    from services.websocket_service import send_thinking_complete
+
     task = get_stream_task(session_id)
     if task and not task.done():
         task.cancel()
+
+        # 立即发送 thinking_complete 事件，让前端的 ThinkingIndicator 消失
+        try:
+            await send_thinking_complete(
+                session_id=session_id,
+                canvas_id=None,  # canvas_id 可能不可用
+                message="Generation cancelled"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send thinking_complete on magic cancel: {e}")
+
         return {"status": "cancelled"}
     return {"status": "not_found_or_done"}

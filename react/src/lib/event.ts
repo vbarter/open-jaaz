@@ -70,6 +70,10 @@ export type TEvents = {
   'Socket::Session::GenerationStarted': ISocket.SessionGenerationStartedEvent
   'Socket::Session::GenerationProgress': ISocket.SessionGenerationProgressEvent
   'Socket::Session::GenerationComplete': ISocket.SessionGenerationCompleteEvent
+  // Thinking 状态事件
+  'Socket::Session::ThinkingStarted': ISocket.SessionThinkingStartedEvent
+  'Socket::Session::ThinkingUpdate': ISocket.SessionThinkingUpdateEvent
+  'Socket::Session::ThinkingComplete': ISocket.SessionThinkingCompleteEvent
   // ********** Socket events - End **********
 
   // ********** Canvas events - Start **********

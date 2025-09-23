@@ -375,17 +375,7 @@ class TuziLLMService:
         """处理图片编辑流程"""
         try:
             logger.info(f"🔍 [DEBUG] _handle_image_editing 开始")
-            
-            from services.config_service import get_user_files_dir
-
-            # 注释掉错误的模型映射，直接使用用户选择的模型
-            # original_model = model_name
-            if model_name == "seedream-4.0":
-                model_name = "doubao-seedream-4-0-250828"
-            logger.info(f"🔍 [DEBUG] 使用模型: '{model_name}' (无映射)")
-                
-            
-            
+               
             # 获取用户文件目录
             # user_email = user_info.get('email') if user_info else None
             # user_id = user_info.get('uuid') if user_info else None
@@ -836,21 +826,6 @@ class TuziLLMService:
         logger.info(f"🎯 [DEBUG] 接收到的参数: prompt='{prompt[:100]}...'")
 
         try:
-            # 参数验证
-            # if not file_path or len(file_path) == 0:
-            #     logger.error("❌ file_path 不能为空")
-            #     return None
-                
-            # if not os.path.exists(file_path[0]):
-            #     logger.error(f"❌ 目标图片文件不存在: {file_path[0]}")
-            #     return None
-                
-            # if len(file_path) > 1 and not os.path.exists(file_path[1]):
-            #     logger.error(f"❌ 模板图片文件不存在: {file_path[1]}")
-            #     return None
-
-            
-
             # 步骤2: 提交编辑任务
             edit_url = "https://yunwu.ai/fal-ai/nano-banana/edit"
             headers = {
