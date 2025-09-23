@@ -357,7 +357,7 @@ async def handle_chat(data: Dict[str, Any]) -> None:
         # Await completion of the magic generation task
         await task
     except asyncio.exceptions.CancelledError:
-        logger.warn(f"🛑Magic generation session {session_id} cancelled")
+        logger.warn(f"🛑generation session {session_id} cancelled")
     except Exception as e:
         logger.error(f"❌ [API_ERROR] AI生成过程异常: {e}")
         # 移除任务

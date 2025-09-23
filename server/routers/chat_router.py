@@ -63,6 +63,7 @@ async def cancel_chat(session_id: str):
     """
     from services.websocket_service import send_thinking_complete
 
+    logger.info(f"[Backend Chat] 接收到取消请求: session_id={session_id}")
     task = get_stream_task(session_id)
     if task and not task.done():
         task.cancel()
