@@ -28,6 +28,7 @@ import { ToolCallContent } from './Message/ToolCallContent'
 import ToolCallTag from './Message/ToolCallTag'
 import SessionSelector from './SessionSelector'
 import ChatSpinner from './Spinner'
+import ThinkingIndicator from './ThinkingIndicator'
 import ToolcallProgressUpdate from './ToolcallProgressUpdate'
 import ShareTemplateDialog from './ShareTemplateDialog'
 import { generateChatSessionTitle } from '@/utils/formatDate'
@@ -43,6 +44,12 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useQueryClient } from '@tanstack/react-query'
 import MixedContent, { MixedContentImages, MixedContentText } from './Message/MixedContent'
 import Timestamp from './Message/Timestamp'
+import {
+  setSessionProcessing,
+  getSessionProcessing,
+  clearSessionProcessing,
+  cleanupExpiredStates
+} from '@/utils/sessionProcessingState'
 
 type ChatInterfaceProps = {
   canvasId: string
@@ -68,7 +75,32 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const { socketManager } = useSocket()
 
   const [messages, setMessages] = useState<Message[]>([])
-  const [pending, setPending] = useState<PendingType>(false) // 不再基于initCanvas设置初始状态
+  const [pending, setPending] = useState<PendingType>(() => {
+    // 初始化时立即检查是否有处理中的状态
+    if (searchSessionId) {
+      const processingState = getSessionProcessing(searchSessionId)
+      if (processingState && processingState.isProcessing) {
+        debugLog('🔄 [ProcessingState] 初始化时恢复处理状态:', processingState)
+        // 确保返回的类型是PendingType的有效值
+        const type = processingState.type
+        if (type === 'text' || type === 'tool' || type === 'image') {
+          // 异步触发ThinkingIndicator显示
+          setTimeout(() => {
+            eventBus.emit('Socket::Session::ThinkingStarted', {
+              type: 'thinking_started',
+              session_id: searchSessionId,
+              canvas_id: null,
+              message: 'Processing...',
+              timestamp: Date.now()
+            })
+          }, 0)
+          return type
+        }
+        return 'text' // 默认返回text类型
+      }
+    }
+    return false
+  })
   const [hasDisplayedInitialMessage, setHasDisplayedInitialMessage] = useState(false)
 
   const mergedToolCallIds = useRef<string[]>([])
@@ -272,6 +304,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // 组件挂载时立即滚动到底部
   useEffect(() => {
+    // 清理过期的处理状态
+    cleanupExpiredStates()
+
     // 组件首次加载时滚动到底部
     const mountScrollTimer = setTimeout(() => {
       debugLog('[debug] 组件挂载，滚动到底部')
@@ -1226,6 +1261,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         isProcessingRef.current = false
       }
 
+      // 🆕 清除session处理状态
+      if (data.session_id) {
+        clearSessionProcessing(data.session_id)
+        debugLog('🧹 [ProcessingState] 清除处理状态:', data.session_id)
+      }
+
       scrollToBottom()
 
       // 聊天输出完毕后更新余额
@@ -1255,6 +1296,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       }
 
       setPending(false)
+
+      // 🆕 清除session处理状态
+      if (data.session_id) {
+        clearSessionProcessing(data.session_id)
+        debugLog('🧹 [ProcessingState] 错误时清除处理状态:', data.session_id)
+      }
 
       // 特别处理积分不足错误
       if (data.error_code === 'insufficient_points') {
@@ -1539,6 +1586,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         isProcessingRef.current = true
       }
 
+      // 🆕 设置session处理状态，用于跨页面保持状态
+      const currentSessionId = sessionId || sessionIdRef.current || nanoid()
+      setSessionProcessing(currentSessionId, true, 'text')
+      debugLog('📝 [ProcessingState] 设置处理状态:', currentSessionId)
+
       // 🔥 升级版重要内容检测 - 使用与handleAllMessages相同的逻辑
       const getCurrentImportantMessages = (msgs: Message[]) => {
         return msgs.filter(msg => {
@@ -1805,11 +1857,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 )
               })}
 
-              {/* Thinking状态显示 */}
-              {pending && (
-                <div className='flex flex-col gap-2 mt-3 sm:mt-4 md:mt-6 mb-3 sm:mb-4'>
-                  <ChatSpinner pending={pending} />
-                  {sessionId && <ToolcallProgressUpdate sessionId={sessionId} />}
+              {/* 新的 Thinking 指示器 - 独立显示，不依赖 pending */}
+              <ThinkingIndicator sessionId={sessionId} canvasId={canvasId} />
+
+              {/* 只保留工具调用进度更新 */}
+              {pending === 'tool' && sessionId && (
+                <div className='mt-3 sm:mt-4 md:mt-6 mb-3 sm:mb-4'>
+                  <ToolcallProgressUpdate sessionId={sessionId} />
                 </div>
               )}
             </div>

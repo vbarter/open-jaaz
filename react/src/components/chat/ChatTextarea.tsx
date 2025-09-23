@@ -169,6 +169,8 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
 
   const handleCancelChat = useCallback(async () => {
     if (sessionId) {
+      // 立即触发取消事件，让 ThinkingIndicator 消失
+      eventBus.emit('generation:cancelled')
       // 同时取消普通聊天和魔法生成任务
       await Promise.all([cancelChat(sessionId), cancelMagicGenerate(sessionId)])
     }

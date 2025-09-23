@@ -95,6 +95,20 @@ export class SocketIOManager {
     })
 
     this.socket.on('session_update', (data) => {
+      // 无条件记录所有 session_update 事件，特别关注 thinking 事件
+      const eventType = data?.type || 'unknown'
+      const isThinkingRelated = eventType.includes('thinking')
+
+      if (isThinkingRelated) {
+        console.log('🚨🚨🚨 [THINKING EVENT RAW]', {
+          type: eventType,
+          session_id: data?.session_id,
+          canvas_id: data?.canvas_id,
+          message: data?.message,
+          full_data: data
+        })
+      }
+
       debugLog('🔥 [CRITICAL_DEBUG] 原始WebSocket session_update事件接收:', {
         raw_data: data,
         timestamp: new Date().toISOString(),
@@ -118,6 +132,16 @@ export class SocketIOManager {
 
   private handleSessionUpdate(data: ISocket.SessionUpdateEvent) {
     const { session_id, type } = data
+
+    // 增强调试日志，特别关注 thinking 事件
+    const isThinkingEvent = type && type.toString().includes('thinking')
+    if (isThinkingEvent) {
+      console.log('🧠🧠🧠 [CRITICAL] Thinking event received!', {
+        type,
+        session_id,
+        data
+      })
+    }
 
     debugLog('📡 [SOCKET_DEBUG] 收到session更新:', {
       session_id,
@@ -209,6 +233,19 @@ export class SocketIOManager {
       case ISocket.SessionEventType.GenerationComplete:
         debugLog('✅ [THINKING_DEBUG] 触发GenerationComplete事件', data)
         eventBus.emit('Socket::Session::GenerationComplete', data)
+        break
+      // Thinking 状态事件处理
+      case ISocket.SessionEventType.ThinkingStarted:
+        debugLog('🧠 [THINKING_DEBUG] 触发ThinkingStarted事件', data)
+        eventBus.emit('Socket::Session::ThinkingStarted', data)
+        break
+      case ISocket.SessionEventType.ThinkingUpdate:
+        debugLog('🧠 [THINKING_DEBUG] 触发ThinkingUpdate事件', data)
+        eventBus.emit('Socket::Session::ThinkingUpdate', data)
+        break
+      case ISocket.SessionEventType.ThinkingComplete:
+        debugLog('🧠 [THINKING_DEBUG] 触发ThinkingComplete事件', data)
+        eventBus.emit('Socket::Session::ThinkingComplete', data)
         break
       default:
         debugLog('⚠️ Unknown session update type:', type)

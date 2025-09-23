@@ -20,7 +20,10 @@ from services.websocket_service import (
     send_image_generation_status,
     send_image_upload_status,
     send_generation_complete,
-    process_and_send_images_to_canvas
+    process_and_send_images_to_canvas,
+    send_thinking_started,
+    send_thinking_update,
+    send_thinking_complete
 )  # type: ignore
 from services.stream_service import add_stream_task, remove_stream_task
 from services.points_service import points_service, InsufficientPointsError
@@ -201,6 +204,15 @@ async def handle_chat(data: Dict[str, Any]) -> None:
                 'canvas_id': canvas_id
             }, canvas_id)
             logger.info(f"[DEBUG] ✅ 用户消息立即发送成功，总消息数: {len(complete_messages)}")
+
+            # 🚀 立即发送 Thinking 状态 - 让用户尽早看到反馈
+            await send_thinking_started(
+                session_id=session_id,
+                canvas_id=canvas_id,
+                message="AI is processing your request..."
+            )
+            logger.info(f"🧠 [THINKING] 立即发送 thinking_started，用户可以更早看到反馈")
+
         except Exception as e:
             logger.error(f"[ERROR] ❌ 用户消息发送失败: {e}")
 
@@ -345,7 +357,7 @@ async def handle_chat(data: Dict[str, Any]) -> None:
         # Await completion of the magic generation task
         await task
     except asyncio.exceptions.CancelledError:
-        logger.warn(f"🛑Magic generation session {session_id} cancelled")
+        logger.warn(f"🛑generation session {session_id} cancelled")
     except Exception as e:
         logger.error(f"❌ [API_ERROR] AI生成过程异常: {e}")
         # 移除任务
@@ -465,11 +477,47 @@ async def _process_generation(
     
     try:
         logger.info(f"🔍 [DEBUG] 开始处理生成: {model_name}, provider: {provider}")
-        # 1. 发送AI思考状态
-        await send_ai_thinking_status(session_id=session_id, canvas_id=canvas_id)
-        
-        # 2. 发送图片生成状态
-        await send_image_generation_status(session_id=session_id, canvas_id=canvas_id)
+
+        # 注意：thinking_started 已经在 handle_chat 中更早发送了，这里不再重复发送
+        # 这样用户能更快看到 "Thinking..." 状态
+
+        # 2. 根据用户意图发送不同的状态更新
+        if user_has_drawing_intent == 'image':
+            await send_thinking_update(
+                session_id=session_id,
+                canvas_id=canvas_id,
+                message="Preparing to generate image...",
+                step="Analyzing visual requirements",
+                details=[
+                    "Understanding your description",
+                    "Selecting appropriate style",
+                    "Preparing generation parameters"
+                ]
+            )
+        elif user_has_drawing_intent == 'video':
+            await send_thinking_update(
+                session_id=session_id,
+                canvas_id=canvas_id,
+                message="Preparing to generate video...",
+                step="Analyzing video requirements",
+                details=[
+                    "Processing scene description",
+                    "Setting up animation parameters",
+                    "Configuring video generation"
+                ]
+            )
+        else:
+            await send_thinking_update(
+                session_id=session_id,
+                canvas_id=canvas_id,
+                message="Processing your message...",
+                step="Analyzing context",
+                details=[
+                    "Reading conversation history",
+                    "Understanding your question",
+                    "Formulating response"
+                ]
+            )
         
         # 3. 执行AI生成
         # 原来是基于云端生成
@@ -572,6 +620,14 @@ async def _process_generation(
         
     except Exception as e:
         logger.error(f"[ERROR] 生成过程出错: {e}")
+
+        # 发送思考完成状态（带错误信息）
+        await send_thinking_complete(
+            session_id=session_id,
+            canvas_id=canvas_id,
+            message=f"Processing failed: {str(e)}"
+        )
+
         # 发送错误状态
         from services.websocket_service import send_generation_status
         await send_generation_status(
@@ -726,7 +782,14 @@ async def _process_generation(
     # 1. 图片生成服务已经调用save_image_to_canvas直接保存到画布
     # 2. 聊天中的markdown图片只用于用户预览，不需要额外处理
     logger.info(f"🖼️ [CHAT_DUAL_DISPLAY] 双重显示架构：画布由生成服务直接处理，聊天显示用于用户预览")
-    
+
+    # 发送思考完成状态
+    await send_thinking_complete(
+        session_id=session_id,
+        canvas_id=canvas_id,
+        message="Response generated successfully"
+    )
+
     # 发送生成完成状态
     await send_generation_complete(
         session_id=session_id,

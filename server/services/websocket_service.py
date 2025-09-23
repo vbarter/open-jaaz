@@ -199,6 +199,83 @@ async def send_image_generation_status(session_id: str, canvas_id: Optional[str]
     )
 
 
+# ========== Thinking 状态相关函数 ==========
+async def send_thinking_started(
+    session_id: str,
+    canvas_id: Optional[str] = None,
+    message: str = "AI is analyzing your request..."
+):
+    """发送思考开始状态"""
+    try:
+        event_data = {
+            'type': 'thinking_started',
+            'session_id': session_id,
+            'canvas_id': canvas_id,
+            'message': message,
+            'timestamp': int(time.time() * 1000)
+        }
+
+        logger.info(f"🧠 [THINKING] Started: {session_id} - {message}")
+        await broadcast_session_update(session_id, canvas_id, event_data)
+
+    except Exception as e:
+        logger.error(f"Error sending thinking started: {e}")
+        traceback.print_exc()
+
+
+async def send_thinking_update(
+    session_id: str,
+    canvas_id: Optional[str] = None,
+    message: str = "",
+    step: Optional[str] = None,
+    details: Optional[List[str]] = None
+):
+    """发送思考过程更新"""
+    try:
+        event_data = {
+            'type': 'thinking_update',
+            'session_id': session_id,
+            'canvas_id': canvas_id,
+            'message': message,
+            'timestamp': int(time.time() * 1000)
+        }
+
+        if step:
+            event_data['step'] = step
+        if details:
+            event_data['details'] = details
+
+        logger.info(f"🧠 [THINKING] Update: {session_id} - {message} - Step: {step}")
+        await broadcast_session_update(session_id, canvas_id, event_data)
+
+    except Exception as e:
+        logger.error(f"Error sending thinking update: {e}")
+        traceback.print_exc()
+
+
+async def send_thinking_complete(
+    session_id: str,
+    canvas_id: Optional[str] = None,
+    message: str = "Processing complete"
+):
+    """发送思考完成状态"""
+    try:
+        event_data = {
+            'type': 'thinking_complete',
+            'session_id': session_id,
+            'canvas_id': canvas_id,
+            'message': message,
+            'timestamp': int(time.time() * 1000)
+        }
+
+        logger.info(f"🧠 [THINKING] Complete: {session_id} - {message}")
+        await broadcast_session_update(session_id, canvas_id, event_data)
+
+    except Exception as e:
+        logger.error(f"Error sending thinking complete: {e}")
+        traceback.print_exc()
+
+
 async def send_image_upload_status(session_id: str, canvas_id: Optional[str] = None):
     """发送图片上传状态"""
     await send_generation_status(

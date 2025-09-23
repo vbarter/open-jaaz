@@ -22,6 +22,10 @@ export enum SessionEventType {
   GenerationStarted = 'generation_started',
   GenerationProgress = 'generation_progress',
   GenerationComplete = 'generation_complete',
+  // Thinking 状态类型
+  ThinkingStarted = 'thinking_started',
+  ThinkingUpdate = 'thinking_update',
+  ThinkingComplete = 'thinking_complete',
 }
 
 export interface SessionBaseEvent {
@@ -145,6 +149,30 @@ export interface SessionGenerationCompleteEvent extends SessionBaseEvent {
   data?: any
 }
 
+// Thinking 事件接口
+export interface SessionThinkingStartedEvent extends SessionBaseEvent {
+  type: SessionEventType.ThinkingStarted
+  canvas_id?: string
+  message: string
+  timestamp: number
+}
+
+export interface SessionThinkingUpdateEvent extends SessionBaseEvent {
+  type: SessionEventType.ThinkingUpdate
+  canvas_id?: string
+  message: string
+  step?: string
+  details?: string[]
+  timestamp: number
+}
+
+export interface SessionThinkingCompleteEvent extends SessionBaseEvent {
+  type: SessionEventType.ThinkingComplete
+  canvas_id?: string
+  message: string
+  timestamp: number
+}
+
 export type SessionUpdateEvent =
   | SessionDeltaEvent
   | SessionToolCallEvent
@@ -164,3 +192,6 @@ export type SessionUpdateEvent =
   | SessionGenerationStartedEvent
   | SessionGenerationProgressEvent
   | SessionGenerationCompleteEvent
+  | SessionThinkingStartedEvent
+  | SessionThinkingUpdateEvent
+  | SessionThinkingCompleteEvent

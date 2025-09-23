@@ -1,6 +1,10 @@
 # services/stream_service.py
 from typing import Dict, Optional, Any
 import asyncio
+from log import get_logger
+
+logger = get_logger(__name__)
+
 
 # Dictionary to store active stream tasks, keyed by session_id
 stream_tasks: Dict[str, asyncio.Task[Any]] = {}
@@ -34,6 +38,7 @@ def get_stream_task(session_id: str) -> Optional[asyncio.Task[Any]]:
     Returns:
         The task object if found, otherwise None.
     """
+    logger.info(f"[StreamService] stream_tasks={stream_tasks}")
     return stream_tasks.get(session_id)
 
 # 你也可以加一个 list_stream_tasks() 返回所有 session_id
