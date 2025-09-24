@@ -50,6 +50,7 @@ from tools.generate_image_by_recraft_v3_replicate import (
 )
 from tools.generate_video_by_hailuo_02_jaaz import generate_video_by_hailuo_02_jaaz
 from tools.generate_video_by_veo3_fast_yunwu import generate_video_by_veo3_fast_yunwu
+from tools.generate_image_by_qwen_image_edit_plus import generate_image_by_qwen_image_edit_plus
 from tools.generate_image_by_midjourney_jaaz import generate_image_by_midjourney_jaaz
 from tools.generate_image_by_goolgle_nano_banana import generate_image_by_google_nano_banana
 from tools.generate_image_by_doubao_seedream_4 import generate_image_by_doubao_seedream_4_0
@@ -62,6 +63,12 @@ TOOL_MAPPING: Dict[str, ToolInfo] = {
         "type": "image",
         "provider": "google",
         "tool_function": generate_image_by_google_nano_banana,
+    },
+    "generate_image_by_qwen_image_edit_plus": {
+        "display_name": "qwen-image-edit-plus",
+        "type": "image",
+        "provider": "qwen",
+        "tool_function": generate_image_by_qwen_image_edit_plus,
     },
      "generate_image_by_doubao_seedream_4_0": {
         "display_name": "seedream-4.0",

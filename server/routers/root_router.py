@@ -110,9 +110,11 @@ async def list_tools(request: Request, current_user: Optional[CurrentUser] = Dep
         if tool_info.get('provider') == 'system':
             continue
         provider = tool_info['provider']
+        logger.info(f"tool_info: {tool_info}")
         provider_api_key = config[provider].get('api_key', '').strip()
         if provider != 'comfyui' and not provider_api_key:
             continue
+        
         res.append({
             'id': tool_id,
             'provider': tool_info.get('provider', ''),

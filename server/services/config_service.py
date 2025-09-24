@@ -62,6 +62,13 @@ DEFAULT_PROVIDERS_CONFIG: AppConfig = {
         'url': 'https://api.apiplus.org/v1',
         'api_key': 'sk-T5GzBCTpRm92Po9G9WU9B19w1p1pxHJ8qwfcAcZ47MdZCzEM',
     },
+    'qwen': {
+        'models': {
+            'qwen-image-edit-plus': {'type': 'image'}
+        },
+        'url': 'https://api.apiplus.org/v1',
+        'api_key': 'sk-T5GzBCTpRm92Po9G9WU9B19w1p1pxHJ8qwfcAcZ47MdZCzEM',
+    },
     'yunwu': {
         'models': {},
         'url': 'https://api.apiplus.org/v1',
