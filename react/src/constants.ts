@@ -56,6 +56,10 @@ export const PROVIDER_NAME_MAPPING: {
     name: 'Doubao',
     icon: `${BASE_API_URL}/static/llm_icon/doubao.png`,
   },
+  qwen: {
+    name: 'qwen',
+    icon: `${BASE_API_URL}/static/llm_icon/qwen.svg`,
+  },
 }
 
 // Tool call name mapping
