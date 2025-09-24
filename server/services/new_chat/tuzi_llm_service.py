@@ -804,7 +804,8 @@ class TuziLLMService:
     async def gemini_edit_image_by_yunwu(
         self,
         file_path: list[str],
-        prompt: str
+        prompt: str,
+        model_name: str = "nano-banana"
     ) -> Optional[Dict[str, str]]:
         """
         使用云雾AI编辑图片 - 异步任务模式
@@ -826,18 +827,32 @@ class TuziLLMService:
         logger.info(f"🎯 [DEBUG] 接收到的参数: prompt='{prompt[:100]}...'")
 
         try:
-            # 步骤2: 提交编辑任务
-            edit_url = "https://yunwu.ai/fal-ai/nano-banana/edit"
             headers = {
                 'Authorization': f'Bearer sk-T5GzBCTpRm92Po9G9WU9B19w1p1pxHJ8qwfcAcZ47MdZCzEM',
                 'content-type': 'application/json'
             }
-            
-            request_data = {
-                "prompt": prompt,
-                "image_urls": file_path,
-                "num_images": 1
-            }
+
+            # 步骤2: 提交编辑任务
+            if model_name == "nano-banana":
+                edit_url = f"https://yunwu.ai/fal-ai/{model_name}/edit"
+                request_data = {
+                    "prompt": prompt,
+                    "image_urls": file_path,
+                    "num_images": 1
+                }
+            elif model_name == "qwen-image-edit-plus":
+                edit_url = f"https://yunwu.ai/fal-ai/{model_name}"
+                request_data = {
+                    "prompt": prompt,
+                    "image_size": "square_hd",
+                    "num_inference_steps": 50,
+                    "guidance_scale": 4,
+                    "num_images": 1,
+                    "enable_safety_checker": True,
+                    "output_format": "png",
+                    "image_urls": file_path,
+                    "negative_prompt": "blurry, ugly"
+                }
             
             logger.info(f"🚀 [DEBUG] 提交编辑任务到: {edit_url}")
             # logger.info(f"📝 [DEBUG] 请求数据: {request_data}")
@@ -863,7 +878,7 @@ class TuziLLMService:
                         return None
                     
                     # 步骤3: 轮询查询任务状态
-                    query_url = f"https://yunwu.ai/fal-ai/nano-banana/requests/{request_id}"
+                    query_url = f"https://yunwu.ai/fal-ai/{model_name}/requests/{request_id}"
                     max_attempts = 60  # 最多查询60次
                     attempt = 0
                     
