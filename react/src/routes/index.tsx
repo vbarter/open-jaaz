@@ -1,6 +1,7 @@
 import { createCanvas } from '@/api/canvas'
 import ChatTextarea from '@/components/chat/ChatTextarea'
 import CanvasList from '@/components/home/CanvasList'
+import { InlineTextFlip } from '@/components/ui/inline-text-flip'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useConfigs } from '@/contexts/configs'
 import { DEFAULT_SYSTEM_PROMPT } from '@/constants'
@@ -70,10 +71,13 @@ function Home() {
             transition={{ duration: 0.6, ease: [0.21, 1.11, 0.81, 0.99] }}
             className='w-full max-w-4xl mx-auto p-8 sm:p-12'
           >
-            <h1 className='text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-center
-                           text-gray-800 dark:text-white drop-shadow-sm leading-tight'>
-              {t('home:title')}
-            </h1>
+            <InlineTextFlip
+              prefix={t('home:titlePrefix')}
+              words={t('home:flipWords', { returnObjects: true }) as string[]}
+              suffix={t('home:titleSuffix')}
+              duration={3000}
+              className='mb-6'
+            />
 
             <p className='text-base sm:text-lg md:text-xl lg:text-2xl text-gray-700 dark:text-gray-200
                           mb-10 text-center px-2 sm:px-4 leading-relaxed font-medium'>
