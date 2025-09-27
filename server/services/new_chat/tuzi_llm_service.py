@@ -510,6 +510,8 @@ class TuziLLMService:
             # 注释掉错误的模型映射，直接使用用户选择的模型
             if model_name == "seedream-4.0" or model_name == "qwen-image-edit-plus":
                 model_name = "doubao-seedream-4-0-250828"
+            elif model_name == "gemini-2.5-flash-image":
+                model_name = "nano-banana-vip"
             logger.info(f"🔍 [DEBUG] _handle_image_generation 使用模型: '{model_name}' (无映射)")
             result = await self.gemini_generate_by_tuzi(user_prompt, model_name, aspect_ratio=aspect_ratio, quantity=quantity)
             
