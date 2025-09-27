@@ -1,7 +1,7 @@
 import { createCanvas } from '@/api/canvas'
 import ChatTextarea from '@/components/chat/ChatTextarea'
 import CanvasList from '@/components/home/CanvasList'
-import { InlineTextFlip } from '@/components/ui/inline-text-flip'
+import { LanguageAwareTextFlip } from '@/components/ui/language-aware-text-flip'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useConfigs } from '@/contexts/configs'
 import { DEFAULT_SYSTEM_PROMPT } from '@/constants'
@@ -71,7 +71,7 @@ function Home() {
             transition={{ duration: 0.6, ease: [0.21, 1.11, 0.81, 0.99] }}
             className='w-full max-w-4xl mx-auto p-8 sm:p-12'
           >
-            <InlineTextFlip
+            <LanguageAwareTextFlip
               prefix={t('home:titlePrefix')}
               words={t('home:flipWords', { returnObjects: true }) as string[]}
               suffix={t('home:titleSuffix')}
