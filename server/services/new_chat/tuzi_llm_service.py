@@ -414,7 +414,7 @@ class TuziLLMService:
             # 使用gemini进行图片编辑，传递aspect_ratio和quantity
             # result = await self.gemini_edit_image_by_tuzi(file_paths, user_prompt, model=model_name,
             #                                               aspect_ratio=aspect_ratio, quantity=quantity)
-            result = await self.gemini_edit_image_by_yunwu(image_content, user_prompt)
+            result = await self.gemini_edit_image_by_yunwu(file_path=image_content, prompt=user_prompt)
             
             if result:
                 logger.info(f"✅ 图片编辑成功: {result.get('result_url')}")
@@ -511,10 +511,10 @@ class TuziLLMService:
             if model_name == "seedream-4.0" or model_name == "qwen-image-edit-plus":
                 model_name = "doubao-seedream-4-0-250828"
             elif model_name == "gemini-2.5-flash-image":
-                model_name = "nano-banana-vip"
+                model_name = "nano-banana"
             logger.info(f"🔍 [DEBUG] _handle_image_generation 使用模型: '{model_name}' (无映射)")
-            result = await self.gemini_generate_by_tuzi(user_prompt, model_name, aspect_ratio=aspect_ratio, quantity=quantity)
-            
+            # result = await self.gemini_generate_by_tuzi(user_prompt, model_name, aspect_ratio=aspect_ratio, quantity=quantity)
+            result = await self.gemini_edit_image_by_yunwu(prompt=user_prompt, model_name=model_name)
             if result:
                 logger.info(f"🎉 图片生成成功: {result.get('result_url', 'base64_data')}")
                 return result
@@ -765,10 +765,16 @@ class TuziLLMService:
                             candidate = result['candidates'][0]
                             if candidate.get('content') and candidate['content'].get('parts'):
                                 parts = candidate['content']['parts']
-                                if len(parts) > 0 and parts[0].get('text'):
-                                    response_text = parts[0]['text']
+
+                                # 拼接所有 parts 中的 text
+                                response_text = ''.join(
+                                    part.get('text', '') for part in parts if part.get('text')
+                                ).strip()
+
+                                if response_text:
                                     logger.info(f"✅ [DEBUG] 原始响应: {response_text[:200]}...")
-                                                      # 尝试解析JSON响应
+
+                                    # 尝试解析JSON响应
                                     try:
                                         # 查找JSON代码块
                                         json_match = re.search(r'```json\s*(\{.*?\})\s*```', response_text, re.DOTALL)
@@ -777,7 +783,7 @@ class TuziLLMService:
                                         else:
                                             # 如果没有代码块，尝试直接解析整个响应
                                             json_str = response_text.strip()
-                                        
+
                                         # 解析JSON
                                         prompt_data = json.loads(json_str)
                                         if isinstance(prompt_data, dict) and 'prompt' in prompt_data:
@@ -787,7 +793,7 @@ class TuziLLMService:
                                         else:
                                             logger.warning("⚠️ JSON响应格式不正确，使用原始文本")
                                             return response_text
-                                            
+
                                     except json.JSONDecodeError as je:
                                         logger.warning(f"⚠️ JSON解析失败: {je}，使用原始响应")
                                         return response_text
@@ -805,8 +811,8 @@ class TuziLLMService:
         
     async def gemini_edit_image_by_yunwu(
         self,
-        file_path: list[str],
-        prompt: str,
+        file_path: list[str] = [],
+        prompt: str = "",
         model_name: str = "nano-banana"
     ) -> Optional[Dict[str, str]]:
         """
@@ -830,18 +836,25 @@ class TuziLLMService:
 
         try:
             headers = {
-                'Authorization': f'Bearer sk-T5GzBCTpRm92Po9G9WU9B19w1p1pxHJ8qwfcAcZ47MdZCzEM',
+                'Authorization': f'Bearer sk-8j7QkSmbfmCLeHz3ZGp95ZANvf497n35zh3UVcwhqf6rKotN',
                 'content-type': 'application/json'
             }
 
             # 步骤2: 提交编辑任务
             if model_name == "nano-banana":
-                edit_url = f"https://yunwu.ai/fal-ai/{model_name}/edit"
-                request_data = {
-                    "prompt": prompt,
-                    "image_urls": file_path,
-                    "num_images": 1
-                }
+                if len(file_path) != 0:
+                    edit_url = f"https://yunwu.ai/fal-ai/{model_name}/edit"
+                    request_data = {
+                        "prompt": prompt,
+                        "image_urls": file_path,
+                        "num_images": 1
+                    }
+                else:
+                    edit_url = f"https://yunwu.ai/fal-ai/{model_name}"
+                    request_data = {
+                        "prompt": prompt,
+                        "num_images": 1
+                    }
             elif model_name == "qwen-image-edit-plus":
                 edit_url = f"https://yunwu.ai/fal-ai/{model_name}"
                 request_data = {
