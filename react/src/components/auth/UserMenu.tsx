@@ -91,16 +91,16 @@ export function UserMenu() {
 
   // 调试状态信息
   useEffect(() => {
-    console.log('👤 UserMenu 状态信息:', {
-      // AuthContext数据
-      authIsLoggedIn: authStatus.is_logged_in,
-      authUserLevel: authStatus.user_info?.level,
-      // useUserInfo数据
-      userInfoLoggedIn: userInfoLoggedIn,
-      currentLevel: currentLevel,
-      userInfoLoading: userInfoLoading,
-      points,
-    })
+    // console.log('👤 UserMenu 状态信息:', {
+    //   // AuthContext数据
+    //   authIsLoggedIn: authStatus.is_logged_in,
+    //   authUserLevel: authStatus.user_info?.level,
+    //   // useUserInfo数据
+    //   userInfoLoggedIn: userInfoLoggedIn,
+    //   currentLevel: currentLevel,
+    //   userInfoLoading: userInfoLoading,
+    //   points,
+    // })
   }, [authStatus, userInfoLoggedIn, currentLevel, userInfoLoading, points])
 
   const handleLogout = async () => {

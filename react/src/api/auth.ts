@@ -320,7 +320,7 @@ export async function getAuthStatus(): Promise<AuthStatus> {
     }
   }
 
-  console.log('📋 Final user info with level:', userInfo)
+  // console.log('📋 Final user info with level:', userInfo)
 
   // 返回登录状态
   return {

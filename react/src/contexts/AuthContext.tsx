@@ -38,14 +38,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // 🎯 检查用户信息是否包含level字段
       if (status.is_logged_in && status.user_info) {
-        console.log('🔍 AUTH: 检查用户信息完整性')
-        console.log('🔍 AUTH: 用户信息:', status.user_info)
-        console.log(`🔍 AUTH: 用户level: "${status.user_info.level}"`)
-        
+        // console.log('🔍 AUTH: 检查用户信息完整性')
+        // console.log('🔍 AUTH: 用户信息:', status.user_info)
+        // console.log(`🔍 AUTH: 用户level: "${status.user_info.level}"`)
+
         if (!status.user_info.level) {
-          console.log('⚠️ AUTH: 用户信息缺少level字段，触发强制更新')
+          // console.log('⚠️ AUTH: 用户信息缺少level字段，触发强制更新')
         } else {
-          console.log(`✅ AUTH: 用户level完整: ${status.user_info.level}`)
+          // console.log(`✅ AUTH: 用户level完整: ${status.user_info.level}`)
         }
       }
 
@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 3. 尝试从多种来源恢复认证状态
       console.log('🔄 Attempting auth recovery...')
       const recoveryResult = await authRecovery.attemptRecovery()
-      
+
       if (recoveryResult.success) {
         console.log(`✅ Auth recovered: ${recoveryResult.message}`)
       }

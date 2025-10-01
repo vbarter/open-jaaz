@@ -13,7 +13,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Loader2, Send, Sparkles, Trash2, AlertTriangle, Share2, Eye, Heart, ArrowUpRight } from 'lucide-react'
+import {
+  Loader2,
+  Send,
+  Sparkles,
+  Trash2,
+  AlertTriangle,
+  Share2,
+  Eye,
+  Heart,
+  ArrowUpRight,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import {
   generateSora2Video,
@@ -73,7 +83,7 @@ function SoraPage() {
   const [wsConnected, setWsConnected] = useState(false)
 
   // 检查是否有视频正在生成中
-  const hasProcessingVideo = videos.some(video => video.status === 'processing')
+  const hasProcessingVideo = videos.some((video) => video.status === 'processing')
 
   // 删除确认对话框状态
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -168,9 +178,7 @@ function SoraPage() {
       }
 
       ws.onclose = (event) => {
-        console.log(
-          `🔌 [Sora WS] WebSocket连接关闭 - code: ${event.code}, reason: ${event.reason}`
-        )
+        console.log(`🔌 [Sora WS] WebSocket连接关闭 - code: ${event.code}, reason: ${event.reason}`)
         setWsConnected(false)
 
         // 5秒后自动重连
@@ -195,7 +203,7 @@ function SoraPage() {
 
   // 页面加载时建立WebSocket连接
   useEffect(() => {
-    console.log('🎬 [Sora] 组件挂载，建立WebSocket连接')
+    // console.log('🎬 [Sora] 组件挂载，建立WebSocket连接')
     connectWebSocket()
 
     // 组件卸载时清理连接
@@ -376,112 +384,118 @@ function SoraPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
+    <div className='flex flex-col h-screen relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20'>
       <TopMenu />
 
-      <ScrollArea className="h-full relative z-10 pb-32">
-        <div className="relative flex flex-col items-center pt-8 px-4 sm:px-6">
+      <ScrollArea className='h-full relative z-10 pb-32'>
+        <div className='relative flex flex-col items-center pt-8 px-4 sm:px-6'>
           {/* 标题区域 */}
-          <div className="w-full max-w-6xl mx-auto mb-8">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">
+          <div className='w-full max-w-6xl mx-auto mb-8'>
+            <div className='flex items-center justify-center gap-3 mb-4'>
+              <h1 className='text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100'>
                 {t('title')}
               </h1>
             </div>
-            <p className="text-center text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-4">
+            <p className='text-center text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-4'>
               {t('subtitle')}
             </p>
 
             {/* 反馈按钮 */}
-            <div className="flex justify-center">
+            <div className='flex justify-center'>
               <Button
-                variant="outline"
-                onClick={() => window.open('https://twitter.com/intent/tweet?text=@vbarter', '_blank')}
-                className="group bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all"
+                variant='outline'
+                onClick={() =>
+                  window.open('https://twitter.com/intent/tweet?text=@vbarter', '_blank')
+                }
+                className='group bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all'
               >
-                <svg className="w-4 h-4 mr-2 text-gray-700 dark:text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                <svg
+                  className='w-4 h-4 mr-2 text-gray-700 dark:text-gray-300'
+                  fill='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path d='M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z' />
                 </svg>
-                <span className="text-gray-900 dark:text-gray-100">{t('feedbackButton')}</span>
-                <ArrowUpRight className="w-3 h-3 ml-1 text-gray-500 dark:text-gray-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                <span className='text-gray-900 dark:text-gray-100'>{t('feedbackButton')}</span>
+                <ArrowUpRight className='w-3 h-3 ml-1 text-gray-500 dark:text-gray-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform' />
               </Button>
             </div>
           </div>
 
           {/* 视频列表 */}
-          <div className="w-full max-w-6xl mx-auto">
+          <div className='w-full max-w-6xl mx-auto'>
             {isLoadingTasks ? (
-              <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                <Loader2 className="w-16 h-16 mb-4 opacity-50 animate-spin" />
-                <p className="text-lg">加载任务列表...</p>
+              <div className='flex flex-col items-center justify-center py-20 text-gray-400'>
+                <Loader2 className='w-16 h-16 mb-4 opacity-50 animate-spin' />
+                <p className='text-lg'>加载任务列表...</p>
               </div>
             ) : videos.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                <Sparkles className="w-16 h-16 mb-4 opacity-50" />
-                <p className="text-lg">开始创作你的第一个视频吧！</p>
+              <div className='flex flex-col items-center justify-center py-20 text-gray-400'>
+                <Sparkles className='w-16 h-16 mb-4 opacity-50' />
+                <p className='text-lg'>开始创作你的第一个视频吧！</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5 sm:gap-2">
+              <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5 sm:gap-2'>
                 {videos.map((video) => (
-                  <div key={video.id} className="relative group">
+                  <div key={video.id} className='relative group'>
                     {/* 统一的9:16容器 - 确保所有卡片尺寸一致 */}
-                    <div className="w-full aspect-[9/16] relative overflow-hidden bg-black rounded-lg">
+                    <div className='w-full aspect-[9/16] relative overflow-hidden bg-black rounded-lg'>
                       {/* 统计信息 - 左上角 */}
-                      <div className="absolute top-2 left-2 z-20 flex items-center gap-1">
+                      <div className='absolute top-2 left-2 z-20 flex items-center gap-1'>
                         {/* 播放量 */}
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white">
-                          <Eye className="w-3 h-3" />
-                          <span className="text-xs font-medium">{video.views ?? 0}</span>
+                        <div className='flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white'>
+                          <Eye className='w-3 h-3' />
+                          <span className='text-xs font-medium'>{video.views ?? 0}</span>
                         </div>
                         {/* 点赞量 */}
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white">
-                          <Heart className="w-3 h-3" />
-                          <span className="text-xs font-medium">{video.likes ?? 0}</span>
+                        <div className='flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white'>
+                          <Heart className='w-3 h-3' />
+                          <span className='text-xs font-medium'>{video.likes ?? 0}</span>
                         </div>
                       </div>
 
                       {/* 操作按钮组 - 右上角 */}
-                      <div className="absolute top-2 right-2 z-20 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <div className='absolute top-2 right-2 z-20 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200'>
                         {/* 分享按钮 */}
                         {video.status === 'completed' && (
                           <button
                             onClick={() => handleShare(video)}
-                            className="p-1.5 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white transition-all duration-200 hover:scale-110"
-                            title="分享"
+                            className='p-1.5 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white transition-all duration-200 hover:scale-110'
+                            title='分享'
                           >
-                            <Share2 className="w-3.5 h-3.5" />
+                            <Share2 className='w-3.5 h-3.5' />
                           </button>
                         )}
 
                         {/* 删除按钮 */}
                         <button
                           onClick={() => openDeleteDialog(video.id)}
-                          className="p-1.5 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white transition-all duration-200 hover:scale-110"
-                          title="删除任务"
+                          className='p-1.5 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white transition-all duration-200 hover:scale-110'
+                          title='删除任务'
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className='w-3.5 h-3.5' />
                         </button>
                       </div>
 
                       {/* 内容区域 - 填充整个容器 */}
                       {video.status === 'processing' ? (
-                        <div className="absolute inset-0 bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center">
-                          <Loader2 className="w-8 h-8 animate-spin text-gray-900 dark:text-gray-100 mb-2" />
-                          <p className="text-xs text-gray-600 dark:text-gray-300 text-center px-4">
+                        <div className='absolute inset-0 bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center'>
+                          <Loader2 className='w-8 h-8 animate-spin text-gray-900 dark:text-gray-100 mb-2' />
+                          <p className='text-xs text-gray-600 dark:text-gray-300 text-center px-4'>
                             {t('generating')}
                           </p>
                         </div>
                       ) : video.status === 'completed' && video.videoUrl ? (
-                        <div className="absolute inset-0">
+                        <div className='absolute inset-0'>
                           <EnhancedVideoPlayer
-                            content=""
+                            content=''
                             videoUrl={video.videoUrl}
                             fillContainer={true}
                           />
                         </div>
                       ) : (
                         <div
-                          className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex flex-col items-center justify-center"
+                          className='absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex flex-col items-center justify-center'
                           style={{
                             backgroundImage: 'url(/magicart.png)',
                             backgroundSize: '50%',
@@ -490,16 +504,14 @@ function SoraPage() {
                           }}
                         >
                           {/* 半透明遮罩 */}
-                          <div className="absolute inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm" />
+                          <div className='absolute inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm' />
 
                           {/* 错误提示 - 只显示"生成失败" */}
-                          <div className="relative z-10 text-center">
-                            <div className="text-red-400 mb-2">
-                              <AlertTriangle className="w-12 h-12 mx-auto" />
+                          <div className='relative z-10 text-center'>
+                            <div className='text-red-400 mb-2'>
+                              <AlertTriangle className='w-12 h-12 mx-auto' />
                             </div>
-                            <p className="text-base font-semibold text-white">
-                              生成失败
-                            </p>
+                            <p className='text-base font-semibold text-white'>生成失败</p>
                           </div>
                         </div>
                       )}
@@ -513,9 +525,9 @@ function SoraPage() {
       </ScrollArea>
 
       {/* 固定在底部的输入框 */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 pb-6 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="relative backdrop-blur-xl bg-white/80 dark:bg-gray-800/80 rounded-xl px-6 py-4 shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
+      <div className='fixed bottom-0 left-0 right-0 z-50 pb-6 px-4'>
+        <div className='max-w-4xl mx-auto'>
+          <div className='relative backdrop-blur-xl bg-white/80 dark:bg-gray-800/80 rounded-xl px-6 py-4 shadow-2xl border border-gray-200/50 dark:border-gray-700/50'>
             <Textarea
               value={prompt}
               onChange={(e) => {
@@ -526,20 +538,20 @@ function SoraPage() {
               }}
               onKeyDown={handleKeyDown}
               placeholder={t('placeholder')}
-              className="w-full min-h-[56px] resize-none bg-transparent border-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-16 overflow-hidden"
+              className='w-full min-h-[56px] resize-none bg-transparent border-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-16 overflow-hidden'
               style={{ maxHeight: 'none' }}
               disabled={isGenerating || hasProcessingVideo}
             />
             <Button
               onClick={handleGenerate}
               disabled={isGenerating || hasProcessingVideo || !prompt.trim()}
-              size="icon"
-              className="absolute bottom-4 right-4 rounded-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900 h-12 w-12 disabled:opacity-50 disabled:cursor-not-allowed"
+              size='icon'
+              className='absolute bottom-4 right-4 rounded-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900 h-12 w-12 disabled:opacity-50 disabled:cursor-not-allowed'
             >
               {isGenerating || hasProcessingVideo ? (
-                <Loader2 className="w-5 h-5 animate-spin text-gray-900 dark:text-gray-100" />
+                <Loader2 className='w-5 h-5 animate-spin text-gray-900 dark:text-gray-100' />
               ) : (
-                <Send className="w-5 h-5" />
+                <Send className='w-5 h-5' />
               )}
             </Button>
           </div>
@@ -548,29 +560,21 @@ function SoraPage() {
 
       {/* 删除确认对话框 */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className='sm:max-w-md'>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-500" />
+            <DialogTitle className='flex items-center gap-2'>
+              <AlertTriangle className='w-5 h-5 text-red-500' />
               {t('deleteDialog.title')}
             </DialogTitle>
-            <DialogDescription className="text-base pt-2">
+            <DialogDescription className='text-base pt-2'>
               {t('deleteDialog.description')}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex-row gap-2 sm:gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
-              className="flex-1"
-            >
+          <DialogFooter className='flex-row gap-2 sm:gap-2'>
+            <Button variant='outline' onClick={() => setDeleteDialogOpen(false)} className='flex-1'>
               {t('buttons.cancel')}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              className="flex-1"
-            >
+            <Button variant='destructive' onClick={handleDelete} className='flex-1'>
               {t('buttons.delete')}
             </Button>
           </DialogFooter>
@@ -579,31 +583,31 @@ function SoraPage() {
 
       {/* 分享对话框 */}
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className='sm:max-w-lg'>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Share2 className="w-5 h-5 text-gray-900 dark:text-gray-100" />
+            <DialogTitle className='flex items-center gap-2'>
+              <Share2 className='w-5 h-5 text-gray-900 dark:text-gray-100' />
               {t('shareDialog.title')}
             </DialogTitle>
-            <DialogDescription className="text-base pt-2">
+            <DialogDescription className='text-base pt-2'>
               {t('shareDialog.copyLink')}
             </DialogDescription>
           </DialogHeader>
 
           {shareData && (
-            <div className="space-y-4">
+            <div className='space-y-4'>
               {/* 分享链接 */}
-              <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className='flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700'>
                 <input
-                  type="text"
+                  type='text'
                   value={shareData.share_url}
                   readOnly
-                  className="flex-1 bg-transparent text-sm font-mono text-gray-900 dark:text-gray-100 outline-none"
+                  className='flex-1 bg-transparent text-sm font-mono text-gray-900 dark:text-gray-100 outline-none'
                 />
                 <Button
-                  size="sm"
+                  size='sm'
                   onClick={copyShareLink}
-                  className="bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900"
+                  className='bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900'
                 >
                   {t('buttons.copy')}
                 </Button>
@@ -612,11 +616,7 @@ function SoraPage() {
           )}
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShareDialogOpen(false)}
-              className="w-full"
-            >
+            <Button variant='outline' onClick={() => setShareDialogOpen(false)} className='w-full'>
               {t('buttons.close')}
             </Button>
           </DialogFooter>
@@ -625,27 +625,27 @@ function SoraPage() {
 
       {/* 积分不足对话框 */}
       <Dialog open={pointsDialogOpen} onOpenChange={setPointsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className='sm:max-w-md'>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-              <AlertTriangle className="w-5 h-5 text-gray-900 dark:text-gray-100" />
+            <DialogTitle className='flex items-center gap-2 text-gray-900 dark:text-gray-100'>
+              <AlertTriangle className='w-5 h-5 text-gray-900 dark:text-gray-100' />
               {t('pointsDialog.title')}
             </DialogTitle>
-            <DialogDescription className="text-base pt-2 text-gray-600 dark:text-gray-400">
+            <DialogDescription className='text-base pt-2 text-gray-600 dark:text-gray-400'>
               {t('pointsDialog.description', { points: currentPoints })}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-4">
+          <div className='py-4'>
             {/* 免费获取提示 */}
-            <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg border border-gray-300 dark:border-gray-700">
-              <div className="flex items-start gap-3">
-                <div className="text-2xl">🎁</div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+            <div className='bg-gray-100 dark:bg-gray-800 p-4 rounded-lg border border-gray-300 dark:border-gray-700'>
+              <div className='flex items-start gap-3'>
+                <div className='text-2xl'>🎁</div>
+                <div className='flex-1'>
+                  <h4 className='font-semibold text-gray-900 dark:text-gray-100 mb-1'>
                     {t('pointsDialog.freeTitle')}
                   </h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className='text-sm text-gray-600 dark:text-gray-400'>
                     {t('pointsDialog.freeDescription')}
                   </p>
                 </div>
@@ -653,22 +653,22 @@ function SoraPage() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 pt-2">
+          <div className='flex flex-col gap-2 pt-2'>
             <Button
               onClick={() => {
                 setPointsDialogOpen(false)
                 // 跳转到邀请页面
                 window.location.href = '/invite'
               }}
-              variant="outline"
-              className="w-full border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
+              variant='outline'
+              className='w-full border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800'
             >
               {t('buttons.inviteFriends')}
             </Button>
             <Button
-              variant="ghost"
+              variant='ghost'
               onClick={() => setPointsDialogOpen(false)}
-              className="w-full text-gray-600 dark:text-gray-400"
+              className='w-full text-gray-600 dark:text-gray-400'
             >
               {t('buttons.cancel')}
             </Button>
