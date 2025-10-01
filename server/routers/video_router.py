@@ -11,6 +11,7 @@ from services.video_generation_service import get_video_generation_service
 from services.sora2_service import sora2_service
 from services.sora2_share_service import get_sora2_share_service
 from log import get_logger
+from common import BASE_URL
 import asyncio
 import json
 
@@ -687,16 +688,13 @@ async def create_sora2_share(
         # 验证视频状态
         if task["status"] != "success":
             raise HTTPException(status_code=400, detail="只能分享已完成的视频")
-        
-        # 获取基础URL（从请求头或环境变量）
-        base_url = "http://127.0.0.1:8000"  # 可以从配置中获取
-        
-        # 创建或获取分享记录
+
+        # 创建或获取分享记录（使用环境变量配置的BASE_URL）
         share_service = get_sora2_share_service()
         share_record = await share_service.create_share(
             user_uuid=user_uuid,
             video_id=video_id,
-            base_url=base_url
+            base_url=BASE_URL
         )
         
         logger.info(f"✅ 分享创建成功 - share_id: {share_record['share_id']}")
