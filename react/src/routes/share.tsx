@@ -147,7 +147,15 @@ function SharePage() {
 
         {/* Powered by */}
         <div className='text-center mt-8'>
-          <p className='text-sm text-gray-500 dark:text-gray-400'>Powered by Sora2</p>
+          <p className='text-sm text-gray-500 dark:text-gray-400'>
+            Powered by{' '}
+            <a
+              href='https://www.magicart.cc/sora'
+              className='hover:text-gray-700 dark:hover:text-gray-300 underline'
+            >
+              Sora2
+            </a>
+          </p>
         </div>
       </div>
     </div>
