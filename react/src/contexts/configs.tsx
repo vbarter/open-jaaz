@@ -63,13 +63,13 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
     const currentSelectedModel = localStorage.getItem('current_selected_model')
     const savedTextModel = localStorage.getItem('text_model')
 
-    console.log('🔧 [ConfigsProvider] 开始模型初始化', {
-      isLoggedIn,
-      currentSelectedModel,
-      savedTextModel,
-      llmModelsCount: llmModels.length,
-      toolsCount: toolList.length,
-    })
+    // console.log('🔧 [ConfigsProvider] 开始模型初始化', {
+    //   isLoggedIn,
+    //   currentSelectedModel,
+    //   savedTextModel,
+    //   llmModelsCount: llmModels.length,
+    //   toolsCount: toolList.length,
+    // })
 
     // 未登录用户：强制使用 Google 模型
     if (!isLoggedIn) {
@@ -105,15 +105,15 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
             (t) => t.display_name === currentSelectedModel || t.id === currentSelectedModel
           )
           if (matchedTool) {
-            console.log('✅ 恢复用户选择的工具模型:', matchedTool.display_name || matchedTool.id)
+            // console.log('✅ 恢复用户选择的工具模型:', matchedTool.display_name || matchedTool.id)
             // 清空文本模型选择
             setTextModel(null)
             localStorage.removeItem('text_model')
 
             // 恢复工具模型选择 - 在后面的工具选择逻辑中会被设置
-            console.log('🎯 将在工具选择阶段恢复此工具模型')
+            // console.log('🎯 将在工具选择阶段恢复此工具模型')
           } else {
-            console.log('⚠️ 未找到匹配的模型，使用默认策略')
+            // console.log('⚠️ 未找到匹配的模型，使用默认策略')
             // 步骤3：都未找到，使用默认策略
             setDefaultModelStrategy()
           }
@@ -178,9 +178,6 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
         localStorage.setItem('disabled_tool_ids', JSON.stringify(disabledToolIds))
       }
     } else {
-      // 登录用户：根据 current_selected_model 智能恢复工具选择
-      console.log('🔧 登录用户工具选择恢复逻辑')
-
       // 检查用户是否选择了工具模型
       if (currentSelectedModel) {
         const matchedTool = toolList.find(
@@ -229,7 +226,6 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
 
     // 🔧 智能登录弹窗管理：只有在确实需要时才显示
     if (!isLoggedIn && llmModels.length === 0 && toolList.length === 0) {
-      console.log('⚠️ 未登录且无可用模型，显示登录对话框')
       setShowLoginDialog(true)
     } else if (isLoggedIn) {
       // 🔧 用户已登录时，确保关闭登录弹窗

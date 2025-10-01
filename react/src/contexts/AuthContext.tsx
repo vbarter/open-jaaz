@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshAuth = useCallback(async () => {
     try {
       setIsLoading(true)
-      console.log('🔄 [AuthContext] 开始刷新认证状态...')
+      // console.log('🔄 [AuthContext] 开始刷新认证状态...')
       const status = await getAuthStatus()
 
       // 🎯 检查用户信息是否包含level字段

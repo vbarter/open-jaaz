@@ -26,21 +26,22 @@ function SharePage() {
   useEffect(() => {
     const loadVideo = async () => {
       if (!shareId) {
-        toast.error('无效的分享链接')
+        toast.error('Invalid share link')
         setIsLoading(false)
         return
       }
 
       try {
-        console.log('🔍 [Share] Loading video:', shareId)
+        // console.log('🔍 [Share] Loading video:', shareId)
         const videoData = await getShareVideo(shareId)
         setVideo(videoData)
         setCurrentLikes(videoData.likes)
-        console.log('✅ [Share] Video loaded:', videoData)
+        // console.log('✅ [Share] Video loaded:', videoData)
       } catch (error) {
         console.error('❌ [Share] Load failed:', error)
-        toast.error('加载失败', {
-          description: error instanceof Error ? error.message : '分享不存在或已失效',
+        toast.error('Loading failed', {
+          description:
+            error instanceof Error ? error.message : 'Share does not exist or has expired',
         })
       } finally {
         setIsLoading(false)
@@ -58,11 +59,11 @@ function SharePage() {
     try {
       const result = await likeShareVideo(shareId)
       setCurrentLikes(result.likes)
-      toast.success('点赞成功！')
+      toast.success('Liked successfully!')
     } catch (error) {
       console.error('点赞失败:', error)
-      toast.error('点赞失败', {
-        description: '请稍后重试',
+      toast.error('Like failed', {
+        description: 'Please try again later',
       })
     } finally {
       setIsLiking(false)
@@ -72,10 +73,10 @@ function SharePage() {
   // 加载中
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">加载中...</p>
+      <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900'>
+        <div className='text-center'>
+          <Loader2 className='w-12 h-12 animate-spin text-gray-400 mx-auto mb-4' />
+          <p className='text-gray-600 dark:text-gray-400'>Loading...</p>
         </div>
       </div>
     )
@@ -84,10 +85,10 @@ function SharePage() {
   // 加载失败
   if (!video) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center max-w-md p-8">
-          <p className="text-xl text-gray-800 dark:text-gray-200 mb-2">分享不存在</p>
-          <p className="text-gray-600 dark:text-gray-400">该分享链接可能已失效</p>
+      <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900'>
+        <div className='text-center max-w-md p-8'>
+          <p className='text-xl text-gray-800 dark:text-gray-200 mb-2'>Share does not exist</p>
+          <p className='text-gray-600 dark:text-gray-400'>This share link may have expired</p>
         </div>
       </div>
     )
@@ -95,38 +96,34 @@ function SharePage() {
 
   // 显示视频
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
+    <div className='min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4'>
+      <div className='max-w-2xl mx-auto'>
         {/* 视频播放器 */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
-          <div className="aspect-[9/16] max-h-[80vh] mx-auto bg-black">
-            <EnhancedVideoPlayer
-              content=""
-              videoUrl={video.video_url}
-              fillContainer={true}
-            />
+        <div className='bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden'>
+          <div className='aspect-[9/16] max-h-[80vh] mx-auto bg-black'>
+            <EnhancedVideoPlayer content='' videoUrl={video.video_url} fillContainer={true} />
           </div>
 
           {/* 信息区域 */}
-          <div className="p-6 space-y-4">
+          <div className='p-6 space-y-4'>
             {/* 提示词 */}
             <div>
-              <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                视频描述
+              <h2 className='text-sm font-medium text-gray-500 dark:text-gray-400 mb-2'>
+                Video Description
               </h2>
-              <p className="text-base text-gray-900 dark:text-gray-100">{video.prompt}</p>
+              <p className='text-base text-gray-900 dark:text-gray-100'>{video.prompt}</p>
             </div>
 
             {/* 统计和操作 */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className='flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700'>
               {/* 统计 */}
-              <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-gray-400">
-                <div className="flex items-center gap-1.5">
-                  <Eye className="w-4 h-4" />
+              <div className='flex items-center gap-6 text-sm text-gray-600 dark:text-gray-400'>
+                <div className='flex items-center gap-1.5'>
+                  <Eye className='w-4 h-4' />
                   <span>{video.views}</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Heart className="w-4 h-4" />
+                <div className='flex items-center gap-1.5'>
+                  <Heart className='w-4 h-4' />
                   <span>{currentLikes}</span>
                 </div>
               </div>
@@ -135,24 +132,22 @@ function SharePage() {
               <Button
                 onClick={handleLike}
                 disabled={isLiking}
-                className="bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900"
+                className='bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900'
               >
                 {isLiking ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  <Loader2 className='w-4 h-4 animate-spin mr-2' />
                 ) : (
-                  <Heart className="w-4 h-4 mr-2" />
+                  <Heart className='w-4 h-4 mr-2' />
                 )}
-                点赞
+                Like
               </Button>
             </div>
           </div>
         </div>
 
         {/* Powered by */}
-        <div className="text-center mt-8">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Powered by Sora2
-          </p>
+        <div className='text-center mt-8'>
+          <p className='text-sm text-gray-500 dark:text-gray-400'>Powered by Sora2</p>
         </div>
       </div>
     </div>

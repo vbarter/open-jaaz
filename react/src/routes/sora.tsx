@@ -114,11 +114,11 @@ function SoraPage() {
   const connectWebSocket = useCallback(() => {
     // 如果已经连接，不重复连接
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      console.log('⚠️ [Sora WS] 已存在活跃连接，跳过重连')
+      // console.log('⚠️ [Sora WS] 已存在活跃连接，跳过重连')
       return
     }
 
-    console.log('🔌 [Sora WS] 建立WebSocket连接...')
+    // console.log('🔌 [Sora WS] 建立WebSocket连接...')
 
     // 构建WebSocket URL（HTTP协议对应ws，HTTPS对应wss）
     // 使用独立路径 /ws-sora2/tasks，避免被 Nginx location / 的错误配置捕获
@@ -129,7 +129,7 @@ function SoraPage() {
       const ws = new WebSocket(wsUrl)
 
       ws.onopen = () => {
-        console.log('✅ [Sora WS] WebSocket连接已建立')
+        // console.log('✅ [Sora WS] WebSocket连接已建立')
         setWsConnected(true)
         setIsLoadingTasks(false)
 
@@ -146,7 +146,7 @@ function SoraPage() {
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data)
-          console.log('📨 [Sora WS] 收到消息:', message.type)
+          // console.log('📨 [Sora WS] 收到消息:', message.type)
 
           if (message.type === 'tasks_update') {
             const { tasks } = message.data
@@ -158,12 +158,12 @@ function SoraPage() {
                 const oldVideo = previousVideos.find((v) => v.id === newVideo.id)
                 if (oldVideo && oldVideo.status === 'processing') {
                   if (newVideo.status === 'completed') {
-                    console.log(`  ✅ [Sora WS] 任务 #${newVideo.id} 生成成功`)
+                    // console.log(`  ✅ [Sora WS] 任务 #${newVideo.id} 生成成功`)
                     toast.success(t('toast.videoCompleted'), {
                       description: newVideo.prompt.substring(0, 50) + '...',
                     })
                   } else if (newVideo.status === 'failed') {
-                    console.log(`  ❌ [Sora WS] 任务 #${newVideo.id} 生成失败`)
+                    // console.log(`  ❌ [Sora WS] 任务 #${newVideo.id} 生成失败`)
                     toast.error(t('toast.videoFailed'), {
                       description: newVideo.remark || t('toast.retryHint'),
                     })
@@ -174,10 +174,10 @@ function SoraPage() {
               return loadedVideos
             })
 
-            console.log(`🔄 [Sora WS] 任务列表已更新: ${loadedVideos.length} 个任务`)
+            // console.log(`🔄 [Sora WS] 任务列表已更新: ${loadedVideos.length} 个任务`)
           } else if (message.type === 'pong') {
             // ping/pong心跳响应
-            console.log('💓 [Sora WS] Pong received')
+            // console.log('💓 [Sora WS] Pong received')
           }
         } catch (error) {
           console.error('❌ [Sora WS] 解析消息失败:', error)
@@ -217,22 +217,22 @@ function SoraPage() {
   useEffect(() => {
     // 只有在认证完成且用户已登录时才建立连接
     if (isAuthLoading) {
-      console.log('⏳ [Sora] 等待认证完成...')
+      // console.log('⏳ [Sora] 等待认证完成...')
       return
     }
 
     if (!authStatus.is_logged_in) {
-      console.log('🔒 [Sora] 用户未登录，跳过WebSocket连接')
+      // console.log('🔒 [Sora] 用户未登录，跳过WebSocket连接')
       setIsLoadingTasks(false)
       return
     }
 
-    console.log('🎬 [Sora] 用户已登录，建立WebSocket连接')
+    // console.log('🎬 [Sora] 用户已登录，建立WebSocket连接')
     connectWebSocket()
 
     // 组件卸载时清理连接
     return () => {
-      console.log('🧹 [Sora] 组件卸载，清理WebSocket连接')
+      // console.log('🧹 [Sora] 组件卸载，清理WebSocket连接')
 
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current)
@@ -249,7 +249,7 @@ function SoraPage() {
   const handleGenerate = async () => {
     // 检查登录状态
     if (!authStatus.is_logged_in) {
-      console.log('🔒 [Sora] 用户未登录，显示登录对话框')
+      // console.log('🔒 [Sora] 用户未登录，显示登录对话框')
       setShowLoginDialog(true)
       return
     }
@@ -318,7 +318,7 @@ function SoraPage() {
       setPrompt('')
 
       // 任务提交后，后端会通过WebSocket推送最新状态
-      console.log('✅ [Sora] 任务提交成功，任务ID:', result.task_id)
+      // console.log('✅ [Sora] 任务提交成功，任务ID:', result.task_id)
     } catch (error) {
       console.error('视频生成失败:', error)
 
@@ -352,7 +352,7 @@ function SoraPage() {
     if (!videoToDelete) return
 
     try {
-      console.log(`🗑️ [Sora] 删除任务 #${videoToDelete}`)
+      // console.log(`🗑️ [Sora] 删除任务 #${videoToDelete}`)
       await deleteSora2Task(videoToDelete)
 
       // 从列表中移除
@@ -360,7 +360,7 @@ function SoraPage() {
 
       toast.success(t('toast.deleteSuccess'))
 
-      console.log(`✅ [Sora] 任务 #${videoToDelete} 删除成功`)
+      // console.log(`✅ [Sora] 任务 #${videoToDelete} 删除成功`)
     } catch (error) {
       console.error('删除任务失败:', error)
       toast.error(t('toast.deleteFailed'), {
@@ -386,7 +386,7 @@ function SoraPage() {
       setShareData(shareResponse)
       setShareDialogOpen(true)
 
-      console.log('✅ [Sora] 分享创建成功:', shareResponse)
+      // console.log('✅ [Sora] 分享创建成功:', shareResponse)
     } catch (error) {
       console.error('分享失败:', error)
       toast.error(t('toast.shareFailed'), {
@@ -472,12 +472,16 @@ function SoraPage() {
                         {/* 播放量 */}
                         <div className='flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white'>
                           <Eye className='w-2.5 h-2.5 sm:w-3 sm:h-3' />
-                          <span className='text-[10px] sm:text-xs font-medium'>{video.views ?? 0}</span>
+                          <span className='text-[10px] sm:text-xs font-medium'>
+                            {video.views ?? 0}
+                          </span>
                         </div>
                         {/* 点赞量 */}
                         <div className='flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white'>
                           <Heart className='w-2.5 h-2.5 sm:w-3 sm:h-3' />
-                          <span className='text-[10px] sm:text-xs font-medium'>{video.likes ?? 0}</span>
+                          <span className='text-[10px] sm:text-xs font-medium'>
+                            {video.likes ?? 0}
+                          </span>
                         </div>
                       </div>
 
@@ -538,7 +542,9 @@ function SoraPage() {
                             <div className='text-red-400 mb-2'>
                               <AlertTriangle className='w-12 h-12 mx-auto' />
                             </div>
-                            <p className='text-base font-semibold text-white'>{t('generationFailed')}</p>
+                            <p className='text-base font-semibold text-white'>
+                              {t('generationFailed')}
+                            </p>
                           </div>
                         </div>
                       )}
@@ -556,7 +562,9 @@ function SoraPage() {
         <div className='max-w-4xl mx-auto'>
           <div
             className={`relative backdrop-blur-xl bg-white/80 dark:bg-gray-800/80 rounded-xl px-6 py-4 shadow-2xl border border-gray-200/50 dark:border-gray-700/50 ${
-              !authStatus.is_logged_in ? 'cursor-pointer hover:border-gray-300 dark:hover:border-gray-600 transition-colors' : ''
+              !authStatus.is_logged_in
+                ? 'cursor-pointer hover:border-gray-300 dark:hover:border-gray-600 transition-colors'
+                : ''
             }`}
             onClick={() => {
               if (!authStatus.is_logged_in) {
@@ -573,14 +581,18 @@ function SoraPage() {
                 e.target.style.height = e.target.scrollHeight + 'px'
               }}
               onKeyDown={handleKeyDown}
-              placeholder={!authStatus.is_logged_in ? tCommon('auth.loginDescription') : t('placeholder')}
+              placeholder={
+                !authStatus.is_logged_in ? tCommon('auth.loginDescription') : t('placeholder')
+              }
               className='w-full min-h-[56px] resize-none bg-transparent border-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-16 overflow-hidden'
               style={{ maxHeight: 'none' }}
               disabled={!authStatus.is_logged_in || isGenerating || hasProcessingVideo}
             />
             <Button
               onClick={handleGenerate}
-              disabled={!authStatus.is_logged_in || isGenerating || hasProcessingVideo || !prompt.trim()}
+              disabled={
+                !authStatus.is_logged_in || isGenerating || hasProcessingVideo || !prompt.trim()
+              }
               size='icon'
               className='absolute bottom-4 right-4 rounded-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900 h-12 w-12 disabled:opacity-50 disabled:cursor-not-allowed'
             >

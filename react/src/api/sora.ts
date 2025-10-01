@@ -42,9 +42,7 @@ export interface Sora2TaskListResponse {
 /**
  * 生成 Sora2 视频
  */
-export const generateSora2Video = async (
-  request: Sora2GenRequest
-): Promise<Sora2GenResponse> => {
+export const generateSora2Video = async (request: Sora2GenRequest): Promise<Sora2GenResponse> => {
   console.log('[API Sora2] 开始发送 Sora2 视频生成请求:', request)
 
   try {
@@ -222,7 +220,7 @@ export const createShare = async (videoId: number): Promise<CreateShareResponse>
  * 获取分享视频详情（公开访问）
  */
 export const getShareVideo = async (shareId: string): Promise<ShareVideoDetail> => {
-  console.log('[API Sora2] 获取分享视频:', shareId)
+  // console.log('[API Sora2] 获取分享视频:', shareId)
 
   try {
     const response = await fetch(`/api/sora2/share/${shareId}`)
@@ -234,7 +232,7 @@ export const getShareVideo = async (shareId: string): Promise<ShareVideoDetail> 
     }
 
     const data = await response.json()
-    console.log('[API Sora2] 分享视频获取成功:', data)
+    // console.log('[API Sora2] 分享视频获取成功:', data)
     return data as ShareVideoDetail
   } catch (error) {
     console.error('[API Sora2] 获取分享视频出错:', error)
@@ -245,7 +243,9 @@ export const getShareVideo = async (shareId: string): Promise<ShareVideoDetail> 
 /**
  * 点赞分享视频
  */
-export const likeShareVideo = async (shareId: string): Promise<{ success: boolean; likes: number }> => {
+export const likeShareVideo = async (
+  shareId: string
+): Promise<{ success: boolean; likes: number }> => {
   console.log('[API Sora2] 点赞分享:', shareId)
 
   try {
