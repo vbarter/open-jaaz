@@ -152,7 +152,7 @@ class MagicDrawService:
         Raises:
             Exception: 当任务创建失败时抛出异常
         """
-        logger.info(f"👇create_video_task prompt: {prompt}, model: {model}, resolution: {resolution}, duration: {duration}, aspect_ratio: {aspect_ratio}, input_images: {input_images}")
+        logger.info(f"👇create_video_task prompt: {prompt}, model: {model}, resolution: {resolution}, duration: {duration}, aspect_ratio: {aspect_ratio}")
         async with HttpClient.create_aiohttp() as session:
             payload = {
                 "prompt": prompt,

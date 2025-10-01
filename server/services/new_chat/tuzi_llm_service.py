@@ -347,9 +347,11 @@ class TuziLLMService:
                     logger.info("📝 无图片上传，执行文生图流程...")
                     return await self._handle_image_generation(model_name, user_prompt, user_info, aspect_ratio, quantity)
             elif user_has_drawing_intent == "video":
-                #video_model = self._get_video_generation_model(model_name)
+                if model_name.startswith("veo3"):
+                    model_name = "veo3-fast-frames"
+                elif model_name.startswith("sora"):
+                    model_name = "sora-2"
                 logger.info("🎥 检测到视频意图，执行视频生成流程")
-                logger.info(f"🔍 [DEBUG] 输入图片: {image_content}")
                 return await self.generate_video(user_prompt, model_name, input_images=image_content)
             elif user_has_drawing_intent == "url":
                 logger.info("🔗 检测到链接处理意图，执行链接处理流程")
@@ -576,7 +578,11 @@ class TuziLLMService:
             else:
                 return {"error": error_msg}
 
-    async def _chat_with_tuzi(self, prompt: str, model: str, stream: bool = False) -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None]]:
+    async def _chat_with_tuzi(self, 
+                              prompt: str, 
+                              model: str, 
+                              stream: bool = False,
+                              timeout: int = 60) -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None]]:
         """GPT 文本对话
         
         Args:
@@ -599,7 +605,7 @@ class TuziLLMService:
         client = AsyncOpenAI(
                 api_key=self.api_token,
                 base_url=self.api_url,
-                timeout=60.0,  # 设置60秒超时
+                timeout=timeout,  # 设置60秒超时
                 max_retries=0   # 禁用重试，避免重复调用
             )
         
@@ -1410,32 +1416,54 @@ user input: {prompt}
             Exception: 当视频生成失败时抛出异常
         """
         # 1. 创建视频生成任务
-        task_id = await self.create_video_task(
-            prompt=prompt,
-            model=model,
-            resolution=resolution,
-            duration=duration,
-            aspect_ratio=aspect_ratio,
-            input_images=input_images,
-            **kwargs
-        )
+        if model == "sora-2":
+            is_async_generation = False
+        else:
+            is_async_generation = True
 
-        if not task_id:
-            raise Exception("Failed to create video task")
+        if is_async_generation:
+            task_id = await self.create_video_task(
+                prompt=prompt,
+                model=model,
+                resolution=resolution,
+                duration=duration,
+                aspect_ratio=aspect_ratio,
+                input_images=input_images,
+                **kwargs
+            )
 
-        # 2. 等待任务完成
-        result = await self.poll_for_task_completion(task_id)
-        if not result:
-            raise Exception("Video generation failed")
+            if not task_id:
+                raise Exception("Failed to create video task")
 
-        if result.get('error'):
-            raise Exception(f"Video generation failed: {result['error']}")
+            # 2. 等待任务完成
+            result = await self.poll_for_task_completion(task_id)
+            if not result:
+                raise Exception("Video generation failed")
 
-        if not result.get('result_url'):
-            raise Exception("No result URL found in video generation response")
+            if result.get('error'):
+                raise Exception(f"Video generation failed: {result['error']}")
 
-        logger.info(f"✅ Video generated successfully: {result.get('result_url')}")
-        return result
+            if not result.get('result_url'):
+                raise Exception("No result URL found in video generation response")
+
+            logger.info(f"✅ Video generated successfully: {result.get('result_url')}")
+            return result
+        else:
+            result = await self._chat_with_tuzi(prompt,
+                                                model,
+                                                stream=False,
+                                                timeout=300)
+            logger.info(f"🎨 Sora2 video generation result: {result}")
+
+            # 从 markdown 格式的链接中提取 URL
+            if result and result.get('text_content'):
+                match = re.search(r'\[.*?\]\((https?://[^\)]+)\)', result['text_content'])
+                if match:
+                    video_url = match.group(1)
+                    logger.info(f"✅ Extracted video URL: {video_url}")
+                    return {'result_url': video_url, 'status': "success"}
+            else:
+                return {'error': "No video URL found in response", 'status': "error"}
 
     async def generate_video_by_seedance(
         self,
