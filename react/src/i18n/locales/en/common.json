@@ -159,5 +159,38 @@
     "termsOfService": "Terms of Service",
     "contactSupport": "Contact Support",
     "copyright": "© 2025 MagicArt AI Image Generator. All rights reserved."
+  },
+  "video": {
+    "loading": "Loading video...",
+    "loadFailed": "Video loading failed",
+    "checkConnection": "Please check video URL or network connection",
+    "checkNetworkOrUrl": "Please check network connection or video URL",
+    "browserNotSupported": "Your browser does not support video playback",
+    "browserNotSupportedHTML5": "Your browser does not support HTML5 video playback",
+    "videoReady": "Video ready",
+    "errors": {
+      "aborted": "Video loading aborted",
+      "network": "Network error",
+      "decode": "Video decoding failed",
+      "formatNotSupported": "Unsupported video format"
+    }
+  },
+  "filePreview": {
+    "zoomOut": "Zoom out",
+    "resetZoom": "Reset zoom",
+    "zoomIn": "Zoom in",
+    "fileInfo": "File info",
+    "copyPath": "Copy path",
+    "addToFavorites": "Add to favorites",
+    "loading": "Loading...",
+    "loadFailed": "Load failed",
+    "imageFailed": "Image load failed",
+    "videoFailed": "Video load failed",
+    "fileName": "File name",
+    "path": "Path",
+    "type": "Type",
+    "size": "Size",
+    "modifiedTime": "Modified time",
+    "createdTime": "Created time"
   }
 }

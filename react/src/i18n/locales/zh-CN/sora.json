@@ -49,5 +49,10 @@
   "stats": {
     "views": "观看",
     "likes": "点赞"
-  }
+  },
+  "loadingTasks": "加载任务列表...",
+  "emptyState": "开始创作你的第一个视频吧！",
+  "deleteTask": "删除任务",
+  "shareVideo": "分享",
+  "generationFailed": "生成失败"
 }

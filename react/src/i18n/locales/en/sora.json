@@ -49,5 +49,10 @@
   "stats": {
     "views": "views",
     "likes": "likes"
-  }
+  },
+  "loadingTasks": "Loading tasks...",
+  "emptyState": "Start creating your first video!",
+  "deleteTask": "Delete task",
+  "shareVideo": "Share",
+  "generationFailed": "Generation failed"
 }

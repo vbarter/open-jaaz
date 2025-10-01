@@ -165,5 +165,38 @@
     "termsOfService": "服务条款",
     "contactSupport": "联系支持",
     "copyright": "© 2025 MagicArt AI 图像生成器。保留所有权利。"
+  },
+  "video": {
+    "loading": "加载视频中...",
+    "loadFailed": "视频加载失败",
+    "checkConnection": "请检查视频地址或网络连接",
+    "checkNetworkOrUrl": "请检查网络连接或视频地址",
+    "browserNotSupported": "您的浏览器不支持视频播放",
+    "browserNotSupportedHTML5": "您的浏览器不支持 HTML5 视频播放",
+    "videoReady": "视频已就绪",
+    "errors": {
+      "aborted": "视频加载被中止",
+      "network": "网络错误",
+      "decode": "视频解码失败",
+      "formatNotSupported": "不支持的视频格式"
+    }
+  },
+  "filePreview": {
+    "zoomOut": "缩小",
+    "resetZoom": "重置缩放",
+    "zoomIn": "放大",
+    "fileInfo": "文件信息",
+    "copyPath": "复制路径",
+    "addToFavorites": "添加到收藏",
+    "loading": "加载中...",
+    "loadFailed": "加载失败",
+    "imageFailed": "图片加载失败",
+    "videoFailed": "视频加载失败",
+    "fileName": "文件名",
+    "path": "路径",
+    "type": "类型",
+    "size": "大小",
+    "modifiedTime": "修改时间",
+    "createdTime": "创建时间"
   }
 }

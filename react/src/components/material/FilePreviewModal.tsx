@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { getFileServiceUrl, getFileInfoApi } from '@/api/settings'
+import { useTranslation } from 'react-i18next'
 
 interface FileInfo {
   name: string
@@ -39,6 +40,7 @@ export default function FilePreviewModal({
   fileName,
   fileType,
 }: FilePreviewModalProps) {
+  const { t } = useTranslation('common')
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -128,21 +130,21 @@ export default function FilePreviewModal({
                 <button
                   onClick={handleZoomOut}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                  title="缩小"
+                  title={t('filePreview.zoomOut')}
                 >
                   <ZoomOut className="w-4 h-4" />
                 </button>
                 <button
                   onClick={resetZoom}
                   className="px-3 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                  title="重置缩放"
+                  title={t('filePreview.resetZoom')}
                 >
                   {Math.round(zoom * 100)}%
                 </button>
                 <button
                   onClick={handleZoomIn}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                  title="放大"
+                  title={t('filePreview.zoomIn')}
                 >
                   <ZoomIn className="w-4 h-4" />
                 </button>
@@ -156,7 +158,7 @@ export default function FilePreviewModal({
                   ? 'bg-blue-100 dark:bg-blue-900 text-blue-600'
                   : 'hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
-              title="文件信息"
+              title={t('filePreview.fileInfo')}
             >
               <Info className="w-4 h-4" />
             </button>
@@ -164,7 +166,7 @@ export default function FilePreviewModal({
             <button
               onClick={handleCopyPath}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              title="复制路径"
+              title={t('filePreview.copyPath')}
             >
               <Copy className="w-4 h-4" />
             </button>
@@ -172,14 +174,14 @@ export default function FilePreviewModal({
             <button
               onClick={handleDownload}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              title="下载"
+              title={t('common.download')}
             >
               <Download className="w-4 h-4" />
             </button>
 
             <button
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              title="添加到收藏"
+              title={t('filePreview.addToFavorites')}
             >
               <Heart className="w-4 h-4" />
             </button>
@@ -199,13 +201,13 @@ export default function FilePreviewModal({
             {loading && (
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-500">加载中...</p>
+                <p className="text-gray-500">{t('filePreview.loading')}</p>
               </div>
             )}
 
             {error && (
               <div className="text-center text-red-500">
-                <p>加载失败: {error}</p>
+                <p>{t('filePreview.loadFailed')}: {error}</p>
               </div>
             )}
 
@@ -217,7 +219,7 @@ export default function FilePreviewModal({
                 style={{ transform: `scale(${zoom})` }}
                 onError={(e) => {
                   console.error('Failed to load image:', e)
-                  setError('图片加载失败')
+                  setError(t('filePreview.imageFailed'))
                 }}
               />
             )}
@@ -230,7 +232,7 @@ export default function FilePreviewModal({
                 style={{ transform: `scale(${zoom})` }}
                 onError={(e) => {
                   console.error('Failed to load video:', e)
-                  setError('视频加载失败')
+                  setError(t('filePreview.videoFailed'))
                 }}
               />
             )}
@@ -239,12 +241,12 @@ export default function FilePreviewModal({
           {/* Info panel */}
           {showInfo && fileInfo && (
             <div className="w-80 border-l border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900 overflow-y-auto">
-              <h3 className="font-bold text-lg mb-4">文件信息</h3>
+              <h3 className="font-bold text-lg mb-4">{t('filePreview.fileInfo')}</h3>
 
               <div className="space-y-3">
                 <div>
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    文件名
+                    {t('filePreview.fileName')}
                   </label>
                   <p className="text-sm text-gray-900 dark:text-white break-all">
                     {fileInfo.name}
@@ -253,7 +255,7 @@ export default function FilePreviewModal({
 
                 <div>
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    路径
+                    {t('filePreview.path')}
                   </label>
                   <p className="text-sm text-gray-900 dark:text-white break-all">
                     {fileInfo.path}
@@ -262,7 +264,7 @@ export default function FilePreviewModal({
 
                 <div>
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    类型
+                    {t('filePreview.type')}
                   </label>
                   <p className="text-sm text-gray-900 dark:text-white">
                     {fileInfo.mime_type}
@@ -271,7 +273,7 @@ export default function FilePreviewModal({
 
                 <div>
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    大小
+                    {t('filePreview.size')}
                   </label>
                   <p className="text-sm text-gray-900 dark:text-white">
                     {formatFileSize(fileInfo.size)}
@@ -280,7 +282,7 @@ export default function FilePreviewModal({
 
                 <div>
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    修改时间
+                    {t('filePreview.modifiedTime')}
                   </label>
                   <p className="text-sm text-gray-900 dark:text-white">
                     {formatDate(fileInfo.mtime)}
@@ -289,7 +291,7 @@ export default function FilePreviewModal({
 
                 <div>
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    创建时间
+                    {t('filePreview.createdTime')}
                   </label>
                   <p className="text-sm text-gray-900 dark:text-white">
                     {formatDate(fileInfo.ctime)}
