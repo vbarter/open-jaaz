@@ -571,10 +571,10 @@ async def websocket_sora2_tasks(
 
         # 4. 启动定期推送任务
         async def push_tasks_periodically():
-            """每2秒推送一次任务列表"""
+            """每5秒推送一次任务列表"""
             while True:
                 try:
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(5)
 
                     # 获取最新任务列表
                     tasks = await sora2_service.list_user_records(

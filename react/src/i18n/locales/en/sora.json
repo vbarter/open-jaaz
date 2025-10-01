@@ -7,7 +7,9 @@
     "delete": "Delete",
     "share": "Share",
     "cancel": "Cancel",
-    "inviteFriends": "Invite Friends, Get Free Credits"
+    "inviteFriends": "Invite Friends, Get Free Credits",
+    "copy": "Copy",
+    "close": "Close"
   },
   "deleteDialog": {
     "title": "Confirm Deletion",

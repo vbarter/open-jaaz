@@ -7,7 +7,9 @@
     "delete": "删除",
     "share": "分享",
     "cancel": "取消",
-    "inviteFriends": "邀请好友，免费获取"
+    "inviteFriends": "邀请好友，免费获取",
+    "copy": "复制",
+    "close": "关闭"
   },
   "deleteDialog": {
     "title": "确认删除",

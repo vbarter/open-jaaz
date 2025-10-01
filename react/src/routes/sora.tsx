@@ -72,6 +72,9 @@ function SoraPage() {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [wsConnected, setWsConnected] = useState(false)
 
+  // 检查是否有视频正在生成中
+  const hasProcessingVideo = videos.some(video => video.status === 'processing')
+
   // 删除确认对话框状态
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [videoToDelete, setVideoToDelete] = useState<string | null>(null)
@@ -364,14 +367,10 @@ function SoraPage() {
 
     try {
       await navigator.clipboard.writeText(shareData.share_url)
-      toast.success(t('toast.copySuccess'), {
-        description: t('toast.copySuccess'),
-      })
+      toast.success(t('toast.copySuccess'))
     } catch (error) {
       console.error('复制失败:', error)
-      toast.error(t('toast.copyFailed'), {
-        description: t('toast.copyFailed'),
-      })
+      toast.error(t('toast.copyFailed'))
     }
   }
 
@@ -513,16 +512,16 @@ function SoraPage() {
               placeholder={t('placeholder')}
               className="w-full min-h-[56px] resize-none bg-transparent border-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-16 overflow-hidden"
               style={{ maxHeight: 'none' }}
-              disabled={isGenerating}
+              disabled={isGenerating || hasProcessingVideo}
             />
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating || !prompt.trim()}
+              disabled={isGenerating || hasProcessingVideo || !prompt.trim()}
               size="icon"
-              className="absolute bottom-4 right-4 rounded-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900 h-12 w-12"
+              className="absolute bottom-4 right-4 rounded-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900 h-12 w-12 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isGenerating ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+              {isGenerating || hasProcessingVideo ? (
+                <Loader2 className="w-5 h-5 animate-spin text-gray-900 dark:text-gray-100" />
               ) : (
                 <Send className="w-5 h-5" />
               )}
@@ -590,7 +589,7 @@ function SoraPage() {
                   onClick={copyShareLink}
                   className="bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900"
                 >
-                  复制
+                  {t('buttons.copy')}
                 </Button>
               </div>
             </div>
@@ -602,7 +601,7 @@ function SoraPage() {
               onClick={() => setShareDialogOpen(false)}
               className="w-full"
             >
-              关闭
+              {t('buttons.close')}
             </Button>
           </DialogFooter>
         </DialogContent>
