@@ -455,7 +455,9 @@ function SoraPage() {
                       </div>
 
                       {/* 操作按钮组 - 右上角 */}
-                      <div className='absolute top-2 right-2 z-20 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200'>
+                      <div className={`absolute top-2 right-2 z-20 flex gap-1.5 transition-opacity duration-200 ${
+                        video.status === 'failed' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      }`}>
                         {/* 分享按钮 */}
                         {video.status === 'completed' && (
                           <button
