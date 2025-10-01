@@ -1,0 +1,68 @@
+{
+  "title": "邀请中心",
+  "subtitle": "邀请好友一起赚积分！分享 AI 创意的魔力",
+  "tabs": {
+    "overview": "概览",
+    "history": "历史记录",
+    "points": "积分"
+  },
+  "inviteCode": {
+    "title": "你的邀请码",
+    "description": "与好友分享此邀请码即可获得积分",
+    "used": "已使用",
+    "remaining": "剩余",
+    "copyCode": "复制邀请码",
+    "copyLink": "复制链接",
+    "share": "分享",
+    "shareTitle": "加入 MagicArt.cc",
+    "shareText": "加入我的 MagicArt.cc，一起获取奖励积分！",
+    "loadFailed": "加载邀请码失败"
+  },
+  "pointsBalance": {
+    "title": "积分余额",
+    "description": "你当前的积分和奖励",
+    "available": "可用积分",
+    "loadFailed": "加载积分余额失败"
+  },
+  "stats": {
+    "totalInvites": "总邀请数",
+    "successful": "成功邀请",
+    "pending": "待确认",
+    "pointsEarned": "已赚积分"
+  },
+  "howItWorks": {
+    "title": "使用说明",
+    "description": "通过邀请好友加入 MagicArt.cc 来赚取积分",
+    "step1": {
+      "title": "1. 分享",
+      "description": "与好友分享你的邀请码或链接"
+    },
+    "step2": {
+      "title": "2. 加入",
+      "description": "好友使用你的邀请码注册"
+    },
+    "step3": {
+      "title": "3. 赚取",
+      "description": "你获得 10 积分，好友获得 5 积分"
+    }
+  },
+  "inviteHistory": {
+    "title": "邀请历史",
+    "description": "查看你的邀请及其状态",
+    "noInvites": "还没有邀请记录",
+    "noInvitesHint": "开始邀请好友，在这里查看你的邀请历史",
+    "pointsAwarded": "积分"
+  },
+  "pointsHistory": {
+    "title": "积分历史",
+    "description": "你的积分交易记录",
+    "balance": "余额",
+    "noTransactions": "还没有积分交易记录",
+    "noTransactionsHint": "开始邀请好友来赚取积分"
+  },
+  "status": {
+    "completed": "已完成",
+    "registered": "已注册",
+    "pending": "待确认"
+  }
+}

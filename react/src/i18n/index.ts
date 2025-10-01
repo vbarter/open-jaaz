@@ -11,6 +11,8 @@ import settingsEn from './locales/en/settings.json'
 import pricingEn from './locales/en/pricing.json'
 import templatesEn from './locales/en/templates.json'
 import templateUseEn from './locales/en/template-use.json'
+import soraEn from './locales/en/sora.json'
+import inviteEn from './locales/en/invite.json'
 
 import commonZh from './locales/zh-CN/common.json'
 import homeZh from './locales/zh-CN/home.json'
@@ -20,6 +22,8 @@ import settingsZh from './locales/zh-CN/settings.json'
 import pricingZh from './locales/zh-CN/pricing.json'
 import templatesZh from './locales/zh-CN/templates.json'
 import templateUseZh from './locales/zh-CN/template-use.json'
+import soraZh from './locales/zh-CN/sora.json'
+import inviteZh from './locales/zh-CN/invite.json'
 
 const resources = {
   en: {
@@ -31,6 +35,8 @@ const resources = {
     pricing: pricingEn,
     templates: templatesEn,
     'template-use': templateUseEn,
+    sora: soraEn,
+    invite: inviteEn,
   },
   'zh-CN': {
     common: commonZh,
@@ -41,6 +47,8 @@ const resources = {
     pricing: pricingZh,
     templates: templatesZh,
     'template-use': templateUseZh,
+    sora: soraZh,
+    invite: inviteZh,
   },
 }
 
@@ -51,7 +59,7 @@ i18n
     resources,
     fallbackLng: 'en',
     defaultNS: 'common',
-    ns: ['common', 'home', 'canvas', 'chat', 'settings', 'pricing', 'templates', 'template-use'],
+    ns: ['common', 'home', 'canvas', 'chat', 'settings', 'pricing', 'templates', 'template-use', 'sora', 'invite'],
 
     detection: {
       order: ['localStorage', 'navigator', 'htmlTag'],

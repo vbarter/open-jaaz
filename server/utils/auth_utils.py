@@ -280,3 +280,50 @@ def get_user_uuid_for_database_operations(current_user: Optional[CurrentUser]) -
         return current_user.uuid
     else:
         return None  # None将在db_service中转换为匿名用户UUID
+
+
+async def get_user_from_token(token: str) -> Optional[CurrentUser]:
+    """
+    从JWT token获取用户信息（用于WebSocket认证）
+
+    Args:
+        token: JWT token字符串
+
+    Returns:
+        CurrentUser对象，如果token无效返回None
+    """
+    if not token:
+        return None
+
+    try:
+        # 解码JWT token
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+
+        # 从token中获取用户UUID
+        user_uuid = payload.get("uuid")
+        if not user_uuid:
+            # 兼容老版本token
+            user_id = payload.get("user_id")
+            if user_id:
+                user_data = await db_service.get_user_by_id(user_id)
+            else:
+                return None
+        else:
+            user_data = await db_service.get_user_by_uuid(user_uuid)
+
+        if not user_data:
+            return None
+
+        return CurrentUser(
+            id=user_data["id"],
+            uuid=user_data["uuid"],
+            email=user_data["email"],
+            nickname=user_data["nickname"],
+            points=user_data["points"]
+        )
+
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to get user from token: {e}")
+        return None

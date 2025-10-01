@@ -1,0 +1,53 @@
+{
+  "title": "Sora2 视频生成",
+  "subtitle": "使用 AI 将你的想象力转化为精彩视频",
+  "feedbackButton": "联系反馈问题",
+  "placeholder": "描述你想要的视频...",
+  "generating": "队列计算中, 平均完成时间2-3分钟",
+  "buttons": {
+    "delete": "删除",
+    "share": "分享",
+    "cancel": "取消",
+    "inviteFriends": "邀请好友，免费获取",
+    "copy": "复制",
+    "close": "关闭"
+  },
+  "deleteDialog": {
+    "title": "确认删除",
+    "description": "确定要删除这个视频吗？此操作无法撤销。"
+  },
+  "shareDialog": {
+    "title": "分享视频",
+    "videoLink": "视频链接",
+    "copyLink": "复制链接"
+  },
+  "pointsDialog": {
+    "title": "积分不足",
+    "description": "生成视频需要 5 积分，当前积分: {{points}}",
+    "freeTitle": "免费获取 10 次视频生成",
+    "freeDescription": "邀请好友成功注册，即可获赠 50 积分"
+  },
+  "toast": {
+    "submitted": "任务已提交！",
+    "generating": "视频正在后台生成中，将通过WebSocket实时推送状态...",
+    "enterPrompt": "请输入视频描述",
+    "copySuccess": "复制成功！",
+    "copyFailed": "复制失败",
+    "deleteSuccess": "视频删除成功",
+    "deleteFailed": "删除失败",
+    "shareCreated": "分享链接已创建！",
+    "shareFailed": "创建分享链接失败",
+    "videoCompleted": "视频生成完成！",
+    "videoFailed": "视频生成失败",
+    "retryHint": "请重试"
+  },
+  "status": {
+    "processing": "生成中",
+    "completed": "已完成",
+    "failed": "失败"
+  },
+  "stats": {
+    "views": "观看",
+    "likes": "点赞"
+  }
+}

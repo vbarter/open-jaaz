@@ -1,0 +1,68 @@
+{
+  "title": "Invite Center",
+  "subtitle": "Invite friends and earn points together! Share the magic of AI creativity.",
+  "tabs": {
+    "overview": "Overview",
+    "history": "History",
+    "points": "Points"
+  },
+  "inviteCode": {
+    "title": "Your Invite Code",
+    "description": "Share this code with friends to earn points",
+    "used": "Used",
+    "remaining": "remaining",
+    "copyCode": "Copy Code",
+    "copyLink": "Copy Link",
+    "share": "Share",
+    "shareTitle": "Join MagicArt.cc",
+    "shareText": "Join me on MagicArt.cc and get bonus points!",
+    "loadFailed": "Failed to load invite code"
+  },
+  "pointsBalance": {
+    "title": "Points Balance",
+    "description": "Your current points and rewards",
+    "available": "Available Points",
+    "loadFailed": "Failed to load points balance"
+  },
+  "stats": {
+    "totalInvites": "Total Invites",
+    "successful": "Successful",
+    "pending": "Pending",
+    "pointsEarned": "Points Earned"
+  },
+  "howItWorks": {
+    "title": "How it Works",
+    "description": "Earn points by inviting friends to join MagicArt.cc",
+    "step1": {
+      "title": "1. Share",
+      "description": "Share your invite code or link with friends"
+    },
+    "step2": {
+      "title": "2. Join",
+      "description": "Friends register using your invite code"
+    },
+    "step3": {
+      "title": "3. Earn",
+      "description": "You get 10 points, they get 5 points"
+    }
+  },
+  "inviteHistory": {
+    "title": "Invitation History",
+    "description": "Track your invitations and their status",
+    "noInvites": "No invitations yet",
+    "noInvitesHint": "Start inviting friends to see your history here",
+    "pointsAwarded": "points"
+  },
+  "pointsHistory": {
+    "title": "Points History",
+    "description": "Your points transaction history",
+    "balance": "Balance",
+    "noTransactions": "No points transactions yet",
+    "noTransactionsHint": "Start inviting friends to earn points"
+  },
+  "status": {
+    "completed": "Completed",
+    "registered": "Registered",
+    "pending": "Pending"
+  }
+}

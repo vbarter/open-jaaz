@@ -41,6 +41,7 @@ DEFAULT_PROVIDERS_CONFIG: AppConfig = {
         'models': {
             'gpt-4o': {'type': 'text'},
             'gpt-4o-mini': {'type': 'text'},
+            'sora2': {'type': 'video'},
         },
         'url': 'https://api.tu-zi.com/v1',
         'api_key': 'sk-xNyBtMDiP435GMO6e2opXYiSpkNbcVwMK93Vz8joVIPTXuzV',

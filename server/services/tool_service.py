@@ -49,6 +49,7 @@ from tools.generate_image_by_recraft_v3_replicate import (
     generate_image_by_recraft_v3_replicate,
 )
 from tools.generate_video_by_hailuo_02_jaaz import generate_video_by_hailuo_02_jaaz
+from tools.generate_video_by_sora2_yunwu import generate_video_by_sora2_yunwu
 from tools.generate_video_by_veo3_fast_yunwu import generate_video_by_veo3_fast_yunwu
 from tools.generate_image_by_qwen_image_edit_plus import generate_image_by_qwen_image_edit_plus
 from tools.generate_image_by_midjourney_jaaz import generate_image_by_midjourney_jaaz
@@ -178,6 +179,12 @@ TOOL_MAPPING: Dict[str, ToolInfo] = {
         "type": "video",
         "provider": "google",
         "tool_function": generate_video_by_veo3_fast_yunwu,
+    },
+    "generate_video_by_sora2_yunwu": {
+        "display_name": "sora2",
+        "type": "video",
+        "provider": "openai",
+        "tool_function": generate_video_by_sora2_yunwu,
     },
     # # ---------------
     # # Replicate Tools
