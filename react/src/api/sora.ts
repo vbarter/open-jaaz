@@ -13,7 +13,7 @@ export interface Sora2GenRequest {
 export interface Sora2GenResponse {
   task_id: string
   video_url?: string
-  status: 'processing' | 'completed' | 'failed'
+  status: 'processing' | 'completed' | 'failed' | 'insufficient_points'
   message: string
 }
 
@@ -28,6 +28,8 @@ export interface Sora2TaskDetail {
   remark: string
   ctime: string
   mtime: string
+  views?: number
+  likes?: number
 }
 
 export interface Sora2TaskListResponse {
@@ -164,6 +166,104 @@ export const deleteSora2Task = async (taskId: string): Promise<void> => {
     console.log('[API Sora2] 任务删除成功')
   } catch (error) {
     console.error('[API Sora2] 删除任务出错:', error)
+    throw error
+  }
+}
+
+/**
+ * 分享相关接口
+ */
+export interface CreateShareResponse {
+  share_id: string
+  share_url: string
+  views: number
+  likes: number
+}
+
+export interface ShareVideoDetail {
+  prompt: string
+  video_url: string
+  views: number
+  likes: number
+}
+
+/**
+ * 创建分享链接
+ */
+export const createShare = async (videoId: number): Promise<CreateShareResponse> => {
+  console.log('[API Sora2] 创建分享:', videoId)
+
+  try {
+    const response = await fetch('/api/sora2/share', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ video_id: videoId }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[API Sora2] 创建分享失败:', errorText)
+      throw new Error(`创建分享失败: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    console.log('[API Sora2] 分享创建成功:', data)
+    return data as CreateShareResponse
+  } catch (error) {
+    console.error('[API Sora2] 创建分享出错:', error)
+    throw error
+  }
+}
+
+/**
+ * 获取分享视频详情（公开访问）
+ */
+export const getShareVideo = async (shareId: string): Promise<ShareVideoDetail> => {
+  console.log('[API Sora2] 获取分享视频:', shareId)
+
+  try {
+    const response = await fetch(`/api/sora2/share/${shareId}`)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[API Sora2] 获取分享视频失败:', errorText)
+      throw new Error(`获取分享失败: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    console.log('[API Sora2] 分享视频获取成功:', data)
+    return data as ShareVideoDetail
+  } catch (error) {
+    console.error('[API Sora2] 获取分享视频出错:', error)
+    throw error
+  }
+}
+
+/**
+ * 点赞分享视频
+ */
+export const likeShareVideo = async (shareId: string): Promise<{ success: boolean; likes: number }> => {
+  console.log('[API Sora2] 点赞分享:', shareId)
+
+  try {
+    const response = await fetch(`/api/sora2/share/${shareId}/like`, {
+      method: 'POST',
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[API Sora2] 点赞失败:', errorText)
+      throw new Error(`点赞失败: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    console.log('[API Sora2] 点赞成功:', data)
+    return data
+  } catch (error) {
+    console.error('[API Sora2] 点赞出错:', error)
     throw error
   }
 }

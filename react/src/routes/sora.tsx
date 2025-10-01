@@ -13,13 +13,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Loader2, Send, Sparkles, Trash2, AlertTriangle, Share2 } from 'lucide-react'
+import { Loader2, Send, Sparkles, Trash2, AlertTriangle, Share2, Eye, Heart } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   generateSora2Video,
   getSora2Tasks,
   Sora2TaskDetail,
   deleteSora2Task,
+  createShare,
+  CreateShareResponse,
 } from '@/api/sora'
 import { EnhancedVideoPlayer } from '@/components/chat/EnhancedVideoPlayer'
 
@@ -34,6 +36,8 @@ interface GeneratedVideo {
   status: 'processing' | 'completed' | 'failed'
   createdAt: Date
   remark?: string // 错误信息或备注
+  views?: number // 访问量
+  likes?: number // 点赞量
 }
 
 // 状态映射：后端状态 -> 前端状态
@@ -53,10 +57,13 @@ const taskToVideo = (task: Sora2TaskDetail): GeneratedVideo => ({
   status: mapStatus(task.status),
   createdAt: new Date(task.ctime),
   remark: task.remark,
+  views: task.views ?? 0,
+  likes: task.likes ?? 0,
 })
 
 function SoraPage() {
-  const { t } = useTranslation('common')
+  const { t } = useTranslation('sora')
+  const { t: tCommon } = useTranslation('common')
   const [prompt, setPrompt] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [videos, setVideos] = useState<GeneratedVideo[]>([])
@@ -68,6 +75,15 @@ function SoraPage() {
   // 删除确认对话框状态
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [videoToDelete, setVideoToDelete] = useState<string | null>(null)
+
+  // 分享对话框状态
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [shareData, setShareData] = useState<CreateShareResponse | null>(null)
+  const [isCreatingShare, setIsCreatingShare] = useState(false)
+
+  // 积分不足对话框状态
+  const [pointsDialogOpen, setPointsDialogOpen] = useState(false)
+  const [currentPoints, setCurrentPoints] = useState<number>(0)
 
   // WebSocket连接逻辑
   const connectWebSocket = useCallback(() => {
@@ -117,13 +133,13 @@ function SoraPage() {
                 if (oldVideo && oldVideo.status === 'processing') {
                   if (newVideo.status === 'completed') {
                     console.log(`  ✅ [Sora WS] 任务 #${newVideo.id} 生成成功`)
-                    toast.success('视频生成完成！', {
+                    toast.success(t('toast.videoCompleted'), {
                       description: newVideo.prompt.substring(0, 50) + '...',
                     })
                   } else if (newVideo.status === 'failed') {
                     console.log(`  ❌ [Sora WS] 任务 #${newVideo.id} 生成失败`)
-                    toast.error('视频生成失败', {
-                      description: newVideo.remark || '请重试',
+                    toast.error(t('toast.videoFailed'), {
+                      description: newVideo.remark || t('toast.retryHint'),
                     })
                   }
                 }
@@ -196,8 +212,8 @@ function SoraPage() {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      toast.error(t('messages.error'), {
-        description: '请输入视频描述',
+      toast.error(tCommon('messages.error'), {
+        description: t('toast.enterPrompt'),
       })
       return
     }
@@ -223,6 +239,21 @@ function SoraPage() {
         duration: 5,
       })
 
+      // 检查是否积分不足
+      if (result.status === 'insufficient_points') {
+        // 提取当前积分数
+        const match = result.message.match(/当前积分[：:]\s*(\d+)/)
+        if (match) {
+          setCurrentPoints(parseInt(match[1]))
+        }
+        setPointsDialogOpen(true)
+
+        // 移除临时视频卡片
+        setVideos((prev) => prev.filter((v) => v.id !== tempId))
+        setIsGenerating(false)
+        return
+      }
+
       // 更新视频状态（使用真实的任务ID）
       setVideos((prev) =>
         prev.map((v) =>
@@ -236,8 +267,8 @@ function SoraPage() {
         )
       )
 
-      toast.success('任务已提交！', {
-        description: '视频正在后台生成中，将通过WebSocket实时推送状态...',
+      toast.success(t('toast.submitted'), {
+        description: t('toast.generating'),
       })
 
       // 清空输入框
@@ -245,10 +276,12 @@ function SoraPage() {
 
       // 任务提交后，后端会通过WebSocket推送最新状态
       console.log('✅ [Sora] 任务提交成功，任务ID:', result.task_id)
-    } catch (error) {
+    } catch (error: any) {
       console.error('视频生成失败:', error)
-      toast.error(t('messages.error'), {
-        description: error instanceof Error ? error.message : '任务提交失败',
+
+      const errorMessage = error?.message || error?.toString() || '任务提交失败'
+      toast.error(tCommon('messages.error'), {
+        description: errorMessage,
       })
 
       // 移除失败的临时视频
@@ -282,15 +315,15 @@ function SoraPage() {
       // 从列表中移除
       setVideos((prev) => prev.filter((v) => v.id !== videoToDelete))
 
-      toast.success('任务已删除', {
-        description: '视频任务已成功删除',
+      toast.success(t('toast.deleteSuccess'), {
+        description: t('toast.deleteSuccess'),
       })
 
       console.log(`✅ [Sora] 任务 #${videoToDelete} 删除成功`)
     } catch (error) {
       console.error('删除任务失败:', error)
-      toast.error('删除失败', {
-        description: error instanceof Error ? error.message : '删除任务失败',
+      toast.error(t('toast.deleteFailed'), {
+        description: error instanceof Error ? error.message : t('toast.deleteFailed'),
       })
     } finally {
       setDeleteDialogOpen(false)
@@ -298,39 +331,47 @@ function SoraPage() {
     }
   }
 
-  // 分享功能
+  // 分享功能 - 创建分享链接
   const handleShare = async (video: GeneratedVideo) => {
     if (video.status !== 'completed' || !video.videoUrl) {
-      toast.error('无法分享', {
-        description: '只能分享已完成的视频',
+      toast.error(t('toast.shareFailed'), {
+        description: t('toast.shareFailed'),
       })
       return
     }
 
+    setIsCreatingShare(true)
     try {
-      // 如果浏览器支持 Web Share API
-      if (navigator.share) {
-        await navigator.share({
-          title: 'Sora2 视频',
-          text: video.prompt,
-          url: video.videoUrl,
-        })
-        toast.success('分享成功')
-      } else {
-        // 复制链接到剪贴板
-        await navigator.clipboard.writeText(video.videoUrl)
-        toast.success('链接已复制', {
-          description: '视频链接已复制到剪贴板',
-        })
-      }
+      // 调用API创建分享
+      const shareResponse = await createShare(parseInt(video.id))
+      setShareData(shareResponse)
+      setShareDialogOpen(true)
+
+      console.log('✅ [Sora] 分享创建成功:', shareResponse)
     } catch (error) {
       console.error('分享失败:', error)
-      // 如果取消分享，不显示错误
-      if (error instanceof Error && error.name !== 'AbortError') {
-        toast.error('分享失败', {
-          description: '请稍后重试',
-        })
-      }
+      toast.error(t('toast.shareFailed'), {
+        description: error instanceof Error ? error.message : t('toast.shareFailed'),
+      })
+    } finally {
+      setIsCreatingShare(false)
+    }
+  }
+
+  // 复制分享链接
+  const copyShareLink = async () => {
+    if (!shareData) return
+
+    try {
+      await navigator.clipboard.writeText(shareData.share_url)
+      toast.success(t('toast.copySuccess'), {
+        description: t('toast.copySuccess'),
+      })
+    } catch (error) {
+      console.error('复制失败:', error)
+      toast.error(t('toast.copyFailed'), {
+        description: t('toast.copyFailed'),
+      })
     }
   }
 
@@ -343,13 +384,12 @@ function SoraPage() {
           {/* 标题区域 */}
           <div className="w-full max-w-6xl mx-auto mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <Sparkles className="w-8 h-8 text-gray-800 dark:text-gray-200" />
               <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100">
-                Sora2 视频生成
+                {t('title')}
               </h1>
             </div>
             <p className="text-center text-gray-600 dark:text-gray-400 text-sm sm:text-base">
-              使用 AI 将你的想象力转化为精彩视频
+              {t('subtitle')}
             </p>
           </div>
 
@@ -371,6 +411,20 @@ function SoraPage() {
                   <div key={video.id} className="relative group">
                     {/* 统一的9:16容器 - 确保所有卡片尺寸一致 */}
                     <div className="w-full aspect-[9/16] relative overflow-hidden bg-black rounded-lg">
+                      {/* 统计信息 - 左上角 */}
+                      <div className="absolute top-2 left-2 z-20 flex items-center gap-1">
+                        {/* 播放量 */}
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white">
+                          <Eye className="w-3 h-3" />
+                          <span className="text-xs font-medium">{video.views ?? 0}</span>
+                        </div>
+                        {/* 点赞量 */}
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white">
+                          <Heart className="w-3 h-3" />
+                          <span className="text-xs font-medium">{video.likes ?? 0}</span>
+                        </div>
+                      </div>
+
                       {/* 操作按钮组 - 右上角 */}
                       <div className="absolute top-2 right-2 z-20 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         {/* 分享按钮 */}
@@ -397,9 +451,9 @@ function SoraPage() {
                       {/* 内容区域 - 填充整个容器 */}
                       {video.status === 'processing' ? (
                         <div className="absolute inset-0 bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center">
-                          <Loader2 className="w-8 h-8 animate-spin text-purple-600 dark:text-purple-400 mb-2" />
-                          <p className="text-xs text-gray-600 dark:text-gray-300">
-                            视频生成中...
+                          <Loader2 className="w-8 h-8 animate-spin text-gray-900 dark:text-gray-100 mb-2" />
+                          <p className="text-xs text-gray-600 dark:text-gray-300 text-center px-4">
+                            {t('generating')}
                           </p>
                         </div>
                       ) : video.status === 'completed' && video.videoUrl ? (
@@ -446,20 +500,26 @@ function SoraPage() {
       {/* 固定在底部的输入框 */}
       <div className="fixed bottom-0 left-0 right-0 z-50 pb-6 px-4">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-full px-6 py-3 shadow-2xl border border-gray-200 dark:border-gray-700">
+          <div className="relative backdrop-blur-xl bg-white/80 dark:bg-gray-800/80 rounded-xl px-6 py-4 shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
             <Textarea
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={(e) => {
+                setPrompt(e.target.value)
+                // Auto-resize
+                e.target.style.height = 'auto'
+                e.target.style.height = e.target.scrollHeight + 'px'
+              }}
               onKeyDown={handleKeyDown}
-              placeholder="Describe your video..."
-              className="flex-1 min-h-[56px] max-h-[140px] resize-none bg-transparent border-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 px-2"
+              placeholder={t('placeholder')}
+              className="w-full min-h-[56px] resize-none bg-transparent border-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-16 overflow-hidden"
+              style={{ maxHeight: 'none' }}
               disabled={isGenerating}
             />
             <Button
               onClick={handleGenerate}
               disabled={isGenerating || !prompt.trim()}
               size="icon"
-              className="rounded-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900 shrink-0 h-12 w-12"
+              className="absolute bottom-4 right-4 rounded-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900 h-12 w-12"
             >
               {isGenerating ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -477,10 +537,10 @@ function SoraPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-red-500" />
-              确认删除
+              {t('deleteDialog.title')}
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              确定要删除这个视频任务吗？此操作无法撤销。
+              {t('deleteDialog.description')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row gap-2 sm:gap-2">
@@ -489,16 +549,115 @@ function SoraPage() {
               onClick={() => setDeleteDialogOpen(false)}
               className="flex-1"
             >
-              取消
+              {t('buttons.cancel')}
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
               className="flex-1"
             >
-              删除
+              {t('buttons.delete')}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 分享对话框 */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-5 h-5 text-gray-900 dark:text-gray-100" />
+              {t('shareDialog.title')}
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              {t('shareDialog.copyLink')}
+            </DialogDescription>
+          </DialogHeader>
+
+          {shareData && (
+            <div className="space-y-4">
+              {/* 分享链接 */}
+              <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <input
+                  type="text"
+                  value={shareData.share_url}
+                  readOnly
+                  className="flex-1 bg-transparent text-sm font-mono text-gray-900 dark:text-gray-100 outline-none"
+                />
+                <Button
+                  size="sm"
+                  onClick={copyShareLink}
+                  className="bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900"
+                >
+                  复制
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShareDialogOpen(false)}
+              className="w-full"
+            >
+              关闭
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 积分不足对话框 */}
+      <Dialog open={pointsDialogOpen} onOpenChange={setPointsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+              <AlertTriangle className="w-5 h-5 text-gray-900 dark:text-gray-100" />
+              {t('pointsDialog.title')}
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2 text-gray-600 dark:text-gray-400">
+              {t('pointsDialog.description', { points: currentPoints })}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            {/* 免费获取提示 */}
+            <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg border border-gray-300 dark:border-gray-700">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">🎁</div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                    {t('pointsDialog.freeTitle')}
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {t('pointsDialog.freeDescription')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-2">
+            <Button
+              onClick={() => {
+                setPointsDialogOpen(false)
+                // 跳转到邀请页面
+                window.location.href = '/invite'
+              }}
+              variant="outline"
+              className="w-full border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              {t('buttons.inviteFriends')}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setPointsDialogOpen(false)}
+              className="w-full text-gray-600 dark:text-gray-400"
+            >
+              {t('buttons.cancel')}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

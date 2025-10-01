@@ -1,0 +1,50 @@
+{
+  "title": "Sora2 Video Generation",
+  "subtitle": "Transform your imagination into stunning videos with AI",
+  "placeholder": "Describe your video...",
+  "generating": "Queued for processing, average completion time 2-3 minutes",
+  "buttons": {
+    "delete": "Delete",
+    "share": "Share",
+    "cancel": "Cancel",
+    "inviteFriends": "Invite Friends, Get Free Credits"
+  },
+  "deleteDialog": {
+    "title": "Confirm Deletion",
+    "description": "Are you sure you want to delete this video? This action cannot be undone."
+  },
+  "shareDialog": {
+    "title": "Share Video",
+    "videoLink": "Video Link",
+    "copyLink": "Copy Link"
+  },
+  "pointsDialog": {
+    "title": "Insufficient Credits",
+    "description": "Video generation requires 5 credits, current credits: {{points}}",
+    "freeTitle": "Get 10 Free Video Generations",
+    "freeDescription": "Invite friends to sign up and receive 50 credits"
+  },
+  "toast": {
+    "submitted": "Task submitted!",
+    "generating": "Video is being generated in the background, status will be pushed via WebSocket...",
+    "enterPrompt": "Please enter video description",
+    "copySuccess": "Copied successfully!",
+    "copyFailed": "Copy failed",
+    "deleteSuccess": "Video deleted successfully",
+    "deleteFailed": "Deletion failed",
+    "shareCreated": "Share link created!",
+    "shareFailed": "Failed to create share link",
+    "videoCompleted": "Video generation completed!",
+    "videoFailed": "Video generation failed",
+    "retryHint": "Please try again"
+  },
+  "status": {
+    "processing": "Processing",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
+  "stats": {
+    "views": "views",
+    "likes": "likes"
+  }
+}

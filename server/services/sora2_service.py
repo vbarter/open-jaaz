@@ -178,10 +178,14 @@ class Sora2Service:
             if status:
                 cursor = await db.execute(
                     """
-                    SELECT id, user_uuid, prompt, model, images, video_url, status, remark, ctime, mtime
-                    FROM tb_sora2
-                    WHERE user_uuid = ? AND status = ?
-                    ORDER BY ctime DESC
+                    SELECT s.id, s.user_uuid, s.prompt, s.model, s.images, s.video_url,
+                           s.status, s.remark, s.ctime, s.mtime,
+                           COALESCE(sh.views, 0) as views,
+                           COALESCE(sh.likes, 0) as likes
+                    FROM tb_sora2 s
+                    LEFT JOIN tb_sora2_share sh ON s.id = sh.video_id
+                    WHERE s.user_uuid = ? AND s.status = ?
+                    ORDER BY s.ctime DESC
                     LIMIT ? OFFSET ?
                     """,
                     (user_uuid, status, limit, offset)
@@ -189,10 +193,14 @@ class Sora2Service:
             else:
                 cursor = await db.execute(
                     """
-                    SELECT id, user_uuid, prompt, model, images, video_url, status, remark, ctime, mtime
-                    FROM tb_sora2
-                    WHERE user_uuid = ?
-                    ORDER BY ctime DESC
+                    SELECT s.id, s.user_uuid, s.prompt, s.model, s.images, s.video_url,
+                           s.status, s.remark, s.ctime, s.mtime,
+                           COALESCE(sh.views, 0) as views,
+                           COALESCE(sh.likes, 0) as likes
+                    FROM tb_sora2 s
+                    LEFT JOIN tb_sora2_share sh ON s.id = sh.video_id
+                    WHERE s.user_uuid = ?
+                    ORDER BY s.ctime DESC
                     LIMIT ? OFFSET ?
                     """,
                     (user_uuid, limit, offset)
@@ -251,6 +259,7 @@ class Sora2Service:
         record_id: int,
         prompt: str,
         model: str,
+        user_uuid: str,
         aspect_ratio: str = "9:16",
         duration: int = 5,
         resolution: str = "480p"
@@ -262,6 +271,7 @@ class Sora2Service:
             record_id: 数据库记录 ID
             prompt: 视频生成提示词
             model: 视频生成模型
+            user_uuid: 用户UUID（用于扣除积分）
             aspect_ratio: 视频宽高比
             duration: 视频时长
             resolution: 视频分辨率
@@ -301,6 +311,21 @@ class Sora2Service:
                     remark=f"Generated successfully with {model}"
                 )
                 logger.info(f"✅ [Task #{record_id}] 视频生成成功 - url: {video_url}")
+
+                # 扣除5积分
+                try:
+                    from services.db_service import db_service
+                    user_info = await db_service.get_user_by_uuid(user_uuid)
+                    if user_info:
+                        current_points = user_info.get('points', 0)
+                        new_points = max(0, current_points - 5)  # 确保积分不会为负数
+                        await db_service.update_user_points(user_info['id'], new_points)
+                        logger.info(f"💰 扣除积分成功 - 用户: {user_uuid[:8]}..., {current_points} -> {new_points}")
+                    else:
+                        logger.warning(f"⚠️ 无法扣除积分 - 用户不存在: {user_uuid}")
+                except Exception as deduct_error:
+                    logger.error(f"❌ 扣除积分失败: {deduct_error}", exc_info=True)
+                    # 积分扣除失败不影响视频生成结果
             else:
                 # 视频生成失败（没有返回URL）
                 await self.update_record(

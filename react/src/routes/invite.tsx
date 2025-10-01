@@ -38,7 +38,8 @@ export const Route = createFileRoute('/invite')({
 })
 
 function InviteCenter() {
-  const { t } = useTranslation()
+  const { t } = useTranslation('invite')
+  const { t: tCommon } = useTranslation('common')
   const [activeTab, setActiveTab] = useState('overview')
 
   // API queries
@@ -71,9 +72,9 @@ function InviteCenter() {
     if (inviteCode?.code) {
       const success = copyToClipboard(inviteCode.code)
       if (success) {
-        toast.success(t('common:toast.copySuccess'))
+        toast.success(tCommon('toast.copySuccess'))
       } else {
-        toast.error(t('common:toast.copyError'))
+        toast.error(tCommon('toast.copyError'))
       }
     }
   }
@@ -83,9 +84,9 @@ function InviteCenter() {
       const url = generateInviteUrl(inviteCode.code)
       const success = copyToClipboard(url)
       if (success) {
-        toast.success(t('common:toast.copySuccess'))
+        toast.success(tCommon('toast.copySuccess'))
       } else {
-        toast.error(t('common:toast.copyError'))
+        toast.error(tCommon('toast.copyError'))
       }
     }
   }
@@ -94,8 +95,8 @@ function InviteCenter() {
     if (inviteCode?.code) {
       const url = generateInviteUrl(inviteCode.code)
       const shareData = {
-        title: 'Join MagicArt.cc',
-        text: 'Join me on MagicArt.cc and get bonus points!',
+        title: t('inviteCode.shareTitle'),
+        text: t('inviteCode.shareText'),
         url: url,
       }
 
@@ -115,11 +116,11 @@ function InviteCenter() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge variant="default" className="bg-stone-100 dark:bg-stone-700 text-stone-800 dark:text-stone-200 border-stone-200 dark:border-stone-600">Completed</Badge>
+        return <Badge variant="default" className="bg-stone-100 dark:bg-stone-700 text-stone-800 dark:text-stone-200 border-stone-200 dark:border-stone-600">{t('status.completed')}</Badge>
       case 'registered':
-        return <Badge variant="secondary" className="bg-stone-200 dark:bg-stone-600 text-stone-800 dark:text-stone-200">Registered</Badge>
+        return <Badge variant="secondary" className="bg-stone-200 dark:bg-stone-600 text-stone-800 dark:text-stone-200">{t('status.registered')}</Badge>
       case 'pending':
-        return <Badge variant="outline" className="border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300">Pending</Badge>
+        return <Badge variant="outline" className="border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300">{t('status.pending')}</Badge>
       default:
         return <Badge variant="outline" className="border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300">{status}</Badge>
     }
@@ -150,18 +151,18 @@ function InviteCenter() {
         >
           <div className="text-center mb-6 sm:mb-8">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-br from-gray-900 via-gray-700 to-stone-600 dark:from-white dark:via-gray-200 dark:to-stone-300 bg-clip-text text-transparent mb-3 sm:mb-4">
-              Invite Center
+              {t('title')}
             </h1>
             <p className="text-base sm:text-lg lg:text-xl text-stone-600 dark:text-stone-300 max-w-2xl mx-auto px-4">
-              Invite friends and earn points together! Share the magic of AI creativity.
+              {t('subtitle')}
             </p>
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3 bg-stone-100 dark:bg-stone-800 h-auto">
-              <TabsTrigger value="overview" className="text-xs sm:text-sm py-2 sm:py-2.5">Overview</TabsTrigger>
-              <TabsTrigger value="history" className="text-xs sm:text-sm py-2 sm:py-2.5">History</TabsTrigger>
-              <TabsTrigger value="points" className="text-xs sm:text-sm py-2 sm:py-2.5">Points</TabsTrigger>
+              <TabsTrigger value="overview" className="text-xs sm:text-sm py-2 sm:py-2.5">{t('tabs.overview')}</TabsTrigger>
+              <TabsTrigger value="history" className="text-xs sm:text-sm py-2 sm:py-2.5">{t('tabs.history')}</TabsTrigger>
+              <TabsTrigger value="points" className="text-xs sm:text-sm py-2 sm:py-2.5">{t('tabs.points')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="mt-4 sm:mt-6">
@@ -171,10 +172,10 @@ function InviteCenter() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Share2 className="h-5 w-5" />
-                      Your Invite Code
+                      {t('inviteCode.title')}
                     </CardTitle>
                     <CardDescription>
-                      Share this code with friends to earn points
+                      {t('inviteCode.description')}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -191,28 +192,28 @@ function InviteCenter() {
                         <div className="flex flex-col sm:flex-row gap-2">
                           <Button onClick={handleCopyInviteCode} variant="outline" size="sm" className="flex-1">
                             <Copy className="h-4 w-4 mr-2" />
-                            Copy Code
+                            {t('inviteCode.copyCode')}
                           </Button>
                           <Button onClick={handleCopyInviteLink} variant="outline" size="sm" className="flex-1">
                             <ExternalLink className="h-4 w-4 mr-2" />
-                            Copy Link
+                            {t('inviteCode.copyLink')}
                           </Button>
                           <Button onClick={handleShareInvite} size="sm" className="flex-1">
                             <Share2 className="h-4 w-4 mr-2" />
-                            Share
+                            {t('inviteCode.share')}
                           </Button>
                         </div>
 
                         <div className="text-sm text-stone-600 dark:text-stone-400">
-                          Used: <span className="font-semibold">{inviteCode.used_count}</span> / {inviteCode.max_uses}
+                          {t('inviteCode.used')}: <span className="font-semibold">{inviteCode.used_count}</span> / {inviteCode.max_uses}
                           <span className="text-stone-500 dark:text-stone-400 ml-2">
-                            ({inviteCode.remaining_uses} remaining)
+                            ({inviteCode.remaining_uses} {t('inviteCode.remaining')})
                           </span>
                         </div>
                       </div>
                     ) : (
                       <div className="text-center text-gray-500">
-                        Failed to load invite code
+                        {t('inviteCode.loadFailed')}
                       </div>
                     )}
                   </CardContent>
@@ -223,10 +224,10 @@ function InviteCenter() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Gift className="h-5 w-5" />
-                      Points Balance
+                      {t('pointsBalance.title')}
                     </CardTitle>
                     <CardDescription>
-                      Your current points and rewards
+                      {t('pointsBalance.description')}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -238,12 +239,12 @@ function InviteCenter() {
                           {pointsBalance.balance}
                         </div>
                         <div className="text-xs sm:text-sm text-stone-600 dark:text-stone-400">
-                          Available Points
+                          {t('pointsBalance.available')}
                         </div>
                       </div>
                     ) : (
                       <div className="text-center text-gray-500">
-                        Failed to load points balance
+                        {t('pointsBalance.loadFailed')}
                       </div>
                     )}
                   </CardContent>
@@ -268,34 +269,34 @@ function InviteCenter() {
                         <div className="text-xl sm:text-2xl font-bold text-stone-800 dark:text-stone-200">
                           {inviteStats.total_invitations}
                         </div>
-                        <div className="text-xs sm:text-sm text-stone-600 dark:text-stone-400">Total Invites</div>
+                        <div className="text-xs sm:text-sm text-stone-600 dark:text-stone-400">{t('stats.totalInvites')}</div>
                       </CardContent>
                     </Card>
-                    
+
                     <Card>
                       <CardContent className="p-4 text-center">
                         <div className="text-xl sm:text-2xl font-bold text-stone-800 dark:text-stone-200">
                           {inviteStats.successful_invitations}
                         </div>
-                        <div className="text-xs sm:text-sm text-stone-600 dark:text-stone-400">Successful</div>
+                        <div className="text-xs sm:text-sm text-stone-600 dark:text-stone-400">{t('stats.successful')}</div>
                       </CardContent>
                     </Card>
-                    
+
                     <Card>
                       <CardContent className="p-4 text-center">
                         <div className="text-xl sm:text-2xl font-bold text-stone-800 dark:text-stone-200">
                           {inviteStats.pending_invitations}
                         </div>
-                        <div className="text-xs sm:text-sm text-stone-600 dark:text-stone-400">Pending</div>
+                        <div className="text-xs sm:text-sm text-stone-600 dark:text-stone-400">{t('stats.pending')}</div>
                       </CardContent>
                     </Card>
-                    
+
                     <Card>
                       <CardContent className="p-4 text-center">
                         <div className="text-xl sm:text-2xl font-bold text-stone-800 dark:text-stone-200">
                           {inviteStats.total_points_earned}
                         </div>
-                        <div className="text-xs sm:text-sm text-stone-600 dark:text-stone-400">Points Earned</div>
+                        <div className="text-xs sm:text-sm text-stone-600 dark:text-stone-400">{t('stats.pointsEarned')}</div>
                       </CardContent>
                     </Card>
                   </div>
@@ -304,9 +305,9 @@ function InviteCenter() {
                 {/* How it Works */}
                 <Card className="lg:col-span-2">
                   <CardHeader>
-                    <CardTitle>How it Works</CardTitle>
+                    <CardTitle>{t('howItWorks.title')}</CardTitle>
                     <CardDescription>
-                      Earn points by inviting friends to join MagicArt.cc
+                      {t('howItWorks.description')}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -315,29 +316,29 @@ function InviteCenter() {
                         <div className="w-12 h-12 bg-stone-100 dark:bg-stone-700 rounded-full flex items-center justify-center mx-auto mb-3">
                           <Share2 className="h-6 w-6 text-stone-600 dark:text-stone-300" />
                         </div>
-                        <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base text-stone-800 dark:text-stone-200">1. Share</h3>
+                        <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base text-stone-800 dark:text-stone-200">{t('howItWorks.step1.title')}</h3>
                         <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400">
-                          Share your invite code or link with friends
+                          {t('howItWorks.step1.description')}
                         </p>
                       </div>
-                      
+
                       <div className="text-center p-4 bg-stone-50 dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700">
                         <div className="w-12 h-12 bg-stone-100 dark:bg-stone-700 rounded-full flex items-center justify-center mx-auto mb-3">
                           <Users className="h-6 w-6 text-stone-600 dark:text-stone-300" />
                         </div>
-                        <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base text-stone-800 dark:text-stone-200">2. Join</h3>
+                        <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base text-stone-800 dark:text-stone-200">{t('howItWorks.step2.title')}</h3>
                         <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400">
-                          Friends register using your invite code
+                          {t('howItWorks.step2.description')}
                         </p>
                       </div>
-                      
+
                       <div className="text-center p-4 bg-stone-50 dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700">
                         <div className="w-12 h-12 bg-stone-100 dark:bg-stone-700 rounded-full flex items-center justify-center mx-auto mb-3">
                           <Gift className="h-6 w-6 text-stone-600 dark:text-stone-300" />
                         </div>
-                        <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base text-stone-800 dark:text-stone-200">3. Earn</h3>
+                        <h3 className="font-semibold mb-1 sm:mb-2 text-sm sm:text-base text-stone-800 dark:text-stone-200">{t('howItWorks.step3.title')}</h3>
                         <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400">
-                          You get 10 points, they get 5 points
+                          {t('howItWorks.step3.description')}
                         </p>
                       </div>
                     </div>
@@ -349,9 +350,9 @@ function InviteCenter() {
             <TabsContent value="history" className="mt-4 sm:mt-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Invitation History</CardTitle>
+                  <CardTitle>{t('inviteHistory.title')}</CardTitle>
                   <CardDescription>
-                    Track your invitations and their status
+                    {t('inviteHistory.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -374,12 +375,12 @@ function InviteCenter() {
                                 {new Date(record.created_at).toLocaleDateString()}
                               </div>
                             </div>
-                            
+
                             <div className="flex items-center gap-3">
                               {getStatusBadge(record.status)}
                               {record.status === 'completed' && (
                                 <div className="text-sm font-medium text-stone-600 dark:text-stone-400">
-                                  +{record.inviter_points_awarded} points
+                                  +{record.inviter_points_awarded} {t('inviteHistory.pointsAwarded')}
                                 </div>
                               )}
                             </div>
@@ -390,8 +391,8 @@ function InviteCenter() {
                   ) : (
                     <div className="text-center py-8 text-stone-500 dark:text-stone-400">
                       <Users className="h-12 w-12 mx-auto mb-4 text-stone-300 dark:text-stone-600" />
-                      <p>No invitations yet</p>
-                      <p className="text-sm">Start inviting friends to see your history here</p>
+                      <p>{t('inviteHistory.noInvites')}</p>
+                      <p className="text-sm">{t('inviteHistory.noInvitesHint')}</p>
                     </div>
                   )}
                 </CardContent>
@@ -401,9 +402,9 @@ function InviteCenter() {
             <TabsContent value="points" className="mt-4 sm:mt-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Points History</CardTitle>
+                  <CardTitle>{t('pointsHistory.title')}</CardTitle>
                   <CardDescription>
-                    Your points transaction history
+                    {t('pointsHistory.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -429,13 +430,13 @@ function InviteCenter() {
                                 </div>
                               </div>
                             </div>
-                            
+
                             <div className="text-right">
                               <div className={`font-medium ${transaction.points > 0 ? 'text-stone-800 dark:text-stone-200' : 'text-stone-600 dark:text-stone-400'}`}>
                                 {transaction.points > 0 ? '+' : ''}{transaction.points}
                               </div>
                               <div className="text-sm text-stone-600 dark:text-stone-400">
-                                Balance: {transaction.balance_after}
+                                {t('pointsHistory.balance')}: {transaction.balance_after}
                               </div>
                             </div>
                           </div>
@@ -445,8 +446,8 @@ function InviteCenter() {
                   ) : (
                     <div className="text-center py-8 text-stone-500 dark:text-stone-400">
                       <Gift className="h-12 w-12 mx-auto mb-4 text-stone-300 dark:text-stone-600" />
-                      <p>No points transactions yet</p>
-                      <p className="text-sm">Start inviting friends to earn points</p>
+                      <p>{t('pointsHistory.noTransactions')}</p>
+                      <p className="text-sm">{t('pointsHistory.noTransactionsHint')}</p>
                     </div>
                   )}
                 </CardContent>

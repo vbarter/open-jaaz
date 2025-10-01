@@ -9,6 +9,7 @@ from typing import Optional, Literal, Dict
 from utils.auth_utils import get_current_user_optional, CurrentUser, get_user_from_token
 from services.video_generation_service import get_video_generation_service
 from services.sora2_service import sora2_service
+from services.sora2_share_service import get_sora2_share_service
 from log import get_logger
 import asyncio
 import json
@@ -229,6 +230,8 @@ class Sora2TaskDetail(BaseModel):
     remark: str = Field(default="", description="备注信息")
     ctime: str = Field(..., description="创建时间")
     mtime: str = Field(..., description="最后更新时间")
+    views: int = Field(default=0, description="访问量")
+    likes: int = Field(default=0, description="点赞量")
 
 
 # Sora2 任务列表响应模型
@@ -265,9 +268,34 @@ async def generate_sora2_video(
         logger.info(f"🎬 接收视频生成请求 - model: {request.model}, prompt: {request.prompt[:50]}...")
 
         # 获取用户信息
-        user_email = current_user.email if current_user else "anonymous"
-        user_uuid = current_user.uuid if current_user else "anonymous"
+        if not current_user:
+            raise HTTPException(status_code=401, detail="请先登录")
+
+        user_email = current_user.email
+        user_uuid = current_user.uuid
+        user_id = current_user.id
         logger.info(f"👤 用户: {user_email}")
+
+        # 检查用户积分是否足够（需要5积分）
+        from services.db_service import db_service
+        user_info = await db_service.get_user_by_id(user_id)
+
+        if not user_info:
+            raise HTTPException(status_code=404, detail="用户不存在")
+
+        current_points = user_info.get('points', 0)
+        required_points = 5
+
+        if current_points < required_points:
+            logger.warning(f"⚠️ 用户 {user_email} 积分不足: {current_points} < {required_points}")
+            # 返回成功响应，但标记为积分不足
+            return Sora2GenResponse(
+                task_id="",
+                status="insufficient_points",
+                message=f"积分不足，当前积分: {current_points}，需要: {required_points}"
+            )
+
+        logger.info(f"✅ 积分检查通过 - 当前积分: {current_points}")
 
         # 1. 创建数据库记录（初始状态为 running）
         record_id = await sora2_service.create_record(
@@ -287,6 +315,7 @@ async def generate_sora2_video(
                 record_id=record_id,
                 prompt=request.prompt,
                 model=request.model,
+                user_uuid=user_uuid,
                 aspect_ratio=request.aspect_ratio,
                 duration=request.duration,
                 resolution=request.resolution
@@ -301,6 +330,9 @@ async def generate_sora2_video(
             message=f"视频生成任务已提交，任务ID: {record_id}"
         )
 
+    except HTTPException:
+        # Re-raise HTTPException as-is (don't wrap)
+        raise
     except Exception as e:
         logger.error(f"❌ 创建任务失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"创建任务失败: {str(e)}")
@@ -590,3 +622,176 @@ async def websocket_sora2_tasks(
         logger.error(f"❌ WebSocket error: {e}", exc_info=True)
         if user_uuid:
             ws_manager.disconnect(websocket, user_uuid)
+
+# ==================== Sora2 分享相关路由 ====================
+
+class CreateShareRequest(BaseModel):
+    """创建分享请求"""
+    video_id: int = Field(..., description="视频ID")
+
+
+class CreateShareResponse(BaseModel):
+    """创建分享响应"""
+    share_id: str = Field(..., description="分享ID")
+    share_url: str = Field(..., description="分享链接")
+    views: int = Field(default=0, description="访问量")
+    likes: int = Field(default=0, description="点赞量")
+
+
+class ShareVideoDetail(BaseModel):
+    """分享视频详情"""
+    prompt: str = Field(..., description="提示词")
+    video_url: str = Field(..., description="视频URL")
+    views: int = Field(..., description="访问量")
+    likes: int = Field(..., description="点赞量")
+
+
+@router.post("/sora2/share", response_model=CreateShareResponse)
+async def create_sora2_share(
+    request: CreateShareRequest,
+    current_user: CurrentUser = Depends(get_current_user_optional)
+):
+    """
+    创建视频分享链接
+    
+    Args:
+        request: 创建分享请求
+        current_user: 当前用户
+        
+    Returns:
+        分享信息（share_id, share_url等）
+    """
+    try:
+        # 验证用户登录
+        if not current_user:
+            raise HTTPException(status_code=401, detail="请先登录")
+        
+        user_uuid = current_user.uuid
+        video_id = request.video_id
+        
+        logger.info(f"📤 创建分享 - user: {current_user.email}, video_id: {video_id}")
+        
+        # 验证视频是否存在且属于当前用户
+        task = await sora2_service.get_record(video_id)
+        if not task:
+            raise HTTPException(status_code=404, detail=f"视频 #{video_id} 不存在")
+        
+        if task["user_uuid"] != user_uuid:
+            raise HTTPException(status_code=403, detail="无权分享此视频")
+        
+        # 验证视频状态
+        if task["status"] != "success":
+            raise HTTPException(status_code=400, detail="只能分享已完成的视频")
+        
+        # 获取基础URL（从请求头或环境变量）
+        base_url = "http://127.0.0.1:8000"  # 可以从配置中获取
+        
+        # 创建或获取分享记录
+        share_service = get_sora2_share_service()
+        share_record = await share_service.create_share(
+            user_uuid=user_uuid,
+            video_id=video_id,
+            base_url=base_url
+        )
+        
+        logger.info(f"✅ 分享创建成功 - share_id: {share_record['share_id']}")
+        
+        return CreateShareResponse(
+            share_id=share_record["share_id"],
+            share_url=share_record["share_url"],
+            views=share_record["views"],
+            likes=share_record["likes"]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 创建分享失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"创建分享失败: {str(e)}")
+
+
+@router.get("/sora2/share/{share_id}", response_model=ShareVideoDetail)
+async def get_sora2_share(share_id: str):
+    """
+    获取分享视频详情（公开访问，无需登录）
+    
+    Args:
+        share_id: 分享ID
+        
+    Returns:
+        视频详情（prompt, video_url, views, likes）
+    """
+    try:
+        logger.info(f"👁️ 访问分享 - share_id: {share_id}")
+        
+        # 获取分享服务
+        share_service = get_sora2_share_service()
+        
+        # 获取视频信息
+        video = await share_service.get_video_by_share_id(share_id)
+        
+        if not video:
+            raise HTTPException(status_code=404, detail="分享不存在或已失效")
+        
+        # 增加访问量
+        await share_service.increment_views(share_id)
+        
+        logger.info(f"✅ 分享访问成功 - share_id: {share_id}, views: {video['views'] + 1}")
+        
+        return ShareVideoDetail(
+            prompt=video["prompt"],
+            video_url=video["video_url"],
+            views=video["views"] + 1,  # 返回更新后的访问量
+            likes=video["likes"]
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 获取分享失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取分享失败: {str(e)}")
+
+
+@router.post("/sora2/share/{share_id}/like")
+async def like_sora2_share(share_id: str):
+    """
+    点赞分享视频（无需登录）
+    
+    Args:
+        share_id: 分享ID
+        
+    Returns:
+        更新后的点赞数
+    """
+    try:
+        logger.info(f"👍 点赞分享 - share_id: {share_id}")
+        
+        # 获取分享服务
+        share_service = get_sora2_share_service()
+        
+        # 验证分享是否存在
+        share_record = await share_service.get_share_by_id(share_id)
+        if not share_record:
+            raise HTTPException(status_code=404, detail="分享不存在或已失效")
+        
+        # 增加点赞量
+        success = await share_service.increment_likes(share_id)
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="点赞失败")
+        
+        # 获取更新后的点赞数
+        updated_share = await share_service.get_share_by_id(share_id)
+        
+        logger.info(f"✅ 点赞成功 - share_id: {share_id}, likes: {updated_share['likes']}")
+        
+        return {
+            "success": True,
+            "likes": updated_share["likes"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 点赞失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"点赞失败: {str(e)}")
