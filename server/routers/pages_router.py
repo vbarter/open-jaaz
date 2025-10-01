@@ -4,6 +4,8 @@ from datetime import datetime
 import os
 from log import get_logger
 from services.db_service import db_service
+from services.sora2_share_service import get_sora2_share_service
+from common import BASE_URL
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -840,3 +842,177 @@ async def privacy_policy_simple():
 </html>
         """
         return simple_html
+
+
+@router.get("/share", response_class=HTMLResponse)
+async def share_page(id: str = Query(..., description="分享ID")):
+    """
+    分享页面 - 服务端渲染，支持 OG 标签
+
+    为社交媒体爬虫提供正确的 meta 标签，包括：
+    - og:title: MagicArt - Sora2 Powered by OpenAI
+    - og:description: 用户的提示词
+    - og:image: https://www.magicart.cc/magicart.svg
+    """
+    try:
+        # 获取分享服务
+        share_service = get_sora2_share_service()
+
+        # 获取视频信息
+        video = await share_service.get_video_by_share_id(id)
+
+        if not video:
+            # 分享不存在，返回404页面
+            return f"""
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分享不存在 - MagicArt</title>
+    <style>
+        body {{ font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f3f4f6; }}
+        .container {{ text-align: center; padding: 2rem; }}
+        h1 {{ color: #1f2937; font-size: 2rem; margin-bottom: 1rem; }}
+        p {{ color: #6b7280; margin-bottom: 2rem; }}
+        a {{ color: #3b82f6; text-decoration: none; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>😞 分享不存在</h1>
+        <p>此分享链接可能已失效或不存在</p>
+        <a href="https://www.magicart.cc">返回首页</a>
+    </div>
+</body>
+</html>
+            """
+
+        # 提取信息
+        prompt = video["prompt"]
+        video_url = video["video_url"]
+        views = video.get("views", 0)
+        likes = video.get("likes", 0)
+
+        # 构建分享链接
+        share_url = f"{BASE_URL}/share?id={id}"
+        og_image = f"{BASE_URL}/magicart.svg"
+
+        # 截取提示词（避免过长）
+        description = prompt[:200] + "..." if len(prompt) > 200 else prompt
+
+        # 增加访问量
+        await share_service.increment_views(id)
+
+        # 生成 HTML（包含完整的 OG 标签 + React 应用）
+        html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary Meta Tags -->
+    <title>MagicArt - Sora2 Powered by OpenAI</title>
+    <meta name="title" content="MagicArt - Sora2 Powered by OpenAI" />
+    <meta name="description" content="{description}" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="{share_url}" />
+    <meta property="og:title" content="MagicArt - Sora2 Powered by OpenAI" />
+    <meta property="og:description" content="{description}" />
+    <meta property="og:image" content="{og_image}" />
+    <meta property="og:site_name" content="MagicArt" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="{share_url}" />
+    <meta name="twitter:title" content="MagicArt - Sora2 Powered by OpenAI" />
+    <meta name="twitter:description" content="{description}" />
+    <meta name="twitter:image" content="{og_image}" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/magicart.png" />
+
+    <!-- Preload video -->
+    <link rel="preload" as="video" href="{video_url}" />
+
+    <!-- Analytics -->
+    <script
+      defer
+      src="https://cloud.umami.is/script.js"
+      data-website-id="82f0cf14-f279-41b1-85a7-5fd4c4042d16"
+    ></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Fallback for non-JS users -->
+    <noscript>
+        <style>
+            #root {{ display: none; }}
+            .fallback {{
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                padding: 2rem;
+                background: linear-gradient(to bottom right, #fafaf9, #f5f5f4);
+            }}
+            .video-container {{
+                max-width: 600px;
+                width: 100%;
+                aspect-ratio: 9/16;
+                background: #000;
+                border-radius: 1rem;
+                overflow: hidden;
+                margin-bottom: 2rem;
+            }}
+            video {{ width: 100%; height: 100%; object-fit: contain; }}
+            .info {{ text-align: center; max-width: 600px; }}
+            h1 {{ font-size: 1.5rem; margin-bottom: 1rem; }}
+            p {{ color: #6b7280; margin-bottom: 1.5rem; }}
+            .stats {{ display: flex; gap: 2rem; justify-content: center; color: #6b7280; }}
+        </style>
+        <div class="fallback">
+            <div class="video-container">
+                <video controls autoplay loop>
+                    <source src="{video_url}" type="video/mp4" />
+                    您的浏览器不支持视频播放
+                </video>
+            </div>
+            <div class="info">
+                <h1>MagicArt - Sora2 Powered by OpenAI</h1>
+                <p>{prompt}</p>
+                <div class="stats">
+                    <span>👁️ {views} 次观看</span>
+                    <span>❤️ {likes} 次点赞</span>
+                </div>
+            </div>
+        </div>
+    </noscript>
+</body>
+</html>"""
+
+        logger.info(f"✅ 分享页面渲染成功 - share_id: {id}, views: {views + 1}")
+        return html
+
+    except Exception as e:
+        logger.error(f"❌ 分享页面渲染失败: {e}", exc_info=True)
+        return f"""
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加载失败 - MagicArt</title>
+</head>
+<body>
+    <h1>加载失败</h1>
+    <p>无法加载分享内容，请稍后重试</p>
+    <a href="https://www.magicart.cc">返回首页</a>
+</body>
+</html>
+        """

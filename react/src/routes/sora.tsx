@@ -84,6 +84,7 @@ function SoraPage() {
   const [isLoadingTasks, setIsLoadingTasks] = useState(true)
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [_wsConnected, setWsConnected] = useState(false)
 
   // 检查是否有视频正在生成中
@@ -314,8 +315,11 @@ function SoraPage() {
         description: t('toast.generating'),
       })
 
-      // 清空输入框
+      // 清空输入框并重置高度
       setPrompt('')
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto'
+      }
 
       // 任务提交后，后端会通过WebSocket推送最新状态
       // console.log('✅ [Sora] 任务提交成功，任务ID:', result.task_id)
@@ -573,6 +577,7 @@ function SoraPage() {
             }}
           >
             <Textarea
+              ref={textareaRef}
               value={prompt}
               onChange={(e) => {
                 setPrompt(e.target.value)
