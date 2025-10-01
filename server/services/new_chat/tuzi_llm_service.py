@@ -356,9 +356,10 @@ class TuziLLMService:
                 # user_prompt = f"{user_prompt} \n 请你仔细阅读这个网页，根据内容生成详细的绘图prompt, 输出语言采用{user_language}"
                 # logger.info(f"🔍 [DEBUG] 生成提示词: {user_prompt}")
                 prompt = await self._generate_prompt_by_url(user_prompt, user_language=user_language)
+                model_name = "gemini-2.5-flash-image"
                 if prompt.strip() == "":
                     raise Exception("相关url，生成提示词为空")
-                logger.info(f"🔍 [DEBUG] 生成提示词: {prompt}")
+                logger.info(f"🔍 [DEBUG] 生成提示词: {prompt} 使用模型: {model_name}")
                 return await self._handle_image_generation(model_name, prompt, user_info, aspect_ratio, quantity)
         except Exception as e:
             error_msg = f"Error in generate: {str(e)}"
