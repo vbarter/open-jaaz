@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TemplatesRouteImport } from './routes/templates'
+import { Route as SoraRouteImport } from './routes/sora'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as KnowledgeRouteImport } from './routes/knowledge'
@@ -30,6 +31,11 @@ const TermsRoute = TermsRouteImport.update({
 const TemplatesRoute = TemplatesRouteImport.update({
   id: '/templates',
   path: '/templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SoraRoute = SoraRouteImport.update({
+  id: '/sora',
+  path: '/sora',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -91,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/knowledge': typeof KnowledgeRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/sora': typeof SoraRoute
   '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
   '/canvas/$id': typeof CanvasIdRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/knowledge': typeof KnowledgeRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/sora': typeof SoraRoute
   '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
   '/canvas/$id': typeof CanvasIdRoute
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/knowledge': typeof KnowledgeRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/sora': typeof SoraRoute
   '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
   '/canvas/$id': typeof CanvasIdRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/knowledge'
     | '/pricing'
     | '/privacy'
+    | '/sora'
     | '/templates'
     | '/terms'
     | '/canvas/$id'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/knowledge'
     | '/pricing'
     | '/privacy'
+    | '/sora'
     | '/templates'
     | '/terms'
     | '/canvas/$id'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/knowledge'
     | '/pricing'
     | '/privacy'
+    | '/sora'
     | '/templates'
     | '/terms'
     | '/canvas/$id'
@@ -179,6 +191,7 @@ export interface RootRouteChildren {
   KnowledgeRoute: typeof KnowledgeRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
+  SoraRoute: typeof SoraRoute
   TemplatesRoute: typeof TemplatesRoute
   TermsRoute: typeof TermsRoute
   CanvasIdRoute: typeof CanvasIdRoute
@@ -200,6 +213,13 @@ declare module '@tanstack/react-router' {
       path: '/templates'
       fullPath: '/templates'
       preLoaderRoute: typeof TemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sora': {
+      id: '/sora'
+      path: '/sora'
+      fullPath: '/sora'
+      preLoaderRoute: typeof SoraRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -283,6 +303,7 @@ const rootRouteChildren: RootRouteChildren = {
   KnowledgeRoute: KnowledgeRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
+  SoraRoute: SoraRoute,
   TemplatesRoute: TemplatesRoute,
   TermsRoute: TermsRoute,
   CanvasIdRoute: CanvasIdRoute,

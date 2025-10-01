@@ -14,6 +14,7 @@ interface EnhancedVideoPlayerProps {
     duration?: number
   }
   className?: string
+  fillContainer?: boolean // 是否填充整个容器（用于Sora页面）
 }
 
 export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
@@ -21,7 +22,8 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
   videoUrl,
   videoId,
   metadata,
-  className
+  className,
+  fillContainer = false
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -289,20 +291,25 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
   }, [isPlaying])
 
   return (
-    <div className={cn('space-y-2 max-w-full', className)}>
-      {/* 文本内容 */}
-      <div className="text-sm text-gray-700 dark:text-gray-300">{content}</div>
+    <div className={cn(fillContainer ? 'w-full h-full' : 'space-y-2 max-w-full', className)}>
+      {/* 文本内容 - 仅在非填充模式显示 */}
+      {!fillContainer && content && (
+        <div className="text-sm text-gray-700 dark:text-gray-300">{content}</div>
+      )}
 
       {/* 视频播放器 */}
       {videoUrl && (
         <div
           ref={containerRef}
-          className="bg-gray-900 rounded-lg overflow-hidden shadow-lg relative group"
+          className={cn(
+            "relative group overflow-hidden",
+            fillContainer ? "w-full h-full" : "bg-gray-900 rounded-lg shadow-lg"
+          )}
           onMouseEnter={() => setShowControls(true)}
           onMouseLeave={() => isPlaying && setShowControls(false)}
         >
           {/* 视频容器 */}
-          <div className="relative bg-black">
+          <div className={cn("relative", fillContainer ? "w-full h-full" : "bg-black")}>
             {/* 加载指示器 */}
             {isLoading && !hasError && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-20">
@@ -338,7 +345,12 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
             {/* HTML5 视频元素 */}
             <video
               ref={videoRef}
-              className="w-full h-auto max-h-[500px] cursor-pointer"
+              className={cn(
+                "cursor-pointer",
+                fillContainer
+                  ? "w-full h-full object-cover"
+                  : "w-full h-auto max-h-[500px]"
+              )}
               preload="metadata"
               playsInline
               webkit-playsinline="true"
@@ -450,8 +462,8 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
             </div>
           </div>
 
-          {/* 视频信息栏 */}
-          {metadata && (
+          {/* 视频信息栏 - 仅在非填充模式显示 */}
+          {!fillContainer && metadata && (
             <div className="p-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
                 <div className="space-x-3">

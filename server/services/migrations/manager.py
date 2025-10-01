@@ -13,13 +13,14 @@ from services.migrations.v10_add_payment_tables import V10AddPaymentTables
 from services.migrations.v11_upgrade_level_system import V11UpgradeLevelSystem
 from services.migrations.v12_add_product_sku import V12AddProductSku
 from services.migrations.v13_add_user_subscription_fields import V13AddUserSubscriptionFields
+from services.migrations.v14_add_sora2_table import V14AddSora2Table
 from . import Migration
 from log import get_logger
 
 logger = get_logger(__name__)
 
 # Database version
-CURRENT_VERSION = 13
+CURRENT_VERSION = 14
 
 ALL_MIGRATIONS = [
     {
@@ -73,6 +74,10 @@ ALL_MIGRATIONS = [
     {
         'version': 13,
         'migration': V13AddUserSubscriptionFields,
+    },
+    {
+        'version': 14,
+        'migration': V14AddSora2Table,
     },
 ]
 class MigrationManager:
