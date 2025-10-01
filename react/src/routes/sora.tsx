@@ -468,23 +468,21 @@ function SoraPage() {
                     {/* 统一的9:16容器 - 确保所有卡片尺寸一致 */}
                     <div className='w-full aspect-[9/16] relative overflow-hidden bg-black rounded-lg'>
                       {/* 统计信息 - 左上角 */}
-                      <div className='absolute top-2 left-2 z-20 flex items-center gap-1'>
+                      <div className='absolute top-2 left-2 z-20 flex items-center gap-0.5 sm:gap-1'>
                         {/* 播放量 */}
-                        <div className='flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white'>
-                          <Eye className='w-3 h-3' />
-                          <span className='text-xs font-medium'>{video.views ?? 0}</span>
+                        <div className='flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white'>
+                          <Eye className='w-2.5 h-2.5 sm:w-3 sm:h-3' />
+                          <span className='text-[10px] sm:text-xs font-medium'>{video.views ?? 0}</span>
                         </div>
                         {/* 点赞量 */}
-                        <div className='flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white'>
-                          <Heart className='w-3 h-3' />
-                          <span className='text-xs font-medium'>{video.likes ?? 0}</span>
+                        <div className='flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white'>
+                          <Heart className='w-2.5 h-2.5 sm:w-3 sm:h-3' />
+                          <span className='text-[10px] sm:text-xs font-medium'>{video.likes ?? 0}</span>
                         </div>
                       </div>
 
                       {/* 操作按钮组 - 右上角 */}
-                      <div className={`absolute top-2 right-2 z-20 flex gap-1.5 transition-opacity duration-200 ${
-                        video.status === 'failed' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                      }`}>
+                      <div className='absolute top-2 right-2 z-20 flex gap-1.5'>
                         {/* 分享按钮 */}
                         {video.status === 'completed' && (
                           <button
