@@ -34,6 +34,8 @@ import {
   CreateShareResponse,
 } from '@/api/sora'
 import { EnhancedVideoPlayer } from '@/components/chat/EnhancedVideoPlayer'
+import { useAuth } from '@/contexts/AuthContext'
+import { useConfigs } from '@/contexts/configs'
 
 export const Route = createFileRoute('/sora')({
   component: SoraPage,
@@ -74,13 +76,15 @@ const taskToVideo = (task: Sora2TaskDetail): GeneratedVideo => ({
 function SoraPage() {
   const { t } = useTranslation('sora')
   const { t: tCommon } = useTranslation('common')
+  const { authStatus, isLoading: isAuthLoading } = useAuth()
+  const { setShowLoginDialog } = useConfigs()
   const [prompt, setPrompt] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [videos, setVideos] = useState<GeneratedVideo[]>([])
   const [isLoadingTasks, setIsLoadingTasks] = useState(true)
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [wsConnected, setWsConnected] = useState(false)
+  const [_wsConnected, setWsConnected] = useState(false)
 
   // 检查是否有视频正在生成中
   const hasProcessingVideo = videos.some((video) => video.status === 'processing')
@@ -89,10 +93,18 @@ function SoraPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [videoToDelete, setVideoToDelete] = useState<string | null>(null)
 
+  // 检查登录状态
+  useEffect(() => {
+    if (!isAuthLoading && !authStatus.is_logged_in) {
+      console.log('🔒 [Sora] 用户未登录，显示登录对话框')
+      setShowLoginDialog(true)
+    }
+  }, [isAuthLoading, authStatus.is_logged_in, setShowLoginDialog])
+
   // 分享对话框状态
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareData, setShareData] = useState<CreateShareResponse | null>(null)
-  const [isCreatingShare, setIsCreatingShare] = useState(false)
+  const [_isCreatingShare, setIsCreatingShare] = useState(false)
 
   // 积分不足对话框状态
   const [pointsDialogOpen, setPointsDialogOpen] = useState(false)
@@ -199,11 +211,23 @@ function SoraPage() {
         connectWebSocket()
       }, 5000)
     }
-  }, [])
+  }, [t])
 
-  // 页面加载时建立WebSocket连接
+  // 页面加载时建立WebSocket连接（仅在用户登录后）
   useEffect(() => {
-    // console.log('🎬 [Sora] 组件挂载，建立WebSocket连接')
+    // 只有在认证完成且用户已登录时才建立连接
+    if (isAuthLoading) {
+      console.log('⏳ [Sora] 等待认证完成...')
+      return
+    }
+
+    if (!authStatus.is_logged_in) {
+      console.log('🔒 [Sora] 用户未登录，跳过WebSocket连接')
+      setIsLoadingTasks(false)
+      return
+    }
+
+    console.log('🎬 [Sora] 用户已登录，建立WebSocket连接')
     connectWebSocket()
 
     // 组件卸载时清理连接
@@ -220,9 +244,16 @@ function SoraPage() {
         wsRef.current = null
       }
     }
-  }, [connectWebSocket])
+  }, [connectWebSocket, isAuthLoading, authStatus.is_logged_in])
 
   const handleGenerate = async () => {
+    // 检查登录状态
+    if (!authStatus.is_logged_in) {
+      console.log('🔒 [Sora] 用户未登录，显示登录对话框')
+      setShowLoginDialog(true)
+      return
+    }
+
     if (!prompt.trim()) {
       toast.error(tCommon('messages.error'), {
         description: t('toast.enterPrompt'),
@@ -288,10 +319,10 @@ function SoraPage() {
 
       // 任务提交后，后端会通过WebSocket推送最新状态
       console.log('✅ [Sora] 任务提交成功，任务ID:', result.task_id)
-    } catch (error: any) {
+    } catch (error) {
       console.error('视频生成失败:', error)
 
-      const errorMessage = error?.message || error?.toString() || '任务提交失败'
+      const errorMessage = error instanceof Error ? error.message : String(error || '任务提交失败')
       toast.error(tCommon('messages.error'), {
         description: errorMessage,
       })
@@ -525,7 +556,16 @@ function SoraPage() {
       {/* 固定在底部的输入框 */}
       <div className='fixed bottom-0 left-0 right-0 z-50 pb-6 px-4'>
         <div className='max-w-4xl mx-auto'>
-          <div className='relative backdrop-blur-xl bg-white/80 dark:bg-gray-800/80 rounded-xl px-6 py-4 shadow-2xl border border-gray-200/50 dark:border-gray-700/50'>
+          <div
+            className={`relative backdrop-blur-xl bg-white/80 dark:bg-gray-800/80 rounded-xl px-6 py-4 shadow-2xl border border-gray-200/50 dark:border-gray-700/50 ${
+              !authStatus.is_logged_in ? 'cursor-pointer hover:border-gray-300 dark:hover:border-gray-600 transition-colors' : ''
+            }`}
+            onClick={() => {
+              if (!authStatus.is_logged_in) {
+                setShowLoginDialog(true)
+              }
+            }}
+          >
             <Textarea
               value={prompt}
               onChange={(e) => {
@@ -535,14 +575,14 @@ function SoraPage() {
                 e.target.style.height = e.target.scrollHeight + 'px'
               }}
               onKeyDown={handleKeyDown}
-              placeholder={t('placeholder')}
+              placeholder={!authStatus.is_logged_in ? tCommon('auth.loginDescription') : t('placeholder')}
               className='w-full min-h-[56px] resize-none bg-transparent border-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-16 overflow-hidden'
               style={{ maxHeight: 'none' }}
-              disabled={isGenerating || hasProcessingVideo}
+              disabled={!authStatus.is_logged_in || isGenerating || hasProcessingVideo}
             />
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating || hasProcessingVideo || !prompt.trim()}
+              disabled={!authStatus.is_logged_in || isGenerating || hasProcessingVideo || !prompt.trim()}
               size='icon'
               className='absolute bottom-4 right-4 rounded-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900 h-12 w-12 disabled:opacity-50 disabled:cursor-not-allowed'
             >
