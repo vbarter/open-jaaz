@@ -327,15 +327,13 @@ function SoraPage() {
       // 从列表中移除
       setVideos((prev) => prev.filter((v) => v.id !== videoToDelete))
 
-      toast.success(t('toast.deleteSuccess'), {
-        description: t('toast.deleteSuccess'),
-      })
+      toast.success(t('toast.deleteSuccess'))
 
       console.log(`✅ [Sora] 任务 #${videoToDelete} 删除成功`)
     } catch (error) {
       console.error('删除任务失败:', error)
       toast.error(t('toast.deleteFailed'), {
-        description: error instanceof Error ? error.message : t('toast.deleteFailed'),
+        description: error instanceof Error ? error.message : undefined,
       })
     } finally {
       setDeleteDialogOpen(false)
@@ -346,9 +344,7 @@ function SoraPage() {
   // 分享功能 - 创建分享链接
   const handleShare = async (video: GeneratedVideo) => {
     if (video.status !== 'completed' || !video.videoUrl) {
-      toast.error(t('toast.shareFailed'), {
-        description: t('toast.shareFailed'),
-      })
+      toast.error(t('toast.shareFailed'))
       return
     }
 
@@ -363,7 +359,7 @@ function SoraPage() {
     } catch (error) {
       console.error('分享失败:', error)
       toast.error(t('toast.shareFailed'), {
-        description: error instanceof Error ? error.message : t('toast.shareFailed'),
+        description: error instanceof Error ? error.message : undefined,
       })
     } finally {
       setIsCreatingShare(false)
