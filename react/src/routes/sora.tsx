@@ -99,8 +99,9 @@ function SoraPage() {
     console.log('🔌 [Sora WS] 建立WebSocket连接...')
 
     // 构建WebSocket URL（HTTP协议对应ws，HTTPS对应wss）
+    // 使用独立路径 /ws-sora2/tasks，避免被 Nginx location / 的错误配置捕获
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}/api/ws/sora2/tasks`
+    const wsUrl = `${protocol}//${window.location.host}/ws-sora2/tasks`
 
     try {
       const ws = new WebSocket(wsUrl)

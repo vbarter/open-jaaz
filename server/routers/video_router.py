@@ -492,7 +492,7 @@ async def delete_sora2_task(
         raise HTTPException(status_code=500, detail=f"删除任务失败: {str(e)}")
 
 
-@router.websocket("/ws/sora2/tasks")
+@router.websocket("/sora2/ws/tasks")
 async def websocket_sora2_tasks(
     websocket: WebSocket,
     token: Optional[str] = Query(None)
@@ -500,10 +500,15 @@ async def websocket_sora2_tasks(
     """
     WebSocket端点：实时推送Sora2任务列表
 
-    连接建立后，每2秒自动推送用户的任务列表
+    路径说明：
+    - 使用 /api/sora2/ws/tasks 而不是 /api/ws/sora2/tasks
+    - 这样可以复用现有Nginx /socket.io/ 的WebSocket配置
+    - 前端访问: wss://www.magicart.cc/socket.io/sora2/tasks
+
+    连接建立后，每5秒自动推送用户的任务列表
 
     认证方式：
-    1. 通过query参数传递token: ws://host/api/ws/sora2/tasks?token=xxx
+    1. 通过query参数传递token: ws://host/socket.io/sora2/tasks?token=xxx
     2. 通过Cookie传递auth_token（浏览器自动发送）
 
     消息格式：

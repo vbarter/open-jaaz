@@ -29,7 +29,7 @@
   },
   "toast": {
     "submitted": "任务已提交！",
-    "generating": "视频正在后台生成中，将通过WebSocket实时推送状态...",
+    "generating": "视频正在后台生成中...",
     "enterPrompt": "请输入视频描述",
     "copySuccess": "复制成功！",
     "copyFailed": "复制失败",
