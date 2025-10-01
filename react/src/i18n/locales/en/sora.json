@@ -1,6 +1,7 @@
 {
   "title": "Sora2 Video Generation",
   "subtitle": "Transform your imagination into stunning videos with AI",
+  "feedbackButton": "Contact for Feedback",
   "placeholder": "Describe your video...",
   "generating": "Queued for processing, average completion time 2-3 minutes",
   "buttons": {

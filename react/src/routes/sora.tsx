@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Loader2, Send, Sparkles, Trash2, AlertTriangle, Share2, Eye, Heart } from 'lucide-react'
+import { Loader2, Send, Sparkles, Trash2, AlertTriangle, Share2, Eye, Heart, ArrowUpRight } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   generateSora2Video,
@@ -387,9 +387,24 @@ function SoraPage() {
                 {t('title')}
               </h1>
             </div>
-            <p className="text-center text-gray-600 dark:text-gray-400 text-sm sm:text-base">
+            <p className="text-center text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-4">
               {t('subtitle')}
             </p>
+
+            {/* 反馈按钮 */}
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                onClick={() => window.open('https://twitter.com/intent/tweet?text=@vbarter', '_blank')}
+                className="group bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all"
+              >
+                <svg className="w-4 h-4 mr-2 text-gray-700 dark:text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+                <span className="text-gray-900 dark:text-gray-100">{t('feedbackButton')}</span>
+                <ArrowUpRight className="w-3 h-3 ml-1 text-gray-500 dark:text-gray-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+              </Button>
+            </div>
           </div>
 
           {/* 视频列表 */}
