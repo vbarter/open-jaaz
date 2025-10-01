@@ -29,7 +29,7 @@
   },
   "toast": {
     "submitted": "Task submitted!",
-    "generating": "Video is being generated in the background, status will be pushed via WebSocket...",
+    "generating": "Video is being generated in the background...",
     "enterPrompt": "Please enter video description",
     "copySuccess": "Copied successfully!",
     "copyFailed": "Copy failed",
