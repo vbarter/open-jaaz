@@ -427,12 +427,12 @@ function SoraPage() {
             {isLoadingTasks ? (
               <div className='flex flex-col items-center justify-center py-20 text-gray-400'>
                 <Loader2 className='w-16 h-16 mb-4 opacity-50 animate-spin' />
-                <p className='text-lg'>加载任务列表...</p>
+                <p className='text-lg'>{t('loadingTasks')}</p>
               </div>
             ) : videos.length === 0 ? (
               <div className='flex flex-col items-center justify-center py-20 text-gray-400'>
                 <Sparkles className='w-16 h-16 mb-4 opacity-50' />
-                <p className='text-lg'>开始创作你的第一个视频吧！</p>
+                <p className='text-lg'>{t('emptyState')}</p>
               </div>
             ) : (
               <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5 sm:gap-2'>
@@ -461,7 +461,7 @@ function SoraPage() {
                           <button
                             onClick={() => handleShare(video)}
                             className='p-1.5 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white transition-all duration-200 hover:scale-110'
-                            title='分享'
+                            title={t('shareVideo')}
                           >
                             <Share2 className='w-3.5 h-3.5' />
                           </button>
@@ -471,7 +471,7 @@ function SoraPage() {
                         <button
                           onClick={() => openDeleteDialog(video.id)}
                           className='p-1.5 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white transition-all duration-200 hover:scale-110'
-                          title='删除任务'
+                          title={t('deleteTask')}
                         >
                           <Trash2 className='w-3.5 h-3.5' />
                         </button>
@@ -511,7 +511,7 @@ function SoraPage() {
                             <div className='text-red-400 mb-2'>
                               <AlertTriangle className='w-12 h-12 mx-auto' />
                             </div>
-                            <p className='text-base font-semibold text-white'>生成失败</p>
+                            <p className='text-base font-semibold text-white'>{t('generationFailed')}</p>
                           </div>
                         </div>
                       )}

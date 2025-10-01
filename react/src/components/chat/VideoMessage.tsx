@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Download, AlertCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface VideoMessageProps {
   content: string
@@ -22,6 +23,7 @@ export const VideoMessage: React.FC<VideoMessageProps> = ({
   metadata,
   className
 }) => {
+  const { t } = useTranslation('common')
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
@@ -36,7 +38,7 @@ export const VideoMessage: React.FC<VideoMessageProps> = ({
 
   // 处理视频加载错误
   const handleError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
-    console.error('视频加载错误:', e)
+    console.error('Video loading error:', e)
     setIsLoading(false)
     setHasError(true)
     setVideoReady(false)
@@ -104,7 +106,7 @@ export const VideoMessage: React.FC<VideoMessageProps> = ({
               <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
                 <div className="text-white text-center">
                   <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                  <p className="text-sm">加载视频中...</p>
+                  <p className="text-sm">{t('video.loading')}</p>
                 </div>
               </div>
             )}
@@ -114,20 +116,8 @@ export const VideoMessage: React.FC<VideoMessageProps> = ({
               <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-10">
                 <div className="text-white text-center p-4">
                   <AlertCircle className="w-12 h-12 mx-auto mb-2 text-red-400" />
-                  <p className="text-sm mb-2">视频加载失败</p>
-                  <p className="text-xs text-gray-400">请检查网络连接或视频地址</p>
-                  <Button
-                    onClick={() => {
-                      setHasError(false)
-                      setIsLoading(true)
-                      videoRef.current?.load()
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                  >
-                    重试
-                  </Button>
+                  <p className="text-sm mb-2">{t('video.loadFailed')}</p>
+                  <p className="text-xs text-gray-400">{t('video.checkNetworkOrUrl')}</p>
                 </div>
               </div>
             )}
@@ -162,7 +152,7 @@ export const VideoMessage: React.FC<VideoMessageProps> = ({
               {videoUrl.includes('.ogg') && (
                 <source src={videoUrl} type="video/ogg" />
               )}
-              您的浏览器不支持 HTML5 视频播放
+              {t('video.browserNotSupportedHTML5')}
             </video>
           </div>
 
@@ -180,7 +170,7 @@ export const VideoMessage: React.FC<VideoMessageProps> = ({
                   <span>{formatDuration(metadata.duration)}</span>
                 )}
                 {!metadata?.duration && videoReady && (
-                  <span>视频已就绪</span>
+                  <span>{t('video.videoReady')}</span>
                 )}
               </div>
 
@@ -192,7 +182,7 @@ export const VideoMessage: React.FC<VideoMessageProps> = ({
                 className="gap-1.5 h-7 px-2"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">下载</span>
+                <span className="hidden sm:inline">{t('common.download')}</span>
               </Button>
             </div>
 

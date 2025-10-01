@@ -3,6 +3,7 @@ import { Download, AlertCircle, Loader2, Play, Pause, Volume2, VolumeX, Maximize
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface EnhancedVideoPlayerProps {
   content: string
@@ -25,6 +26,7 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
   className,
   fillContainer = false
 }) => {
+  const { t } = useTranslation('common')
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -74,30 +76,30 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
     const video = e.currentTarget
     const error = video.error
 
-    let errorMsg = '视频加载失败'
+    let errorMsg = t('video.loadFailed')
     if (error) {
       switch (error.code) {
         case 1:
-          errorMsg = '视频加载被中止'
+          errorMsg = t('video.errors.aborted')
           break
         case 2:
-          errorMsg = '网络错误'
+          errorMsg = t('video.errors.network')
           break
         case 3:
-          errorMsg = '视频解码失败'
+          errorMsg = t('video.errors.decode')
           break
         case 4:
-          errorMsg = '不支持的视频格式'
+          errorMsg = t('video.errors.formatNotSupported')
           break
       }
     }
 
-    console.error('视频加载错误:', errorMsg, error)
+    console.error('Video error:', errorMsg, error)
     setErrorMessage(errorMsg)
     setIsLoading(false)
     setHasError(true)
     setCanPlay(false)
-  }, [])
+  }, [t])
 
   // 播放/暂停切换
   const togglePlay = useCallback(async () => {
@@ -122,7 +124,7 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
         }
       }
     } catch (error) {
-      console.error('播放错误:', error)
+      console.error('Playback error:', error)
       // 如果自动播放失败，显示播放按钮
       setIsPlaying(false)
     }
@@ -183,7 +185,7 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
         setIsFullscreen(false)
       }
     } catch (error) {
-      console.error('全屏切换失败:', error)
+      console.error('Fullscreen toggle error:', error)
     }
   }, [isFullscreen])
 
@@ -315,7 +317,7 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
               <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-20">
                 <div className="text-white text-center">
                   <Loader2 className="w-10 h-10 animate-spin mx-auto mb-3" />
-                  <p className="text-sm">加载视频中...</p>
+                  <p className="text-sm">{t('video.loading')}</p>
                 </div>
               </div>
             )}
@@ -326,18 +328,7 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
                 <div className="text-white text-center p-6">
                   <AlertCircle className="w-14 h-14 mx-auto mb-3 text-red-400" />
                   <p className="text-base mb-2">{errorMessage}</p>
-                  <p className="text-xs text-gray-400 mb-4">请检查视频地址或网络连接</p>
-                  <Button
-                    onClick={() => {
-                      setHasError(false)
-                      setIsLoading(true)
-                      videoRef.current?.load()
-                    }}
-                    variant="outline"
-                    size="sm"
-                  >
-                    重试
-                  </Button>
+                  <p className="text-xs text-gray-400">{t('video.checkConnection')}</p>
                 </div>
               </div>
             )}
@@ -367,7 +358,7 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
               <source src={videoUrl} type="video/mp4" />
               {videoUrl.includes('.webm') && <source src={videoUrl} type="video/webm" />}
               {videoUrl.includes('.ogg') && <source src={videoUrl} type="video/ogg" />}
-              您的浏览器不支持视频播放
+              {t('video.browserNotSupported')}
             </video>
 
             {/* 中央播放按钮（视频暂停时显示） */}
