@@ -3,8 +3,10 @@ import { Loader2, Play, Volume2, VolumeX, Eye, Heart, User, Info } from 'lucide-
 import { cn } from '@/lib/utils'
 import { generateAvatarUrl } from '@/utils/avatarUtils'
 import { useNavigate } from '@tanstack/react-router'
+import { recordVideoView, toggleVideoLike } from '@/api/sora'
 
 interface DiscoverVideoCardProps {
+  videoId: string // 视频ID
   videoUrl: string
   prompt: string
   views: number
@@ -12,17 +14,22 @@ interface DiscoverVideoCardProps {
   userUuid: string // 用户 UUID（用于fallback）
   userImageUrl?: string // 用户真实头像 URL
   shareId?: string // 分享ID
+  isLiked?: boolean // 是否已点赞
+  onLikeChange?: (videoId: string, isLiked: boolean, newLikes: number) => void // 点赞变化回调
   className?: string
 }
 
 export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
+  videoId,
   videoUrl,
   prompt,
-  views,
-  likes,
+  views: initialViews,
+  likes: initialLikes,
   userUuid,
   userImageUrl,
   shareId,
+  isLiked: initialIsLiked = false,
+  onLikeChange,
   className,
 }) => {
   const navigate = useNavigate()
@@ -32,6 +39,13 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(true) // 默认静音
   const [showPrompt, setShowPrompt] = useState(false)
+
+  // 本地状态管理
+  const [views, setViews] = useState(initialViews)
+  const [likes, setLikes] = useState(initialLikes)
+  const [isLiked, setIsLiked] = useState(initialIsLiked)
+  const [isRecordingView, setIsRecordingView] = useState(false)
+  const [isTogglingLike, setIsTogglingLike] = useState(false)
 
   // 检测是否为移动设备
   const isMobile = /iPad|iPhone|iPod|Android/.test(navigator.userAgent)
@@ -71,7 +85,7 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
     setHasError(true)
   }, [videoUrl])
 
-  // 播放/暂停切换
+  // 播放/暂停切换 + 记录浏览
   const togglePlay = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation() // 防止事件冒泡
@@ -85,13 +99,29 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
         } else {
           await video.play()
           setIsPlaying(true)
+
+          // 记录播放次数（支持重复点击）
+          if (!isRecordingView) {
+            setIsRecordingView(true)
+            try {
+              const result = await recordVideoView(parseInt(videoId))
+              if (result.success) {
+                setViews(result.views)
+                console.log(`✅ 浏览量更新: ${result.views}`)
+              }
+            } catch (error) {
+              console.error('记录浏览失败:', error)
+            } finally {
+              setIsRecordingView(false)
+            }
+          }
         }
       } catch (error) {
         console.error('Playback error:', error)
         setIsPlaying(false)
       }
     },
-    [isPlaying, hasError]
+    [isPlaying, hasError, videoId, isRecordingView]
   )
 
   // 静音切换
@@ -103,6 +133,36 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
       setIsMuted(video.muted)
     }
   }, [])
+
+  // 点赞切换
+  const handleLikeToggle = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation()
+
+      if (isTogglingLike) return
+
+      setIsTogglingLike(true)
+
+      try {
+        const result = await toggleVideoLike(parseInt(videoId))
+        if (result.success) {
+          setIsLiked(result.is_liked)
+          setLikes(result.likes)
+          console.log(`✅ 点赞状态更新: ${result.is_liked}, 点赞数: ${result.likes}`)
+
+          // 通知父组件
+          if (onLikeChange) {
+            onLikeChange(videoId, result.is_liked, result.likes)
+          }
+        }
+      } catch (error) {
+        console.error('切换点赞失败:', error)
+      } finally {
+        setIsTogglingLike(false)
+      }
+    },
+    [videoId, isTogglingLike, onLikeChange]
+  )
 
   // 查看详情（跳转到分享页面）
   const handleViewDetails = useCallback((e: React.MouseEvent) => {
@@ -240,11 +300,18 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
               <Eye className='w-3.5 h-3.5' />
               <span className='text-xs font-medium'>{views}</span>
             </div>
-            {/* 点赞量 */}
-            <div className='flex items-center gap-1 text-white'>
-              <Heart className='w-3.5 h-3.5' />
+            {/* 点赞按钮 - 可点击切换 */}
+            <button
+              onClick={handleLikeToggle}
+              disabled={isTogglingLike}
+              className='flex items-center gap-1 text-white hover:scale-110 transition-transform disabled:opacity-50'
+              title={isLiked ? '取消点赞' : '点赞'}
+            >
+              <Heart
+                className={`w-3.5 h-3.5 ${isLiked ? 'fill-red-500 text-red-500' : ''}`}
+              />
               <span className='text-xs font-medium'>{likes}</span>
-            </div>
+            </button>
           </div>
 
           {/* 右侧 - 详情按钮 */}

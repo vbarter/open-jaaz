@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState, useEffect, useMemo } from 'react'
-import { Loader2, Heart, Eye, Sparkles, User, Compass } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { Loader2, Heart, Eye, User, Compass } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { getShareVideo, likeShareVideo, ShareVideoDetail } from '@/api/sora'
+import { getShareVideo, incrementShareView, ShareVideoDetail } from '@/api/sora'
 import { EnhancedVideoPlayer } from '@/components/chat/EnhancedVideoPlayer'
 import { generateAvatarUrl } from '@/utils/avatarUtils'
 
@@ -21,8 +21,7 @@ function SharePage() {
   const navigate = useNavigate()
   const [video, setVideo] = useState<ShareVideoDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isLiking, setIsLiking] = useState(false)
-  const [currentLikes, setCurrentLikes] = useState(0)
+  const viewIncrementedRef = useRef(false) // 防止重复增加访问量
 
   // 生成头像URL（优先使用真实头像，否则使用虚拟头像）
   const avatarUrl = useMemo(() => {
@@ -57,8 +56,20 @@ function SharePage() {
         // console.log('🔍 [Share] Loading video:', shareId)
         const videoData = await getShareVideo(shareId)
         setVideo(videoData)
-        setCurrentLikes(videoData.likes)
         // console.log('✅ [Share] Video loaded:', videoData)
+
+        // 增加访问量（只调用一次，使用 ref 防止 StrictMode 重复调用）
+        if (!viewIncrementedRef.current) {
+          viewIncrementedRef.current = true
+          try {
+            const result = await incrementShareView(shareId)
+            // 更新本地显示的 views
+            setVideo((prev) => (prev ? { ...prev, views: result.views } : null))
+          } catch (error) {
+            console.error('❌ [Share] 增加访问量失败:', error)
+            // 失败不影响页面显示
+          }
+        }
       } catch (error) {
         console.error('❌ [Share] Load failed:', error)
         toast.error('Loading failed', {
@@ -72,25 +83,6 @@ function SharePage() {
 
     loadVideo()
   }, [shareId])
-
-  // 点赞
-  const handleLike = async () => {
-    if (!shareId || isLiking) return
-
-    setIsLiking(true)
-    try {
-      const result = await likeShareVideo(shareId)
-      setCurrentLikes(result.likes)
-      toast.success('Liked successfully!')
-    } catch (error) {
-      console.error('点赞失败:', error)
-      toast.error('Like failed', {
-        description: 'Please try again later',
-      })
-    } finally {
-      setIsLiking(false)
-    }
-  }
 
   // 加载中
   if (isLoading) {
@@ -167,36 +159,19 @@ function SharePage() {
                 </div>
                 <div className='flex items-center gap-1.5'>
                   <Heart className='w-4 h-4' />
-                  <span>{currentLikes}</span>
+                  <span>{video.likes}</span>
                 </div>
               </div>
 
-              {/* 按钮组 */}
-              <div className='flex items-center gap-3'>
-                {/* Explore按钮 */}
-                <Button
-                  onClick={() => navigate({ to: '/discover' })}
-                  variant='outline'
-                  className='border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800'
-                >
-                  <Compass className='w-4 h-4 mr-2' />
-                  Explore
-                </Button>
-
-                {/* 点赞按钮 */}
-                <Button
-                  onClick={handleLike}
-                  disabled={isLiking}
-                  className='bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900'
-                >
-                  {isLiking ? (
-                    <Loader2 className='w-4 h-4 animate-spin mr-2' />
-                  ) : (
-                    <Heart className='w-4 h-4 mr-2' />
-                  )}
-                  Like
-                </Button>
-              </div>
+              {/* Explore按钮 */}
+              <Button
+                onClick={() => navigate({ to: '/discover' })}
+                variant='outline'
+                className='border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800'
+              >
+                <Compass className='w-4 h-4 mr-2' />
+                Explore
+              </Button>
             </div>
           </div>
         </div>

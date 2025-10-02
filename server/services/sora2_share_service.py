@@ -103,23 +103,40 @@ class Sora2ShareService:
         }
 
     async def increment_views(self, share_id: str) -> bool:
-        """增加访问量"""
+        """
+        增加访问量（更新 tb_sora2 表）
+
+        策略: 每次刷新页面，tb_sora2.views +1（只增不减）
+        """
         now = datetime.utcnow().isoformat() + 'Z'
 
         async with aiosqlite.connect(self.db_path) as conn:
+            # 先获取 video_id
+            cursor = await conn.execute(
+                "SELECT video_id FROM tb_sora2_share WHERE share_id = ?",
+                (share_id,)
+            )
+            row = await cursor.fetchone()
+
+            if not row:
+                return False
+
+            video_id = row[0]
+
+            # 更新 tb_sora2 表的 views 字段
             cursor = await conn.execute(
                 """
-                UPDATE tb_sora2_share
-                SET views = views + 1, mtime = ?
-                WHERE share_id = ?
+                UPDATE tb_sora2
+                SET views = COALESCE(views, 0) + 1, mtime = ?
+                WHERE id = ?
                 """,
-                (now, share_id)
+                (now, video_id)
             )
             await conn.commit()
 
         success = cursor.rowcount > 0
         if success:
-            logger.info(f"增加访问量: share_id={share_id}")
+            logger.info(f"✅ 增加访问量: share_id={share_id}, video_id={video_id}")
 
         return success
 
@@ -145,13 +162,18 @@ class Sora2ShareService:
         return success
 
     async def get_video_by_share_id(self, share_id: str) -> Optional[Dict[str, Any]]:
-        """根据share_id获取视频信息"""
+        """
+        根据share_id获取视频信息
+
+        注意: views 和 likes 从 tb_sora2 表读取（实时统计数据）
+        """
         async with aiosqlite.connect(self.db_path) as conn:
             cursor = await conn.execute(
                 """
                 SELECT s.id as sora2_id, s.user_uuid, s.prompt, s.model,
                        s.images, s.video_url, s.status, s.remark, s.ctime, s.mtime,
-                       sh.views, sh.likes,
+                       COALESCE(s.views, 0) as views,
+                       COALESCE(s.likes, 0) as likes,
                        u.image_url as user_image_url
                 FROM tb_sora2 s
                 INNER JOIN tb_sora2_share sh ON s.id = sh.video_id
