@@ -598,14 +598,15 @@ class TuziLLMService:
         logger.info(f"   prompt: {prompt}")
         logger.info(f"   model: {model}")
         logger.info(f"   stream: {stream}")
-        logger.info(f"   base_url: {self.api_url}")     
+        logger.info(f"   timeout: {timeout}秒")
+        logger.info(f"   base_url: {self.api_url}")
         logger.info(f"💬 [DEBUG] 使用文本对话模式")
         logger.info(f"🚀 [DEBUG] 调用 client.chat.completions.create...")
 
         client = AsyncOpenAI(
                 api_key=self.api_token,
                 base_url=self.api_url,
-                timeout=timeout,  # 设置60秒超时
+                timeout=timeout,  # 超时时间由调用方指定
                 max_retries=0   # 禁用重试，避免重复调用
             )
         
@@ -1452,7 +1453,7 @@ user input: {prompt}
             result = await self._chat_with_tuzi(prompt,
                                                 model,
                                                 stream=False,
-                                                timeout=300)
+                                                timeout=360)  # 6分钟超时
             logger.info(f"🎨 Sora2 video generation result: {result}")
 
             # 从 markdown 格式的链接中提取 URL

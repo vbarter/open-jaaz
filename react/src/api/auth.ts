@@ -33,6 +33,7 @@ export interface AuthStatus {
   is_logged_in: boolean
   user_info?: UserInfo
   tokenExpired?: boolean
+  image_url_missing?: boolean  // 新增：标记image_url是否缺失
 }
 
 export interface UserInfo {
@@ -163,6 +164,7 @@ export async function getAuthStatus(): Promise<AuthStatus> {
             status: 'logged_in' as const,
             is_logged_in: true,
             user_info: authData.user_info,
+            image_url_missing: authData.image_url_missing,  // 传递image_url_missing标志
           }
         }
       } else {
@@ -860,4 +862,47 @@ export function checkDirectAuthParams(): {
   }
 
   return { authSuccess, authData, authError }
+}
+
+/**
+ * 刷新用户头像（检查并更新image_url）
+ * 如果image_url为空，提示用户重新登录
+ */
+export async function refreshUserAvatar(): Promise<{
+  success: boolean
+  updated: boolean
+  image_url: string
+  message: string
+}> {
+  try {
+    const response = await fetch(`${BASE_API_URL}/api/auth/refresh-avatar`, {
+      method: 'POST',
+      credentials: 'include', // 包含httpOnly cookie
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      console.warn(`⚠️ [Avatar] Refresh avatar API returned status: ${response.status}`)
+      return {
+        success: false,
+        updated: false,
+        image_url: '',
+        message: 'API调用失败',
+      }
+    }
+
+    const data = await response.json()
+    console.log('📸 [Avatar] Refresh response:', data)
+    return data
+  } catch (error) {
+    console.error('❌ [Avatar] Failed to refresh avatar:', error)
+    return {
+      success: false,
+      updated: false,
+      image_url: '',
+      message: '网络错误',
+    }
+  }
 }

@@ -210,7 +210,7 @@ async def check_auth_status(request: Request):
                     "status": "logged_out",
                     "message": "User not found"
                 }
-            
+
             # 🎯 详细记录用户level信息
             user_level = user.get("level", "free")
             logger.info(f"🔍 PRICING: User level details for {user['email']}:")
@@ -219,35 +219,47 @@ async def check_auth_status(request: Request):
             logger.info(f"   - Final level (with fallback): {user_level}")
             logger.info(f"   - User ID: {user['id']}")
             logger.info(f"   - User UUID: {user.get('uuid', 'N/A')}")
-            
+
             # 构建用户信息
+            # 处理时间字段（可能是datetime对象或字符串）
+            ctime = user.get("ctime")
+            mtime = user.get("mtime")
+            created_at = ctime.isoformat() if hasattr(ctime, 'isoformat') else ctime
+            updated_at = mtime.isoformat() if hasattr(mtime, 'isoformat') else mtime
+
             user_info = {
                 "id": str(user["id"]),
-                "username": user["username"],
+                "username": user.get("nickname", user["email"].split("@")[0]),  # 使用nickname，如果没有则从email提取
                 "email": user["email"],
-                "image_url": user.get("image_url"),
-                "provider": user.get("provider"),
+                "image_url": user.get("image_url", ""),
+                "provider": "google",  # 默认provider
                 "level": user_level,
-                "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
-                "updated_at": user.get("updated_at").isoformat() if user.get("updated_at") else None,
+                "created_at": created_at,
+                "updated_at": updated_at,
             }
-            
+
+            # 检查image_url是否为空
+            image_url = user.get("image_url", "")
+            image_url_missing = not image_url or image_url.strip() == ""
+
             logger.info(f"✅ Auth check successful for user {user_id} ({user['email']}) with level: {user_level}")
             logger.info(f"🎯 PRICING: Returning user_info.level = {user_info['level']}")
-            
+            logger.info(f"🖼️ Image URL check: image_url={repr(image_url)}, missing={image_url_missing}")
+
             return {
                 "is_logged_in": True,
                 "status": "logged_in",
                 "user_info": user_info,
-                "token": auth_token  # 返回token以便前端同步
+                "token": auth_token,  # 返回token以便前端同步
+                "image_url_missing": image_url_missing  # 新增：标记image_url是否缺失
             }
             
         except Exception as token_error:
-            logger.error(f"❌ Token verification error: {token_error}")
+            logger.error(f"❌ Token verification error: {token_error}", exc_info=True)
             return {
                 "is_logged_in": False,
                 "status": "logged_out",
-                "message": "Token verification failed"
+                "message": f"Token verification failed: {str(token_error)}"
             }
             
     except Exception as e:
@@ -257,6 +269,62 @@ async def check_auth_status(request: Request):
             "status": "logged_out",
             "message": "Auth check failed"
         }
+
+
+@router.post("/api/auth/refresh-avatar")
+async def refresh_user_avatar(request: Request):
+    """检查用户头像（从数据库返回image_url）"""
+    try:
+        # 从httpOnly cookie获取认证信息
+        auth_token = request.cookies.get("auth_token")
+
+        if not auth_token:
+            logger.warning("❌ [Avatar] No auth token found")
+            raise HTTPException(status_code=401, detail="未登录")
+
+        # 验证token
+        try:
+            payload = verify_access_token(auth_token)
+            if not payload:
+                logger.warning("❌ [Avatar] Invalid token")
+                raise HTTPException(status_code=401, detail="Token无效")
+
+            user_id = payload.get("user_id")
+            if not user_id:
+                logger.warning("❌ [Avatar] No user_id in token")
+                raise HTTPException(status_code=401, detail="Token无效")
+
+            # 从数据库获取用户信息
+            from services.db_service import db_service
+            user = await db_service.get_user_by_id(user_id)
+            if not user:
+                logger.warning(f"❌ [Avatar] User {user_id} not found")
+                raise HTTPException(status_code=404, detail="用户不存在")
+
+            current_image_url = user.get("image_url", "")
+
+            logger.info(f"🔍 [Avatar] Checking user {user['email']}")
+            logger.info(f"   - image_url: {current_image_url if current_image_url else '(empty)'}")
+
+            # 返回数据库中的image_url（可能为空，前端会使用DiceBear fallback）
+            return {
+                "success": True,
+                "updated": False,
+                "image_url": current_image_url,
+                "message": "头像已存在" if current_image_url else "头像为空，前端将使用虚拟头像"
+            }
+
+        except HTTPException:
+            raise
+        except Exception as token_error:
+            logger.error(f"❌ [Avatar] Token验证错误: {token_error}", exc_info=True)
+            raise HTTPException(status_code=401, detail="认证失败")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [Avatar] 刷新头像失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="刷新头像失败")
 
 
 # Google OAuth配置
@@ -558,7 +626,8 @@ async def oauth_callback(code: str = Query(...), state: str = Query(...), error:
             
             user_data = user_response.json()
             logger.info(f"Device OAuth completed for user: {user_data.get('email')}")
-            
+            logger.info(f"   - Google返回的picture: {user_data.get('picture', '(not provided)')}")
+
             # 检查用户是否存在，不存在则创建新用户
             user_result = await db_service.get_or_create_user(
                 email=user_data["email"],
@@ -656,15 +725,22 @@ async def oauth_callback(code: str = Query(...), state: str = Query(...), error:
                 httponly=True,  # 防止XSS攻击
                 **cookie_kwargs
             )
+            # 🔧 添加非httpOnly的token副本，供前端WebSocket使用
             response.set_cookie(
-                key="user_uuid", 
+                key="client_auth_token",
+                value=app_token,
+                httponly=False,  # 允许JavaScript读取用于WebSocket连接
+                **cookie_kwargs
+            )
+            response.set_cookie(
+                key="user_uuid",
                 value=user_info["uuid"],
                 httponly=False,  # 允许JavaScript读取UUID用于前端显示
                 **cookie_kwargs
             )
             response.set_cookie(
                 key="user_email",
-                value=user_info["email"], 
+                value=user_info["email"],
                 httponly=False,
                 **cookie_kwargs
             )
@@ -849,7 +925,8 @@ async def direct_oauth_callback(request: Request, code: str = Query(...), state:
             
             user_data = user_response.json()
             logger.info(f"Successfully obtained user info for: {user_data.get('email')}")
-            
+            logger.info(f"   - Google返回的picture: {user_data.get('picture', '(not provided)')}")
+
             # 检查用户是否存在，不存在则创建新用户
             user_result = await db_service.get_or_create_user(
                 email=user_data["email"],
@@ -959,15 +1036,22 @@ async def direct_oauth_callback(request: Request, code: str = Query(...), state:
                 httponly=True,  # 防止XSS攻击
                 **cookie_kwargs
             )
+            # 🔧 添加非httpOnly的token副本，供前端WebSocket使用
             response.set_cookie(
-                key="user_uuid", 
+                key="client_auth_token",
+                value=app_token,
+                httponly=False,  # 允许JavaScript读取用于WebSocket连接
+                **cookie_kwargs
+            )
+            response.set_cookie(
+                key="user_uuid",
                 value=user_info["uuid"],
                 httponly=False,  # 允许JavaScript读取UUID用于前端显示
                 **cookie_kwargs
             )
             response.set_cookie(
                 key="user_email",
-                value=user_info["email"], 
+                value=user_info["email"],
                 httponly=False,
                 **cookie_kwargs
             )
@@ -1034,7 +1118,7 @@ async def refresh_token(request: Request):
 
 def clear_auth_cookies(response: Response, request: Request = None):
     """清除所有认证相关的cookie的通用函数"""
-    cookie_keys = ["auth_token", "user_uuid", "user_email"]
+    cookie_keys = ["auth_token", "client_auth_token", "user_uuid", "user_email"]
     
     # 判断是否为HTTPS环境
     is_secure = False

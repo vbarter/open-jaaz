@@ -422,15 +422,17 @@ class DatabaseService:
             raise ValueError(f"Stored workflow api_json is not valid JSON: {exc}")
 
     # User management methods
-    async def create_user(self, email: str, nickname: str, points: int = 0) -> int:
+    async def create_user(self, email: str, nickname: str, points: int = 0,
+                         image_url: str = None) -> int:
         """Create a new user and return user ID"""
         user_uuid = str(uuid.uuid4())
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute("""
-                INSERT INTO tb_user (email, nickname, points, uuid)
-                VALUES (?, ?, ?, ?)
-            """, (email, nickname, points, user_uuid))
+                INSERT INTO tb_user (email, nickname, points, uuid, image_url)
+                VALUES (?, ?, ?, ?, ?)
+            """, (email, nickname, points, user_uuid, image_url or ''))
             await db.commit()
+            logger.info(f"✅ Created user: {email}, image_url: {image_url}")
             return cursor.lastrowid
 
     async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
@@ -438,7 +440,7 @@ class DatabaseService:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = sqlite3.Row
             cursor = await db.execute("""
-                SELECT id, email, nickname, points, ctime, mtime, uuid, level
+                SELECT id, email, nickname, points, ctime, mtime, uuid, level, image_url
                 FROM tb_user
                 WHERE email = ?
             """, (email,))
@@ -450,7 +452,7 @@ class DatabaseService:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = sqlite3.Row
             cursor = await db.execute("""
-                SELECT id, email, nickname, points, ctime, mtime, uuid, level, subscription_id, order_id
+                SELECT id, email, nickname, points, ctime, mtime, uuid, level, subscription_id, order_id, image_url
                 FROM tb_user
                 WHERE id = ?
             """, (user_id,))
@@ -462,7 +464,7 @@ class DatabaseService:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = sqlite3.Row
             cursor = await db.execute("""
-                SELECT id, email, nickname, points, ctime, mtime, uuid, level, subscription_id, order_id
+                SELECT id, email, nickname, points, ctime, mtime, uuid, level, subscription_id, order_id, image_url
                 FROM tb_user
                 WHERE uuid = ?
             """, (user_uuid,))
@@ -507,7 +509,7 @@ class DatabaseService:
         try:
             async with aiosqlite.connect(self.db_path) as db:
                 await db.execute("""
-                    UPDATE tb_user 
+                    UPDATE tb_user
                     SET level = ?, mtime = STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now')
                     WHERE id = ?
                 """, (level, user_id))
@@ -518,7 +520,7 @@ class DatabaseService:
             logger.error(f"Error updating user level for user {user_id}: {e}")
             return False
 
-    async def get_or_create_user(self, email: str, username: str, provider: str = "google", 
+    async def get_or_create_user(self, email: str, username: str, provider: str = "google",
                                 google_id: str = None, image_url: str = None) -> Dict[str, Any]:
         """
         获取用户或创建新用户（用于OAuth登录）
@@ -528,18 +530,29 @@ class DatabaseService:
             "message": str      # 操作信息
         }
         """
-        logger.info(f"Getting or creating user for email: {email}")
-        
+        logger.info(f"Getting or creating user for email: {email}, image_url: {image_url}")
+
         # 先检查用户是否存在
         existing_user = await self.get_user_by_email(email)
-        
+
         if existing_user:
             logger.info(f"Found existing user: {existing_user['id']}, email: {email}")
             # 更新用户信息（如昵称可能变化）
             if existing_user['nickname'] != username:
                 await self.update_user_info(existing_user['id'], nickname=username)
                 logger.info(f"Updated nickname for user {existing_user['id']}: {username}")
-            
+
+            # 更新 image_url（如果提供了新的头像）
+            if image_url:
+                async with aiosqlite.connect(self.db_path) as db:
+                    await db.execute("""
+                        UPDATE tb_user
+                        SET image_url = ?, mtime = STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now')
+                        WHERE id = ?
+                    """, (image_url, existing_user['id']))
+                    await db.commit()
+                    logger.info(f"✅ Updated image_url for user {existing_user['id']}")
+
             # 返回现有用户信息
             updated_user = await self.get_user_by_id(existing_user['id'])
             return {
@@ -553,13 +566,14 @@ class DatabaseService:
             user_id = await self.create_user(
                 email=email,
                 nickname=username,
-                points=100  # 新用户赠送100积分
+                points=100,  # 新用户赠送100积分
+                image_url=image_url
             )
-            
+
             # 获取新创建的用户信息
             new_user = await self.get_user_by_id(user_id)
             logger.info(f"Created new user: {user_id}, email: {email}")
-            
+
             return {
                 "user": new_user,
                 "is_new": True,

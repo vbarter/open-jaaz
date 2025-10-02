@@ -1,10 +1,11 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
-import { Loader2, Heart, Eye } from 'lucide-react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useState, useEffect, useMemo } from 'react'
+import { Loader2, Heart, Eye, Sparkles, User, Compass } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { getShareVideo, likeShareVideo, ShareVideoDetail } from '@/api/sora'
 import { EnhancedVideoPlayer } from '@/components/chat/EnhancedVideoPlayer'
+import { generateAvatarUrl } from '@/utils/avatarUtils'
 
 export const Route = createFileRoute('/share')({
   component: SharePage,
@@ -17,10 +18,31 @@ export const Route = createFileRoute('/share')({
 
 function SharePage() {
   const { id: shareId } = Route.useSearch()
+  const navigate = useNavigate()
   const [video, setVideo] = useState<ShareVideoDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isLiking, setIsLiking] = useState(false)
   const [currentLikes, setCurrentLikes] = useState(0)
+
+  // 生成头像URL（优先使用真实头像，否则使用虚拟头像）
+  const avatarUrl = useMemo(() => {
+    if (!video) return ''
+    if (video.user_image_url) return video.user_image_url
+    return generateAvatarUrl(video.user_uuid, 'avataaars')
+  }, [video])
+
+  // 格式化创建时间 (YYYY-MM-DD HH:mm:ss)
+  const formattedTime = useMemo(() => {
+    if (!video?.ctime) return ''
+    const date = new Date(video.ctime)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const seconds = String(date.getSeconds()).padStart(2, '0')
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+  }, [video])
 
   // 加载分享视频
   useEffect(() => {
@@ -106,11 +128,32 @@ function SharePage() {
 
           {/* 信息区域 */}
           <div className='p-6 space-y-4'>
+            {/* 用户信息和创建时间 */}
+            <div className='flex items-center justify-between'>
+              {/* 用户头像 */}
+              <div className='flex items-center gap-3'>
+                <img
+                  src={avatarUrl}
+                  alt='User avatar'
+                  className='w-10 h-10 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700 bg-white'
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none'
+                    const fallback = e.currentTarget.nextElementSibling
+                    if (fallback) {
+                      fallback.classList.remove('hidden')
+                    }
+                  }}
+                />
+                <div className='hidden w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center border-2 border-gray-200 dark:border-gray-600'>
+                  <User className='w-5 h-5 text-gray-500 dark:text-gray-400' />
+                </div>
+                {/* 创建时间 */}
+                <span className='text-sm text-gray-500 dark:text-gray-400'>{formattedTime}</span>
+              </div>
+            </div>
+
             {/* 提示词 */}
             <div>
-              <h2 className='text-sm font-medium text-gray-500 dark:text-gray-400 mb-2'>
-                Video Description
-              </h2>
               <p className='text-base text-gray-900 dark:text-gray-100'>{video.prompt}</p>
             </div>
 
@@ -128,19 +171,32 @@ function SharePage() {
                 </div>
               </div>
 
-              {/* 点赞按钮 */}
-              <Button
-                onClick={handleLike}
-                disabled={isLiking}
-                className='bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900'
-              >
-                {isLiking ? (
-                  <Loader2 className='w-4 h-4 animate-spin mr-2' />
-                ) : (
-                  <Heart className='w-4 h-4 mr-2' />
-                )}
-                Like
-              </Button>
+              {/* 按钮组 */}
+              <div className='flex items-center gap-3'>
+                {/* Explore按钮 */}
+                <Button
+                  onClick={() => navigate({ to: '/discover' })}
+                  variant='outline'
+                  className='border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800'
+                >
+                  <Compass className='w-4 h-4 mr-2' />
+                  Explore
+                </Button>
+
+                {/* 点赞按钮 */}
+                <Button
+                  onClick={handleLike}
+                  disabled={isLiking}
+                  className='bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900'
+                >
+                  {isLiking ? (
+                    <Loader2 className='w-4 h-4 animate-spin mr-2' />
+                  ) : (
+                    <Heart className='w-4 h-4 mr-2' />
+                  )}
+                  Like
+                </Button>
+              </div>
             </div>
           </div>
         </div>

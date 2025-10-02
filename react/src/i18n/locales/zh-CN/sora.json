@@ -1,7 +1,8 @@
 {
   "title": "Sora2 视频生成",
   "subtitle": "使用 AI 将你的想象力转化为精彩视频",
-  "feedbackButton": "联系反馈问题",
+  "discoverButton": "广场视频",
+  "feedbackButton": "反馈问题",
   "placeholder": "描述你想要的视频...",
   "generating": "队列计算中, 平均完成时间2-3分钟",
   "buttons": {
@@ -54,5 +55,6 @@
   "emptyState": "开始创作你的第一个视频吧！",
   "deleteTask": "删除任务",
   "shareVideo": "分享",
-  "generationFailed": "生成失败"
+  "generationFailed": "生成失败",
+  "viewMoreVideos": "查看更多精彩视频"
 }

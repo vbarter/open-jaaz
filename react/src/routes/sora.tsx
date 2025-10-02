@@ -1,10 +1,11 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import TopMenu from '@/components/TopMenu'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { getCookie } from '@/utils/cookies'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,8 @@ import {
   Eye,
   Heart,
   ArrowUpRight,
+  Video,
+  MessageCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -36,6 +39,7 @@ import {
 import { EnhancedVideoPlayer } from '@/components/chat/EnhancedVideoPlayer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useConfigs } from '@/contexts/configs'
+import { refreshUserAvatar, logout } from '@/api/auth'
 
 export const Route = createFileRoute('/sora')({
   component: SoraPage,
@@ -76,6 +80,7 @@ const taskToVideo = (task: Sora2TaskDetail): GeneratedVideo => ({
 function SoraPage() {
   const { t } = useTranslation('sora')
   const { t: tCommon } = useTranslation('common')
+  const navigate = useNavigate()
   const { authStatus, isLoading: isAuthLoading } = useAuth()
   const { setShowLoginDialog } = useConfigs()
   const [prompt, setPrompt] = useState('')
@@ -94,13 +99,69 @@ function SoraPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [videoToDelete, setVideoToDelete] = useState<string | null>(null)
 
-  // 检查登录状态
+  // 检查登录状态 & image_url
   useEffect(() => {
-    if (!isAuthLoading && !authStatus.is_logged_in) {
-      console.log('🔒 [Sora] 用户未登录，显示登录对话框')
-      setShowLoginDialog(true)
+    const checkAuthAndImageUrl = async () => {
+      if (!isAuthLoading) {
+        // 检查是否未登录
+        if (!authStatus.is_logged_in) {
+          console.log('🔒 [Sora] 用户未登录，显示登录对话框')
+          setShowLoginDialog(true)
+          return
+        }
+
+        // 检查image_url是否缺失（直接从user_info检查）
+        const imageUrl = authStatus.user_info?.image_url
+        const isImageUrlMissing = !imageUrl || imageUrl.trim() === ''
+
+        // console.log('🖼️ [Sora] 检查用户头像:', {
+        //   imageUrl,
+        //   isImageUrlMissing,
+        //   userInfo: authStatus.user_info,
+        // })
+
+        if (isImageUrlMissing) {
+          // console.log('🖼️ [Sora] 用户image_url缺失，静默退出登录')
+
+          // 静默退出登录（不显示错误提示）
+          try {
+            await logout()
+            // console.log('✅ [Sora] 退出登录成功')
+            // 退出后显示登录对话框
+            setShowLoginDialog(true)
+          } catch (error) {
+            console.error('❌ [Sora] 退出登录失败:', error)
+            // 即使退出失败也显示登录对话框
+            setShowLoginDialog(true)
+          }
+        }
+      }
     }
-  }, [isAuthLoading, authStatus.is_logged_in, setShowLoginDialog])
+
+    checkAuthAndImageUrl()
+  }, [isAuthLoading, authStatus.is_logged_in, authStatus.user_info, setShowLoginDialog, t])
+
+  // 刷新用户头像（如果需要）
+  useEffect(() => {
+    const checkAndRefreshAvatar = async () => {
+      // 只在用户已登录时检查头像
+      if (!isAuthLoading && authStatus.is_logged_in) {
+        try {
+          // console.log('📸 [Sora] 检查用户头像...')
+          const result = await refreshUserAvatar()
+          if (result.success && result.image_url) {
+            // console.log('✅ [Sora] 用户头像存在:', result.image_url)
+          } else {
+            console.warn('⚠️ [Sora] 用户头像为空:', result.message)
+          }
+        } catch (error) {
+          console.error('❌ [Sora] 刷新头像时出错:', error)
+        }
+      }
+    }
+
+    checkAndRefreshAvatar()
+  }, [isAuthLoading, authStatus.is_logged_in])
 
   // 分享对话框状态
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
@@ -121,10 +182,19 @@ function SoraPage() {
 
     // console.log('🔌 [Sora WS] 建立WebSocket连接...')
 
+    // 从 cookie 中获取 client_auth_token（非httpOnly，供前端使用）
+    const authToken = getCookie('client_auth_token')
+    if (!authToken) {
+      console.error('❌ [Sora WS] 无法获取认证token，取消WebSocket连接')
+      setIsLoadingTasks(false)
+      return
+    }
+
     // 构建WebSocket URL（HTTP协议对应ws，HTTPS对应wss）
     // 使用独立路径 /ws-sora2/tasks，避免被 Nginx location / 的错误配置捕获
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}/ws-sora2/tasks`
+    // 🔑 将token作为query参数传递
+    const wsUrl = `${protocol}//${window.location.host}/ws-sora2/tasks?token=${encodeURIComponent(authToken)}`
 
     try {
       const ws = new WebSocket(wsUrl)
@@ -431,22 +501,27 @@ function SoraPage() {
               {t('subtitle')}
             </p>
 
-            {/* 反馈按钮 */}
-            <div className='flex justify-center'>
+            {/* 操作按钮组 */}
+            <div className='flex justify-center gap-3'>
+              {/* 广场视频按钮 */}
+              <Button
+                variant='outline'
+                onClick={() => navigate({ to: '/discover' })}
+                className='group bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 transition-all'
+              >
+                <Video className='w-4 h-4 mr-2 text-purple-600 dark:text-purple-400' />
+                <span className='text-gray-900 dark:text-gray-100'>{t('discoverButton')}</span>
+              </Button>
+
+              {/* 反馈问题按钮 */}
               <Button
                 variant='outline'
                 onClick={() =>
                   window.open('https://twitter.com/intent/tweet?text=@vbarter', '_blank')
                 }
-                className='group bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all'
+                className='group bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all'
               >
-                <svg
-                  className='w-4 h-4 mr-2 text-gray-700 dark:text-gray-300'
-                  fill='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path d='M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z' />
-                </svg>
+                <MessageCircle className='w-4 h-4 mr-2 text-blue-600 dark:text-blue-400' />
                 <span className='text-gray-900 dark:text-gray-100'>{t('feedbackButton')}</span>
                 <ArrowUpRight className='w-3 h-3 ml-1 text-gray-500 dark:text-gray-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform' />
               </Button>

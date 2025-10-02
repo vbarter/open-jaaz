@@ -1,7 +1,8 @@
 {
   "title": "Sora2 Video Generation",
   "subtitle": "Transform your imagination into stunning videos with AI",
-  "feedbackButton": "Contact for Feedback",
+  "discoverButton": "Discover",
+  "feedbackButton": "Feedback",
   "placeholder": "Describe your video...",
   "generating": "Queued for processing, average completion time 2-3 minutes",
   "buttons": {
@@ -54,5 +55,6 @@
   "emptyState": "Start creating your first video!",
   "deleteTask": "Delete task",
   "shareVideo": "Share",
-  "generationFailed": "Generation failed"
+  "generationFailed": "Generation failed",
+  "viewMoreVideos": "Explore More Videos"
 }

@@ -362,6 +362,116 @@ class Sora2Service:
                 remark=friendly_message
             )
 
+    async def list_all_success_videos(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        sort_by: str = "time"
+    ) -> List[Dict[str, Any]]:
+        """
+        获取所有用户的成功视频（用于发现页面）
+        自动为没有分享记录的视频创建分享
+
+        Args:
+            limit: 返回数量限制
+            offset: 偏移量
+            sort_by: 排序方式（time=时间，likes=点赞，views=浏览）
+
+        Returns:
+            List[Dict]: 视频记录列表（按指定方式排序）
+        """
+        # 导入分享服务
+        from services.sora2_share_service import get_sora2_share_service
+        from common import BASE_URL
+
+        share_service = get_sora2_share_service()
+
+        # 根据排序类型确定 ORDER BY 子句
+        order_by_map = {
+            "time": "s.ctime DESC",
+            "likes": "COALESCE(sh.likes, 0) DESC, s.ctime DESC",
+            "views": "COALESCE(sh.views, 0) DESC, s.ctime DESC"
+        }
+        order_by = order_by_map.get(sort_by, "s.ctime DESC")
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = sqlite3.Row
+
+            cursor = await db.execute(
+                f"""
+                SELECT s.id, s.user_uuid, s.prompt, s.model, s.images, s.video_url,
+                       s.status, s.remark, s.ctime, s.mtime,
+                       COALESCE(sh.views, 0) as views,
+                       COALESCE(sh.likes, 0) as likes,
+                       sh.share_id as share_id,
+                       u.image_url as user_image_url,
+                       u.email as user_email
+                FROM tb_sora2 s
+                LEFT JOIN tb_sora2_share sh ON s.id = sh.video_id
+                LEFT JOIN tb_user u ON s.user_uuid = u.uuid
+                WHERE s.status = 'success' AND s.video_url != ''
+                ORDER BY {order_by}
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset)
+            )
+
+            rows = await cursor.fetchall()
+            records = []
+
+            for row in rows:
+                record = dict(row)
+                # 解析 JSON 字段
+                if record['images']:
+                    try:
+                        record['images'] = json.loads(record['images'])
+                    except:
+                        record['images'] = []
+                else:
+                    record['images'] = []
+
+                # 如果没有 share_id，自动创建分享记录
+                if not record.get('share_id'):
+                    try:
+                        logger.info(f"🔗 自动为视频 #{record['id']} 创建分享记录")
+                        share_record = await share_service.create_share(
+                            user_uuid=record['user_uuid'],
+                            video_id=record['id'],
+                            base_url=BASE_URL
+                        )
+                        record['share_id'] = share_record['share_id']
+                        # 新创建的分享，views 和 likes 都是 0
+                        record['views'] = 0
+                        record['likes'] = 0
+                        logger.info(f"✅ 分享创建成功: share_id={share_record['share_id']}")
+                    except Exception as e:
+                        logger.error(f"❌ 为视频 #{record['id']} 创建分享失败: {e}")
+                        # 如果创建失败，仍然返回视频，但 share_id 为 None
+                        record['share_id'] = None
+
+                # 移除 user_email 字段（前端不需要）
+                if 'user_email' in record:
+                    del record['user_email']
+
+                records.append(record)
+
+            logger.info(f"📋 Retrieved {len(records)} success videos for discover page")
+            return records
+
+    async def get_all_success_videos_count(self) -> int:
+        """
+        获取所有成功视频的总数
+
+        Returns:
+            int: 视频总数
+        """
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "SELECT COUNT(*) FROM tb_sora2 WHERE status = 'success' AND video_url != ''"
+            )
+            result = await cursor.fetchone()
+            return result[0] if result else 0
+
     async def delete_record(self, record_id: int) -> bool:
         """
         删除 Sora2 记录

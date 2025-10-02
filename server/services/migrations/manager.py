@@ -15,13 +15,16 @@ from services.migrations.v12_add_product_sku import V12AddProductSku
 from services.migrations.v13_add_user_subscription_fields import V13AddUserSubscriptionFields
 from services.migrations.v14_add_sora2_table import V14AddSora2Table
 from services.migrations.v15_add_sora2_share_table import V15AddSora2ShareTable
+from services.migrations.v16_add_user_logo_url import V16AddUserLogoUrl
+from services.migrations.v17_add_user_image_url import V17AddUserImageUrl
+from services.migrations import v18_remove_logo_url
 from . import Migration
 from log import get_logger
 
 logger = get_logger(__name__)
 
 # Database version
-CURRENT_VERSION = 15
+CURRENT_VERSION = 18
 
 ALL_MIGRATIONS = [
     {
@@ -83,6 +86,18 @@ ALL_MIGRATIONS = [
     {
         'version': 15,
         'migration': V15AddSora2ShareTable,
+    },
+    {
+        'version': 16,
+        'migration': V16AddUserLogoUrl,
+    },
+    {
+        'version': 17,
+        'migration': V17AddUserImageUrl,
+    },
+    {
+        'version': 18,
+        'migration': v18_remove_logo_url,
     },
 ]
 class MigrationManager:
