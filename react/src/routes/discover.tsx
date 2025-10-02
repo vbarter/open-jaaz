@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import TopMenu from '@/components/TopMenu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Loader2, Sparkles, Clock, Heart, Eye } from 'lucide-react'
@@ -44,6 +45,7 @@ const taskToVideo = (task: Sora2TaskDetail): DiscoverVideo => ({
 })
 
 function DiscoverPage() {
+  const { t } = useTranslation('discover')
   const [videos, setVideos] = useState<DiscoverVideo[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -93,7 +95,7 @@ function DiscoverPage() {
         // 检查是否还有更多数据
         setHasMore(offset + LIMIT < response.total)
       } catch (error) {
-        console.error('加载视频列表失败:', error)
+        console.error(t('loadError'), error)
       } finally {
         setIsLoading(false)
         setIsLoadingMore(false)
@@ -154,7 +156,7 @@ function DiscoverPage() {
           <div className='w-full max-w-[1400px] mx-auto mb-8'>
             <div className='flex items-center justify-center'>
               <h1 className='text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100'>
-                发现精彩视频
+                {t('title')}
               </h1>
             </div>
           </div>
@@ -165,25 +167,25 @@ function DiscoverPage() {
             <div className='flex justify-start mb-4'>
               <Select value={sortBy} onValueChange={handleSortChange}>
                 <SelectTrigger className='w-[140px]'>
-                  <SelectValue placeholder='排序方式' />
+                  <SelectValue placeholder={t('sort.label')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='time'>
                     <div className='flex items-center gap-2'>
                       <Clock className='w-4 h-4' />
-                      <span>时间排序</span>
+                      <span>{t('sort.time')}</span>
                     </div>
                   </SelectItem>
                   <SelectItem value='likes'>
                     <div className='flex items-center gap-2'>
                       <Heart className='w-4 h-4' />
-                      <span>点赞排序</span>
+                      <span>{t('sort.likes')}</span>
                     </div>
                   </SelectItem>
                   <SelectItem value='views'>
                     <div className='flex items-center gap-2'>
                       <Eye className='w-4 h-4' />
-                      <span>浏览排序</span>
+                      <span>{t('sort.views')}</span>
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -192,12 +194,12 @@ function DiscoverPage() {
             {isLoading ? (
               <div className='flex flex-col items-center justify-center py-20 text-gray-400'>
                 <Loader2 className='w-16 h-16 mb-4 opacity-50 animate-spin' />
-                <p className='text-lg'>加载中...</p>
+                <p className='text-lg'>{t('loading')}</p>
               </div>
             ) : videos.length === 0 ? (
               <div className='flex flex-col items-center justify-center py-20 text-gray-400'>
                 <Sparkles className='w-16 h-16 mb-4 opacity-50' />
-                <p className='text-lg'>暂无视频</p>
+                <p className='text-lg'>{t('noVideos')}</p>
               </div>
             ) : (
               <>
@@ -223,11 +225,11 @@ function DiscoverPage() {
                   {isLoadingMore && (
                     <div className='flex flex-col items-center justify-center text-gray-400'>
                       <Loader2 className='w-8 h-8 mb-2 animate-spin' />
-                      <p className='text-sm'>加载更多...</p>
+                      <p className='text-sm'>{t('loadingMore')}</p>
                     </div>
                   )}
                   {!hasMore && videos.length > 0 && (
-                    <div className='text-center text-gray-400 text-sm'>已加载全部视频</div>
+                    <div className='text-center text-gray-400 text-sm'>{t('allLoaded')}</div>
                   )}
                 </div>
               </>

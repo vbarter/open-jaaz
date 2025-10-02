@@ -1,0 +1,14 @@
+{
+  "title": "发现精彩视频",
+  "loading": "加载中...",
+  "loadingMore": "加载更多...",
+  "noVideos": "暂无视频",
+  "allLoaded": "已加载全部视频",
+  "loadError": "加载视频列表失败",
+  "sort": {
+    "label": "排序方式",
+    "time": "时间排序",
+    "likes": "点赞排序",
+    "views": "浏览排序"
+  }
+}

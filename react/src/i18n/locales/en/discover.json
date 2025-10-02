@@ -1,0 +1,14 @@
+{
+  "title": "Discover Amazing Videos",
+  "loading": "Loading...",
+  "loadingMore": "Loading more...",
+  "noVideos": "No videos yet",
+  "allLoaded": "All videos loaded",
+  "loadError": "Failed to load videos",
+  "sort": {
+    "label": "Sort by",
+    "time": "Recent",
+    "likes": "Most Liked",
+    "views": "Most Viewed"
+  }
+}
