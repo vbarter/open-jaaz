@@ -233,6 +233,8 @@ class Sora2TaskDetail(BaseModel):
     mtime: str = Field(..., description="最后更新时间")
     views: int = Field(default=0, description="访问量")
     likes: int = Field(default=0, description="点赞量")
+    share_id: Optional[str] = Field(None, description="分享ID")
+    user_image_url: Optional[str] = Field(None, description="用户头像URL")
 
 
 # Sora2 任务列表响应模型
@@ -759,42 +761,85 @@ async def get_sora2_share(share_id: str):
 async def like_sora2_share(share_id: str):
     """
     点赞分享视频（无需登录）
-    
+
     Args:
         share_id: 分享ID
-        
+
     Returns:
         更新后的点赞数
     """
     try:
         logger.info(f"👍 点赞分享 - share_id: {share_id}")
-        
+
         # 获取分享服务
         share_service = get_sora2_share_service()
-        
+
         # 验证分享是否存在
         share_record = await share_service.get_share_by_id(share_id)
         if not share_record:
             raise HTTPException(status_code=404, detail="分享不存在或已失效")
-        
+
         # 增加点赞量
         success = await share_service.increment_likes(share_id)
-        
+
         if not success:
             raise HTTPException(status_code=500, detail="点赞失败")
-        
+
         # 获取更新后的点赞数
         updated_share = await share_service.get_share_by_id(share_id)
-        
+
         logger.info(f"✅ 点赞成功 - share_id: {share_id}, likes: {updated_share['likes']}")
-        
+
         return {
             "success": True,
             "likes": updated_share["likes"]
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"❌ 点赞失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"点赞失败: {str(e)}")
+
+
+# ==================== Sora2 发现页面相关路由 ====================
+
+@router.get("/sora2/discover", response_model=Sora2TaskListResponse)
+async def get_discover_videos(
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0)
+):
+    """
+    获取所有用户的成功视频（发现页面）
+
+    Args:
+        limit: 每页数量（1-100，默认50）
+        offset: 偏移量（默认0）
+
+    Returns:
+        视频列表和统计信息
+    """
+    try:
+        logger.info(f"📋 获取发现页面视频列表 - limit: {limit}, offset: {offset}")
+
+        # 获取视频列表
+        videos = await sora2_service.list_all_success_videos(
+            limit=limit,
+            offset=offset
+        )
+
+        # 获取总数
+        total = await sora2_service.get_all_success_videos_count()
+
+        logger.info(f"✅ 返回 {len(videos)} 个视频，总数: {total}")
+
+        return Sora2TaskListResponse(
+            tasks=videos,
+            total=total,
+            limit=limit,
+            offset=offset
+        )
+
+    except Exception as e:
+        logger.error(f"❌ 获取发现页面视频列表失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取视频列表失败: {str(e)}")

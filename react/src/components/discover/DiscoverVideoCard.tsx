@@ -1,0 +1,263 @@
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { Loader2, Play, Volume2, VolumeX, Eye, Heart, User, Info } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { generateAvatarUrl } from '@/utils/avatarUtils'
+import { useNavigate } from '@tanstack/react-router'
+
+interface DiscoverVideoCardProps {
+  videoUrl: string
+  prompt: string
+  views: number
+  likes: number
+  userUuid: string // 用户 UUID（用于fallback）
+  userImageUrl?: string // 用户真实头像 URL
+  shareId?: string // 分享ID
+  className?: string
+}
+
+export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
+  videoUrl,
+  prompt,
+  views,
+  likes,
+  userUuid,
+  userImageUrl,
+  shareId,
+  className,
+}) => {
+  const navigate = useNavigate()
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [isMuted, setIsMuted] = useState(true) // 默认静音
+  const [showPrompt, setShowPrompt] = useState(false)
+
+  // 检测是否为移动设备
+  const isMobile = /iPad|iPhone|iPod|Android/.test(navigator.userAgent)
+
+  // 优先使用真实头像，如果没有则使用虚拟头像
+  const avatarUrl = useMemo(() => {
+    if (userImageUrl) {
+      return userImageUrl
+    }
+    // Fallback: 使用虚拟头像
+    return generateAvatarUrl(userUuid, 'avataaars')
+  }, [userImageUrl, userUuid])
+
+  // 处理视频元数据加载
+  const handleLoadedMetadata = useCallback(() => {
+    const video = videoRef.current
+    if (video) {
+      setIsLoading(false)
+      setHasError(false)
+      // 移动设备默认静音以允许自动播放
+      if (isMobile) {
+        video.muted = true
+        setIsMuted(true)
+      }
+    }
+  }, [isMobile])
+
+  // 处理视频可以播放
+  const handleCanPlay = useCallback(() => {
+    setIsLoading(false)
+  }, [])
+
+  // 处理视频加载错误
+  const handleError = useCallback(() => {
+    console.error('Video load error:', videoUrl)
+    setIsLoading(false)
+    setHasError(true)
+  }, [videoUrl])
+
+  // 播放/暂停切换
+  const togglePlay = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation() // 防止事件冒泡
+      const video = videoRef.current
+      if (!video || hasError) return
+
+      try {
+        if (isPlaying) {
+          video.pause()
+          setIsPlaying(false)
+        } else {
+          await video.play()
+          setIsPlaying(true)
+        }
+      } catch (error) {
+        console.error('Playback error:', error)
+        setIsPlaying(false)
+      }
+    },
+    [isPlaying, hasError]
+  )
+
+  // 静音切换
+  const toggleMute = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation() // 防止触发播放/暂停
+    const video = videoRef.current
+    if (video) {
+      video.muted = !video.muted
+      setIsMuted(video.muted)
+    }
+  }, [])
+
+  // 查看详情（跳转到分享页面）
+  const handleViewDetails = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (shareId) {
+      navigate({ to: '/share', search: { id: shareId } })
+    }
+  }, [shareId, navigate])
+
+  // 监听视频播放状态
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    const handlePlay = () => setIsPlaying(true)
+    const handlePause = () => setIsPlaying(false)
+    const handleEnded = () => setIsPlaying(false)
+
+    video.addEventListener('play', handlePlay)
+    video.addEventListener('pause', handlePause)
+    video.addEventListener('ended', handleEnded)
+
+    return () => {
+      video.removeEventListener('play', handlePlay)
+      video.removeEventListener('pause', handlePause)
+      video.removeEventListener('ended', handleEnded)
+    }
+  }, [])
+
+  return (
+    <div
+      className={cn('relative group w-full h-full', className)}
+      onMouseEnter={() => setShowPrompt(true)}
+      onMouseLeave={() => setShowPrompt(false)}
+    >
+      {/* 加载指示器 */}
+      {isLoading && !hasError && (
+        <div className='absolute inset-0 flex items-center justify-center bg-gray-800 z-10'>
+          <Loader2 className='w-8 h-8 animate-spin text-white' />
+        </div>
+      )}
+
+      {/* 错误提示 */}
+      {hasError && (
+        <div className='absolute inset-0 flex items-center justify-center bg-gray-900 z-10'>
+          <div className='text-white text-center'>
+            <p className='text-xs'>加载失败</p>
+          </div>
+        </div>
+      )}
+
+      {/* 视频元素 */}
+      <video
+        ref={videoRef}
+        className='w-full h-full object-cover cursor-pointer'
+        preload='metadata'
+        playsInline
+        loop
+        muted={isMuted}
+        webkit-playsinline='true'
+        x5-playsinline='true'
+        x5-video-player-type='h5'
+        crossOrigin='anonymous'
+        onLoadedMetadata={handleLoadedMetadata}
+        onCanPlay={handleCanPlay}
+        onError={handleError}
+        onClick={togglePlay}
+        style={{ display: hasError ? 'none' : 'block' }}
+      >
+        <source src={videoUrl} type='video/mp4' />
+      </video>
+
+      {/* 左上角 - 用户头像 */}
+      <div className='absolute top-2 left-2 z-20'>
+        <img
+          src={avatarUrl}
+          alt='User avatar'
+          className='w-8 h-8 rounded-full object-cover border border-white/20 bg-white'
+          onError={(e) => {
+            // 如果头像加载失败，显示默认图标
+            e.currentTarget.style.display = 'none'
+            const fallback = e.currentTarget.nextElementSibling
+            if (fallback) {
+              fallback.classList.remove('hidden')
+            }
+          }}
+        />
+        <div className='hidden w-8 h-8 rounded-full bg-gray-800/60 backdrop-blur-sm flex items-center justify-center border border-white/20'>
+          <User className='w-4 h-4 text-white' />
+        </div>
+      </div>
+
+      {/* 右上角 - 音量图标 */}
+      <div className='absolute top-2 right-2 z-20'>
+        <button
+          onClick={toggleMute}
+          className='w-8 h-8 rounded-full bg-gray-800/60 backdrop-blur-sm flex items-center justify-center hover:bg-gray-700/60 transition-colors border border-white/20'
+          title={isMuted ? '取消静音' : '静音'}
+        >
+          {isMuted ? (
+            <VolumeX className='w-4 h-4 text-white' />
+          ) : (
+            <Volume2 className='w-4 h-4 text-white' />
+          )}
+        </button>
+      </div>
+
+      {/* 中央播放按钮（暂停时显示） */}
+      {!isPlaying && !isLoading && !hasError && (
+        <div
+          className='absolute inset-0 flex items-center justify-center bg-black/20 cursor-pointer z-10'
+          onClick={togglePlay}
+        >
+          <div className='bg-white/20 backdrop-blur-sm rounded-full p-3 hover:bg-white/30 transition-colors'>
+            <Play className='w-8 h-8 text-white fill-white' />
+          </div>
+        </div>
+      )}
+
+      {/* 底部 - 播放量、点赞量和操作按钮 */}
+      <div className='absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/70 to-transparent p-3'>
+        <div className='flex items-center justify-between'>
+          {/* 左侧 - 播放量和点赞量 */}
+          <div className='flex items-center gap-3'>
+            {/* 播放量 */}
+            <div className='flex items-center gap-1 text-white'>
+              <Eye className='w-3.5 h-3.5' />
+              <span className='text-xs font-medium'>{views}</span>
+            </div>
+            {/* 点赞量 */}
+            <div className='flex items-center gap-1 text-white'>
+              <Heart className='w-3.5 h-3.5' />
+              <span className='text-xs font-medium'>{likes}</span>
+            </div>
+          </div>
+
+          {/* 右侧 - 详情按钮 */}
+          <button
+            onClick={handleViewDetails}
+            className='w-7 h-7 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors border border-white/30'
+            title='查看详情'
+          >
+            <Info className='w-3.5 h-3.5 text-white' />
+          </button>
+        </div>
+      </div>
+
+      {/* 鼠标悬停时显示提示词 */}
+      {showPrompt && (
+        <div className='absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 to-transparent p-3 pt-12'>
+          <p className='text-white text-xs line-clamp-2 mb-8'>{prompt}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default DiscoverVideoCard
