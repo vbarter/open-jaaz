@@ -26,15 +26,41 @@ export type ToolResultMessage = {
   role: 'tool'
   tool_call_id: string
   content: string
+  timestamp?: number
+  message_id?: string
 }
+export type MediaItem = {
+  url: string
+  id: string
+  timestamp: number
+  metadata?: any
+}
+
+export type MessageMedia = {
+  images?: MediaItem[]
+  videos?: MediaItem[]
+}
+
 export type AssistantMessage = {
   role: 'assistant'
   tool_calls?: ToolCall[]
   content?: MessageContent[] | string
+  timestamp?: number
+  message_id?: string
+  // 多媒体支持
+  media?: MessageMedia
+  // 向后兼容
+  type?: 'video' | 'image' | string
+  video_url?: string
+  image_url?: string
 }
 export type UserMessage = {
   role: 'user'
   content: MessageContent[] | string
+  timestamp?: number
+  message_id?: string
+  // 多媒体支持
+  media?: MessageMedia
 }
 export type Message = UserMessage | AssistantMessage | ToolResultMessage
 

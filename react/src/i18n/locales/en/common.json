@@ -7,7 +7,7 @@
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
-    "edit": "Edit",
+    "edit": "Double click to edit title",
     "create": "Create",
     "submit": "Submit",
     "loading": "Loading...",
@@ -20,7 +20,8 @@
     "error": "Error",
     "success": "Success",
     "warning": "Warning",
-    "info": "Information"
+    "info": "Information",
+    "download": "Download"
   },
   "messages": {
     "success": "Operation completed successfully",
@@ -31,18 +32,48 @@
     "saved": "Saved successfully",
     "deleted": "Deleted successfully"
   },
-  "notifications": {
-    "title": "Notifications",
-    "clear": "Clear",
-    "markAllAsRead": "Mark all as read",
-    "allRead": "All read",
-    "newImageGenerated": "New image generated"
+  "points": {
+    "insufficientTitle": "Insufficient Credits",
+    "currentBalance": "Current Balance",
+    "required": "Required",
+    "credits": "credits",
+    "insufficientDescription": "Sorry, your account balance is insufficient to complete this image generation.",
+    "upgradeHint": "Upgrade your subscription plan to get more credits and enjoy unlimited creativity!",
+    "upgradePlan": "Upgrade Plan",
+    "viewPricing": "View Pricing",
+    "upgradeFeatures": "After upgrading, you will get:",
+    "feature1": "More credits for image generation",
+    "feature2": "Priority processing and faster generation",
+    "feature3": "Advanced AI models and more features"
+  },
+  "toast": {
+    "loginExpired": "Login has expired, please login again",
+    "crossTabLogout": "Successfully logged out",
+    "loginSuccess": "Login successful!",
+    "loginError": "Error occurred during login",
+    "loginFailed": "Login failed",
+    "paymentSuccess": "Payment successful!",
+    "paymentError": "Payment failed, please try again",
+    "subscriptionCancelled": "Subscription cancelled successfully!",
+    "subscriptionCancelError": "Failed to cancel subscription",
+    "imageUploadFailed": "Image upload failed",
+    "copySuccess": "Copied successfully!",
+    "copyError": "Copy failed",
+    "knowledgeListError": "Failed to get knowledge base list",
+    "knowledgeSettingsSaved": "Knowledge base settings saved",
+    "knowledgeSettingsError": "Failed to save knowledge base settings",
+    "fileReadError": "Failed to read file",
+    "networkError": "Network error",
+    "insufficientPoints": "Insufficient points to generate image",
+    "insufficientPointsWithDetails": "Insufficient points, current: {{current}}, required: {{required}}"
   },
   "navigation": {
     "home": "Home",
     "canvas": "Canvas",
     "settings": "Settings",
-    "back": "Back"
+    "back": "Back",
+    "templates": "Templates",
+    "pricing": "Pricing"
   },
   "update": {
     "title": "🎉 New Version Available",
@@ -54,8 +85,9 @@
   },
   "auth": {
     "login": "Login",
+    "signUp": "Sign Up",
     "logout": "Logout",
-    "loginToJaaz": "Login to Jaaz",
+    "loginToJaaz": "Login to MagicArt",
     "myAccount": "My Account",
     "loginDescription": "Login to use cloud AI models",
     "startLogin": "Start Login",
@@ -72,10 +104,93 @@
     "logoutSuccessMessage": "Successfully logged out",
     "notLoggedIn": "Not logged in",
     "balance": "Balance",
-    "recharge": "Recharge"
+    "recharge": "Recharge",
+    "currentPoints": "Credits",
+    "buyPoints": "Buy Points",
+    "upgrade": "Upgrade",
+    "managePlan": "Manage Plan",
+    "left": "left",
+    "inviteCode": "Invite Code",
+    "loginDialog": {
+      "welcomeTitle": "Welcome to MagicArt",
+      "subtitle": "Please login to continue using AI design assistant",
+      "continueWithGoogle": "Continue with Google",
+      "redirecting": "Redirecting...",
+      "secureLogin": "Secure Login"
+    },
+    "levels": {
+      "free": "Free",
+      "base": "Basic",
+      "pro": "Pro", 
+      "max": "Enterprise",
+      "monthly": "Monthly",
+      "yearly": "Yearly"
+    }
+  },
+  "invite": {
+    "title": "Invite Friends",
+    "description": "Get 50 free credits for every friend who signs up",
+    "totalInvites": "Total invites",
+    "yourInvitationUrl": "Your invitation URL",
+    "copyThisUrl": "Copy this URL and send it to your friends",
+    "invitationUrl": "INVITATION URL",
+    "copyUrl": "Copy URL",
+    "copySuccess": "Invite URL copied! Send it to your friends.",
+    "copyFailed": "Failed to copy",
+    "failedToLoad": "Failed to load invite URL",
+    "modal": {
+      "invitedYouTo": "invited you to try",
+      "productName": "MagicArt",
+      "projectsBuilt": "100,000+ projects built and shared.",
+      "tagline": "A growing hub of talented creators, here to spark your next big idea.",
+      "continueWithGoogle": "Continue with Google",
+      "redirecting": "Redirecting...",
+      "close": "Close"
+    }
   },
   "socket": {
     "connectionError": "Connection error ({{current}}/{{max}}): {{error}}",
     "maxRetriesReached": "Connection failed, please restart the application"
+  },
+  "footer": {
+    "title": "MagicArt AI Image Generator",
+    "subtitle": "Unleash your creativity with AI-powered image generation",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "contactSupport": "Contact Support",
+    "copyright": "© 2025 MagicArt AI Image Generator. All rights reserved."
+  },
+  "video": {
+    "loading": "Loading video...",
+    "loadFailed": "Video loading failed",
+    "checkConnection": "Please check video URL or network connection",
+    "checkNetworkOrUrl": "Please check network connection or video URL",
+    "browserNotSupported": "Your browser does not support video playback",
+    "browserNotSupportedHTML5": "Your browser does not support HTML5 video playback",
+    "videoReady": "Video ready",
+    "errors": {
+      "aborted": "Video loading aborted",
+      "network": "Network error",
+      "decode": "Video decoding failed",
+      "formatNotSupported": "Unsupported video format"
+    }
+  },
+  "filePreview": {
+    "zoomOut": "Zoom out",
+    "resetZoom": "Reset zoom",
+    "zoomIn": "Zoom in",
+    "fileInfo": "File info",
+    "copyPath": "Copy path",
+    "addToFavorites": "Add to favorites",
+    "loading": "Loading...",
+    "loadFailed": "Load failed",
+    "imageFailed": "Image load failed",
+    "videoFailed": "Video load failed",
+    "fileName": "File name",
+    "path": "Path",
+    "type": "Type",
+    "size": "Size",
+    "modifiedTime": "Modified time",
+    "createdTime": "Created time"
   }
 }

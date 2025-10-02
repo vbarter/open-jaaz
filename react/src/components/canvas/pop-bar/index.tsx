@@ -14,6 +14,7 @@ const CanvasPopbarWrapper = () => {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
   const [showAddToChat, setShowAddToChat] = useState(false)
   const [showMagicGenerate, setShowMagicGenerate] = useState(false)
+  const [showChat, setShowChat] = useState(false)
 
   const selectedImagesRef = useRef<TCanvasAddImagesToChatEvent>([])
   const selectedElementsRef = useRef<OrderedExcalidrawElement[]>([])
@@ -24,6 +25,7 @@ const CanvasPopbarWrapper = () => {
       setPos(null)
       setShowAddToChat(false)
       setShowMagicGenerate(false)
+      setShowChat(false)
       return
     }
 
@@ -39,6 +41,9 @@ const CanvasPopbarWrapper = () => {
     const selectedCount = Object.keys(selectedIds).length
     setShowMagicGenerate(selectedCount >= 2)
 
+    // 判断是否显示聊天按钮：选中图片元素（与添加到聊天条件相同）
+    setShowChat(hasSelectedImages)
+
     // 如果既没有选中图片，也没有满足魔法生成条件，隐藏弹窗
     if (!hasSelectedImages && selectedCount < 2) {
       setPos(null)
@@ -51,7 +56,14 @@ const CanvasPopbarWrapper = () => {
       .map((image) => {
         const file = files[image.fileId!]
         const isBase64 = file.dataURL.startsWith('data:')
-        const id = isBase64 ? file.id : file.dataURL.split('/').at(-1)!
+        let id: string
+        if (isBase64) {
+          id = file.id
+        } else {
+          // 从URL中提取文件名，去掉查询参数
+          const urlPath = file.dataURL.split('?')[0] // 去掉查询参数
+          id = urlPath.split('/').at(-1)! // 提取文件名
+        }
         return {
           fileId: id,
           base64: isBase64 ? file.dataURL : undefined,
@@ -107,13 +119,14 @@ const CanvasPopbarWrapper = () => {
   return (
     <div className='absolute left-0 bottom-0 w-full h-full z-20 pointer-events-none'>
       <AnimatePresence>
-        {pos && (showAddToChat || showMagicGenerate) && (
+        {pos && (showAddToChat || showMagicGenerate || showChat) && (
           <CanvasPopbarContainer
             pos={pos}
             selectedImages={selectedImagesRef.current}
             selectedElements={selectedElementsRef.current}
             showAddToChat={showAddToChat}
             showMagicGenerate={showMagicGenerate}
+            showChat={showChat}
           />
         )}
       </AnimatePresence>

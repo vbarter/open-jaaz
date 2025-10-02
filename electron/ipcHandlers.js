@@ -22,7 +22,7 @@ module.exports = {
   },
 
   publishPost: async (event, data) => {
-    console.log('🦄🦄publishPost called with data:', data)
+    // console.log('🦄🦄publishPost called with data:', data)
     try {
       if (data.channel === 'xiaohongshu') {
         await publishXiaohongshu(data)
@@ -37,8 +37,6 @@ module.exports = {
     }
   },
   'install-comfyui': async (event) => {
-    console.log('🦄🦄install-comfyui called')
-
     // Prevent multiple installations
     if (installationWorker) {
       return { error: 'Installation already in progress' }
@@ -74,34 +72,34 @@ module.exports = {
             if (message.type === 'progress') {
               mainWindow.webContents.executeJavaScript(`
                 window.dispatchEvent(new CustomEvent('comfyui-install-progress', {
-                  detail: { percent: ${message.percent}, status: "${(
-                message.status || ''
-              ).replace(/"/g, '\\"')}" }
+                  detail: { percent: ${message.percent}, status: "${(message.status || '').replace(
+                /"/g,
+                '\\"'
+              )}" }
                 }));
               `)
             } else if (message.type === 'log') {
               mainWindow.webContents.executeJavaScript(`
                 window.dispatchEvent(new CustomEvent('comfyui-install-log', {
-                  detail: { message: "${(message.message || '').replace(
-                    /"/g,
-                    '\\"'
-                  )}" }
+                  detail: { message: "${(message.message || '').replace(/"/g, '\\"')}" }
                 }));
               `)
             } else if (message.type === 'error') {
               mainWindow.webContents.executeJavaScript(`
                 window.dispatchEvent(new CustomEvent('comfyui-install-error', {
-                  detail: { error: "${(
-                    message.error || 'Unknown error occurred'
-                  ).replace(/"/g, '\\"')}" }
+                  detail: { error: "${(message.error || 'Unknown error occurred').replace(
+                    /"/g,
+                    '\\"'
+                  )}" }
                 }));
               `)
             } else if (message.type === 'cancelled') {
               mainWindow.webContents.executeJavaScript(`
                 window.dispatchEvent(new CustomEvent('comfyui-install-cancelled', {
-                  detail: { message: "${(
-                    message.message || 'Installation cancelled'
-                  ).replace(/"/g, '\\"')}" }
+                  detail: { message: "${(message.message || 'Installation cancelled').replace(
+                    /"/g,
+                    '\\"'
+                  )}" }
                 }));
               `)
             }
@@ -135,9 +133,7 @@ module.exports = {
 
         // Handle worker process exit
         installationWorker.on('exit', (code, signal) => {
-          console.log(
-            `🦄 Worker process exited with code ${code}, signal ${signal}`
-          )
+          console.log(`🦄 Worker process exited with code ${code}, signal ${signal}`)
           if (installationWorker) {
             installationWorker = null
             installationPromise = null
@@ -276,26 +272,25 @@ module.exports = {
             if (message.type === 'progress') {
               mainWindow.webContents.executeJavaScript(`
                 window.dispatchEvent(new CustomEvent('comfyui-uninstall-progress', {
-                  detail: { percent: ${message.percent}, status: "${(
-                message.status || ''
-              ).replace(/"/g, '\\"')}" }
+                  detail: { percent: ${message.percent}, status: "${(message.status || '').replace(
+                /"/g,
+                '\\"'
+              )}" }
                 }));
               `)
             } else if (message.type === 'log') {
               mainWindow.webContents.executeJavaScript(`
                 window.dispatchEvent(new CustomEvent('comfyui-uninstall-log', {
-                  detail: { message: "${(message.message || '').replace(
-                    /"/g,
-                    '\\"'
-                  )}" }
+                  detail: { message: "${(message.message || '').replace(/"/g, '\\"')}" }
                 }));
               `)
             } else if (message.type === 'error') {
               mainWindow.webContents.executeJavaScript(`
                 window.dispatchEvent(new CustomEvent('comfyui-uninstall-error', {
-                  detail: { error: "${(
-                    message.error || 'Unknown error occurred'
-                  ).replace(/"/g, '\\"')}" }
+                  detail: { error: "${(message.error || 'Unknown error occurred').replace(
+                    /"/g,
+                    '\\"'
+                  )}" }
                 }));
               `)
             }
@@ -322,16 +317,12 @@ module.exports = {
 
         // Handle worker process exit
         installationWorker.on('exit', (code, signal) => {
-          console.log(
-            `🦄 Worker process exited with code ${code}, signal ${signal}`
-          )
+          console.log(`🦄 Worker process exited with code ${code}, signal ${signal}`)
           if (installationWorker) {
             installationWorker = null
             installationPromise = null
             if (code !== 0) {
-              reject(
-                new Error(`Uninstallation process exited with code ${code}`)
-              )
+              reject(new Error(`Uninstallation process exited with code ${code}`))
             }
           }
         })
@@ -362,21 +353,18 @@ const userDataDir = app.getPath('userData')
 let browser
 
 async function launchBrowser() {
-  const context = await chromium.launchPersistentContext(
-    path.join(userDataDir, 'browser_data'),
-    {
-      headless: false,
-      channel: 'chrome',
-      args: [
-        '--disable-blink-features=AutomationControlled',
-        '--disable-infobars', // hides "Chrome is being controlled" banner
-      ],
-      userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-      viewport: null,
-      ignoreDefaultArgs: ['--enable-automation'],
-    }
-  )
+  const context = await chromium.launchPersistentContext(path.join(userDataDir, 'browser_data'), {
+    headless: false,
+    channel: 'chrome',
+    args: [
+      '--disable-blink-features=AutomationControlled',
+      '--disable-infobars', // hides "Chrome is being controlled" banner
+    ],
+    userAgent:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    viewport: null,
+    ignoreDefaultArgs: ['--enable-automation'],
+  })
 
   return context
 }
@@ -465,17 +453,12 @@ async function fillXiaohongshuContent(page, title, content) {
 
   // Focus on the input field
   await page.focus('input.d-text[placeholder="填写标题会有更多赞哦～"]')
-  await page.fill(
-    'input.d-text[placeholder="填写标题会有更多赞哦～"]',
-    title || ''
-  )
+  await page.fill('input.d-text[placeholder="填写标题会有更多赞哦～"]', title || '')
 
   await page.waitForTimeout(1000)
   await page.waitForSelector('.ql-editor')
   await page.focus('.ql-editor')
-  const { tags, content: contentWithoutTags } = getTagsFromContent(
-    content || ''
-  )
+  const { tags, content: contentWithoutTags } = getTagsFromContent(content || '')
 
   // Fill in the content by clipboard copying pasting
   await copyPasteContent(page, contentWithoutTags)
@@ -562,23 +545,17 @@ async function publishBilibili(data) {
     await fileChooser.setFiles(data.video)
     // fill in title
     await page.locator('input[placeholder="请输入稿件标题"]').click()
-    await page.keyboard.press(
-      process.platform === 'darwin' ? 'Meta+A' : 'Control+A'
-    )
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A')
     await page.keyboard.press('Delete')
     await copyPasteContent(page, data.title)
 
-    const { tags, content: contentWithoutTags } = getTagsFromContent(
-      data.content || ''
-    )
+    const { tags, content: contentWithoutTags } = getTagsFromContent(data.content || '')
     // fill in content
     await page.focus('.ql-editor')
     await copyPasteContent(page, contentWithoutTags)
     await page.waitForTimeout(1000)
     // fill in tags
-    const tagInput = await page
-      .locator('input[placeholder="按回车键Enter创建标签"]')
-      .nth(0)
+    const tagInput = await page.locator('input[placeholder="按回车键Enter创建标签"]').nth(0)
     await tagInput.click()
     await page.waitForTimeout(1000)
     for (const tag of tags) {
@@ -629,7 +606,5 @@ async function copyPasteContent(page, content) {
   await page.evaluate(async (text) => {
     await navigator.clipboard.writeText(text)
   }, content || '')
-  await page.keyboard.press(
-    process.platform === 'darwin' ? 'Meta+V' : 'Control+V'
-  )
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+V' : 'Control+V')
 }

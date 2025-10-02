@@ -7,12 +7,65 @@ import json
 from typing import Any, Optional, Tuple
 from nanoid import generate
 from utils.http_client import HttpClient
-from services.config_service import FILES_DIR
+from services.config_service import FILES_DIR, get_user_files_dir, get_legacy_files_dir, USERS_DIR
+from log import get_logger
 
+logger = get_logger(__name__)
 
 def generate_image_id() -> str:
     """Generate unique image ID"""
     return generate(size=10)
+
+
+def _find_image_file(image_filename: str) -> Optional[str]:
+    """
+    智能查找图片文件，按优先级从多个位置查找
+    
+    查找顺序：
+    1. 如果是绝对路径，直接使用
+    2. 从所有用户目录查找（遍历 user_data/users/*/files）
+    3. 从旧版本目录查找（向后兼容）
+    4. 从匿名用户目录查找
+    
+    Args:
+        image_filename: 图片文件名
+        
+    Returns:
+        找到的文件路径，如果未找到返回None
+    """
+    if not image_filename:
+        return None
+    
+    # 1. 如果是绝对路径且存在，直接返回
+    if os.path.isabs(image_filename) and os.path.exists(image_filename):
+        return image_filename
+    
+    # 2. 从所有用户目录查找
+    import glob
+    
+    # 搜索所有用户目录下的文件
+    user_dirs_pattern = os.path.join(USERS_DIR, "*", "files", image_filename)
+    matching_files = glob.glob(user_dirs_pattern)
+    
+    if matching_files:
+        # 返回最新修改的文件（如果有多个匹配）
+        latest_file = max(matching_files, key=os.path.getmtime)
+        logger.info(f"Found image in user directory: {latest_file}")
+        return latest_file
+    
+    # 3. 从旧版本目录查找（向后兼容）
+    legacy_path = os.path.join(get_legacy_files_dir(), image_filename)
+    if os.path.exists(legacy_path):
+        logger.info(f"Found image in legacy directory: {legacy_path}")
+        return legacy_path
+    
+    # 4. 从匿名用户目录查找
+    anonymous_path = os.path.join(get_user_files_dir(), image_filename)
+    if os.path.exists(anonymous_path):
+        logger.info(f"Found image in anonymous directory: {anonymous_path}")
+        return anonymous_path
+    
+    return None
 
 
 async def get_image_info_and_save(
@@ -49,7 +102,7 @@ async def get_image_info_and_save(
         
         # Store original format for debugging
         original_format = image.format or 'Unknown'
-        print(f"Converting {original_format} image to PNG: {width}x{height}")
+        logger.info(f"Converting {original_format} image to PNG: {width}x{height}")
 
         # Handle different color modes properly for PNG conversion
         if image.mode == 'P':
@@ -73,7 +126,7 @@ async def get_image_info_and_save(
             pass
         else:
             # For any other modes, convert to RGB as a safe fallback
-            print(f"Warning: Unusual color mode {image.mode}, converting to RGB")
+            logger.warn(f"Warning: Unusual color mode {image.mode}, converting to RGB")
             image = image.convert('RGB')
 
         # Unified format: always PNG
@@ -101,7 +154,7 @@ async def get_image_info_and_save(
                     
                     pnginfo.add_text(str(key), text_value)
                 except Exception as e:
-                    print(f"Warning: Failed to add metadata key '{key}': {e}")
+                    logger.error(f"Warning: Failed to add metadata key '{key}': {e}")
                     traceback.print_stack()
 
         # Save as PNG with metadata
@@ -113,11 +166,11 @@ async def get_image_info_and_save(
         else:
             image.save(file_path, format='PNG', optimize=True)
         
-        print(f"Successfully saved as PNG: {file_path}")
+        logger.info(f"Successfully saved as PNG: {file_path}")
         return mime_type, width, height, extension
 
     except Exception as e:
-        print(f"Error processing image: {e}")
+        logger.error(f"Error processing image: {e}")
         raise e
 
 
@@ -148,9 +201,9 @@ async def process_input_image(input_image: str | None) -> str | None:
         return None
 
     try:
-        full_path = os.path.join(FILES_DIR, input_image)
-        if not os.path.exists(full_path):
-            print(f"Warning: Image file not found: {full_path}")
+        full_path = _find_image_file(input_image)
+        if not full_path:
+            print(f"Warning: Image file not found in any location: {input_image}")
             return None
 
         image = Image.open(full_path)

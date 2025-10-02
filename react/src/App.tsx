@@ -5,14 +5,14 @@ import { LoginDialog } from '@/components/auth/LoginDialog'
 import { ThemeProvider } from '@/components/theme/ThemeProvider'
 import { ConfigsProvider } from '@/contexts/configs'
 import { AuthProvider } from '@/contexts/AuthContext'
-import { useTheme } from '@/hooks/use-theme'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
 import { openDB } from 'idb'
 import { createRouter, RouterProvider } from '@tanstack/react-router'
 import { useEffect } from 'react'
-import { Toaster } from 'sonner'
+import { Toaster, toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { routeTree } from './route-tree.gen'
 
 import '@/assets/style/App.css'
@@ -64,9 +64,44 @@ const queryClient = new QueryClient({
   },
 })
 
-function App() {
-  const { theme } = useTheme()
+// 支付成功处理组件
+function PaymentSuccessHandler() {
+  const { t } = useTranslation()
 
+  useEffect(() => {
+    const handlePaymentSuccess = () => {
+      const urlParams = new URLSearchParams(window.location.search)
+      const payment = urlParams.get('payment')
+      const points = urlParams.get('points')
+      const level = urlParams.get('level')
+
+      if (payment === 'success') {
+        // 显示成功通知
+        toast.success(t('common:toast.paymentSuccess'), {
+          description: `恭喜您获得 ${points} 积分，等级已升级为 ${level}`,
+          duration: 8000,
+        })
+
+        // 清理URL参数，避免刷新页面时重复显示
+        const newUrl = window.location.origin + window.location.pathname
+        window.history.replaceState({}, document.title, newUrl)
+
+        // 触发认证状态刷新，确保积分和等级更新
+        window.dispatchEvent(
+          new CustomEvent('auth-force-refresh', {
+            detail: { source: 'payment-success' },
+          })
+        )
+      }
+    }
+
+    handlePaymentSuccess()
+  }, [t])
+
+  return null
+}
+
+function App() {
   // Auto-start ComfyUI on app startup
   useEffect(() => {
     const autoStartComfyUI = async () => {
@@ -74,12 +109,10 @@ function App() {
         // Check if ComfyUI is installed
         const isInstalled = await window.electronAPI?.checkComfyUIInstalled()
         if (!isInstalled) {
-          console.log('ComfyUI is not installed, skipping auto-start')
           return
         }
 
         // Start ComfyUI process
-        console.log('Auto-starting ComfyUI...')
         const result = await window.electronAPI?.startComfyUIProcess()
 
         if (result?.success) {
@@ -99,15 +132,15 @@ function App() {
   }, [])
 
   return (
-    <ThemeProvider defaultTheme={theme} storageKey="vite-ui-theme">
-      <PersistQueryClientProvider
-        client={queryClient}
-        persistOptions={{ persister }}
-      >
+    <ThemeProvider defaultTheme='light' storageKey='vite-ui-theme'>
+      <PersistQueryClientProvider client={queryClient} persistOptions={{ persister }}>
         <AuthProvider>
           <ConfigsProvider>
-            <div className="app-container">
+            <div className='app-container'>
               <RouterProvider router={router} />
+
+              {/* Payment Success Handler */}
+              <PaymentSuccessHandler />
 
               {/* Install ComfyUI Dialog */}
               {/* <InstallComfyUIDialog /> */}
@@ -124,7 +157,7 @@ function App() {
           </ConfigsProvider>
         </AuthProvider>
       </PersistQueryClientProvider>
-      <Toaster position="bottom-center" richColors />
+      <Toaster position='top-center' richColors />
     </ThemeProvider>
   )
 }

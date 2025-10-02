@@ -28,10 +28,7 @@ class SettingsService {
       this.settingsPath = path.join(app.getPath('userData'), 'settings.json')
     } else {
       // 开发环境，使用 server/user_data 目录
-      this.settingsPath = path.join(
-        __dirname,
-        '../server/user_data/settings.json'
-      )
+      this.settingsPath = path.join(__dirname, '../server/user_data/settings.json')
     }
 
     return this.settingsPath
@@ -44,11 +41,9 @@ class SettingsService {
   readSettings() {
     try {
       const settingsPath = this.getSettingsPath()
-      console.log('Looking for settings file at:', settingsPath)
 
       // 检查设置文件是否存在
       if (!fs.existsSync(settingsPath)) {
-        console.log('Settings file not found')
         return null
       }
 

@@ -1,7 +1,11 @@
 {
-  "title": "Hello, Jaaz!",
+  "title": "Hello, MagicArt!",
+  "titlePrefix": "Hello, ",
+  "titleSuffix": "!",
+  "flipWords": ["MagicArt", "Art Magic", "Dream Lab", "Art Space", "Magic Studio"],
   "subtitle": "Ready to turn your ideas into art?",
   "allProjects": "All Projects",
   "noCanvases": "No canvases yet",
-  "newCanvas": "Untitled"
+  "newCanvas": "Untitled",
+  "newProject": "New Project"
 }

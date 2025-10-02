@@ -1,34 +1,53 @@
 {
-  "title": "Canvas",
-  "rename": "Rename Canvas",
-  "delete": "Delete Canvas",
-  "share": "Share Canvas",
-  "export": "Export Canvas",
+  "title": "Project",
+  "rename": "Rename Project",
+  "delete": "Delete Project",
+  "share": "Share Project",
+  "export": "Export Project",
   "exportImages": "Export",
-  "import": "Import Canvas",
+  "import": "Import Project",
   "untitled": "Untitled",
   "back": "Back",
   "saveSnapshot": "Save Snapshot",
   "loadSnapshot": "Load Snapshot",
   "saved": "Saved ✅",
   "messages": {
-    "canvasRenamed": "Canvas renamed successfully",
-    "canvasDeleted": "Canvas deleted successfully",
-    "canvasExported": "Canvas exported successfully",
-    "canvasImported": "Canvas imported successfully",
-    "failedToRename": "Failed to rename canvas",
-    "failedToDelete": "Failed to delete canvas",
+    "canvasRenamed": "Project renamed successfully",
+    "canvasDeleted": "Project deleted successfully",
+    "canvasExported": "Project exported successfully",
+    "canvasImported": "Project imported successfully",
+    "failedToRename": "Failed to rename project",
+    "failedToDelete": "Failed to delete project",
     "failedToCreateFile": "Failed to create file",
     "nothingSelected": "No assets selected",
     "exportingAssets": "Exporting assets...",
     "failedToExportImages": "Failed to export images",
-    "gptImagePermissionRequired": "You must enable gpt-image-1 model permissions to use this feature!"
+    "gptImagePermissionRequired": "You must enable gpt-image-1 model permissions to use this feature!",
+    "projectCreated": "New project created successfully",
+    "projectDeleted": "Project deleted successfully",
+    "failedToCreateProject": "Failed to create project",
+    "failedToDeleteProject": "Failed to delete project",
+    "creating": "Creating...",
+    "deleting": "Deleting..."
   },
   "deleteDialog": {
-    "title": "Delete Canvas",
-    "description": "Are you sure you want to delete this Canvas? This action cannot be undone.",
+    "title": "Delete Project",
+    "description": "Are you sure you want to delete this Project? This action cannot be undone.",
     "cancel": "Cancel",
     "delete": "Delete"
+  },
+  "projectDeleteDialog": {
+    "title": "Delete Project",
+    "description": "Are you sure you want to delete this project? This action cannot be undone and all project data will be permanently lost.",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "projectNameLabel": "Project Name"
+  },
+  "menu": {
+    "newProject": "New Project",
+    "deleteProject": "Delete Project",
+    "home": "Home",
+    "templates": "Templates"
   },
   "tool": {
     "hand": "Hand",
@@ -40,11 +59,30 @@
     "shape": "Shape",
     "arrow": "Arrow",
     "line": "Line",
-    "zoomFit": "Zoom to fit"
+    "freedraw": "Free Draw",
+    "zoomFit": "Zoom to fit",
+    "relayout": "Relayout Images",
+    "moreTools": "More Tools",
+    "relayoutError": "Relayout failed",
+    "relayoutFailed": "Relayout failed",
+    "relayoutSuccess": "Relayout successful",
+    "noImages": "No images on canvas to relayout"
   },
   "popbar": {
     "addToChat": "Add to chat",
-    "magicGenerate": "✨ Magic Generate"
+    "magicGenerate": "✨ Magic Generate",
+    "chat": "Chat",
+    "chatPlaceholder": "Ask something about this...",
+    "chatSubmit": "Send",
+    "chatEmptyWarning": "Please enter chat content",
+    "chatProcessingWarning": "Processing, please wait...",
+    "chatFrequentWarning": "Please don't submit too frequently",
+    "canvasApiError": "Canvas API unavailable, please refresh the page",
+    "selectElementsError": "Please select elements to chat about",
+    "selectImagesError": "Please select elements with images",
+    "chatSubmitted": "Chat request sent",
+    "chatSubmitting": "Sending...",
+    "chatShortcuts": "⌘+Enter to send • Esc to close"
   },
   "myAssets": "My Assets",
   "selectAFolder": "Select a folder",
@@ -59,5 +97,10 @@
   "modifiedTime": "Modified time",
   "dimensions": "Dimensions",
   "filePath": "File path",
-  "pngMetadata": "PNG Metadata"
+  "pngMetadata": "PNG Metadata",
+  "loading": "Loading canvas...",
+  "newChat": "New Chat",
+  "loadingFailed": "Loading failed:",
+  "retry": "Retry",
+  "newChatWithNumber": "New Chat {{number}}"
 }

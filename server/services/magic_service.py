@@ -3,14 +3,21 @@
 # Import necessary modules
 import asyncio
 import json
-from typing import Dict, Any, List
+import time
+from typing import Dict, Any, List, Optional
 
 # Import service modules
 from services.db_service import db_service
-from services.OpenAIAgents_service import create_jaaz_response
-from services.websocket_service import send_to_websocket  # type: ignore
+# from services.OpenAIAgents_service import create_jaaz_response
+from services.OpenAIAgents_service import create_local_magic_response
+from services.websocket_service import send_to_websocket, send_ai_thinking_status, send_generation_status  # type: ignore
 from services.stream_service import add_stream_task, remove_stream_task
+from services.new_chat import auto_select_model_by_intent
+from services.points_service import points_service, InsufficientPointsError
+from services.i18n_service import i18n_service
+from log import get_logger
 
+logger = get_logger(__name__)
 
 async def handle_magic(data: Dict[str, Any]) -> None:
     """
@@ -30,31 +37,113 @@ async def handle_magic(data: Dict[str, Any]) -> None:
             - text_model: text model configuration
             - tool_list: list of tool model configurations (images/videos)
     """
+    logger.info("[Magic Service] handle_magic开始执行")
+    
     # Extract fields from incoming data
     messages: List[Dict[str, Any]] = data.get('messages', [])
     session_id: str = data.get('session_id', '')
     canvas_id: str = data.get('canvas_id', '')
+    system_prompt: str = data.get('system_prompt', '')
+    template_id: str = data.get('template_id', '')
+    user_info: Dict[str, Any] = data.get('user_info', {})
+    aspect_ratio: str = data.get('aspect_ratio', 'auto')
+    quantity: int = data.get('quantity', 1)
+    user_language: str = data.get('language', 'en')
+    
+    logger.info(f"[Magic Service] 解析请求参数: session_id={session_id}, canvas_id={canvas_id}, messages_count={len(messages)}, user_info={bool(user_info)}")
+    
+    # Validate required fields
+    if not session_id or session_id.strip() == '':
+        logger.error("[Magic Service] session_id is required but missing or empty")
+        raise ValueError("session_id is required")
+    
+    # Extract user information
+    user_uuid = user_info.get('uuid') if user_info else None
+    user_id = user_info.get('id') if user_info else None
 
-    # print('✨ magic_service 接收到数据:', {
-    #     'session_id': session_id,
-    #     'canvas_id': canvas_id,
-    #     'messages_count': len(messages),
-    # })
+    # 🎯 积分检查：画图前检查是否有足够积分
+    if user_id and user_uuid:
+        try:
+            logger.info(f"[Magic Service] 开始积分检查: user_id={user_id}, user_uuid={user_uuid}")
+            
+            # 先直接查询数据库验证用户积分
+            current_balance = await points_service.get_user_points_balance(user_uuid)
+            logger.info(f"[Magic Service] 直接查询用户积分: user_uuid={user_uuid}, balance={current_balance}")
+            
+            await points_service.check_and_reserve_image_generation_points(user_id, user_uuid)
+            logger.info(f"✅ 积分检查通过，用户 {user_id} 可以进行画图")
+        except InsufficientPointsError as e:
+            logger.error(f"❌ 积分不足，用户 {user_id}: {e.message}")
+            logger.error(f"[Magic Service] 积分检查详情: current_points={e.current_points}, required_points={e.required_points}")
+            
+            # 通过WebSocket返回积分不足错误
+            await send_to_websocket(session_id, {
+                'type': 'error',
+                'error': e.message,
+                'error_code': 'insufficient_points',
+                'current_points': e.current_points,
+                'required_points': e.required_points
+            })
+            return  # 直接返回，不进行画图
+    else:
+        logger.warning(f"⚠️ 用户信息不完整，跳过积分检查: user_id={user_id}, user_uuid={user_uuid}")
 
     # If there is only one message, create a new magic session
     if len(messages) == 1:
-        # create new session
+        # create new session (只有在session不存在时才创建)
         prompt = messages[0].get('content', '')
-        await db_service.create_chat_session(session_id, 'gpt', 'jaaz', canvas_id, (prompt[:200] if isinstance(prompt, str) else ''))
+        try:
+            title = prompt[:200] if isinstance(prompt, str) else ''
+            await db_service.create_chat_session(session_id, 'gpt', 'jaaz', canvas_id, user_uuid, title)
+        except Exception as e:
+            # 如果session已存在，忽略错误
+            if "UNIQUE constraint failed" in str(e):
+                logger.warn(f"Session {session_id} already exists, skipping creation")
+            else:
+                raise e
 
     # Save user message to database
     if len(messages) > 0:
         await db_service.create_message(
-            session_id, messages[-1].get('role', 'user'), json.dumps(messages[-1])
+            session_id, messages[-1].get('role', 'user'), json.dumps(messages[-1]), user_uuid
         )
 
+
+    # 🚀 优化：立即通过WebSocket推送用户消息到前端，确保用户输入立即可见
+    # 这样用户的消息会立即显示在聊天界面，然后才开始AI处理
+    if len(messages) > 0:
+        await _push_user_message_to_frontend(messages, session_id, canvas_id, template_id, user_language)
+
+    # 🧠 发送AI思考状态（在用户消息显示后，让用户知道AI正在处理）
+    logger.info(f"🧠 [MAGIC_THINKING_DEBUG] 发送Magic Generation思考状态: session_id={session_id}, canvas_id={canvas_id}")
+    try:
+        await send_ai_thinking_status(session_id=session_id, canvas_id=canvas_id)
+        logger.info(f"✅ [MAGIC_THINKING_DEBUG] Magic思考状态发送成功: session_id={session_id}")
+    except Exception as e:
+        logger.error(f"❌ [MAGIC_THINKING_DEBUG] Magic思考状态发送失败: session_id={session_id}, error={e}")
+
     # Create and start magic generation task
-    task = asyncio.create_task(_process_magic_generation(messages, session_id, canvas_id))
+    # 从data中获取用户信息，如果有的话
+    user_info = data.get('user_info')
+
+    # 选择model
+    if template_id == "1":
+        model_name, provider = await auto_select_model_by_intent("url", data)
+    else:
+        model_name, provider = await auto_select_model_by_intent("image", data)
+
+    task = asyncio.create_task(_process_magic_generation(messages, 
+                                                         session_id, 
+                                                         canvas_id, 
+                                                         system_prompt, 
+                                                         template_id, 
+                                                         user_uuid, 
+                                                         user_info, 
+                                                         aspect_ratio, 
+                                                         quantity,
+                                                         user_language=user_language,
+                                                         model_name=model_name,
+                                                         provider=provider))
 
     # Register the task in stream_tasks (for possible cancellation)
     add_stream_task(session_id, task)
@@ -62,20 +151,78 @@ async def handle_magic(data: Dict[str, Any]) -> None:
         # Await completion of the magic generation task
         await task
     except asyncio.exceptions.CancelledError:
-        print(f"🛑Magic generation session {session_id} cancelled")
+        logger.warn(f"🛑Magic generation session {session_id} cancelled")
     finally:
         # Always remove the task from stream_tasks after completion/cancellation
+        logger.info(f"[Magic Service] 清理stream_task: {session_id}")
         remove_stream_task(session_id)
         # Notify frontend WebSocket that magic generation is done
+        logger.info(f"[Magic Service] 发送WebSocket完成通知: {session_id}")
         await send_to_websocket(session_id, {'type': 'done'})
 
-    print('✨ magic_service 处理完成')
+    logger.info('[Magic Service] handle_magic处理完成')
+
+
+async def _push_user_message_to_frontend(messages: List[Dict[str, Any]], session_id: str, canvas_id: str, template_id: str, user_language: str = "en") -> None:
+    """
+    🚀 优化版：立即推送用户消息到前端canvas页面显示
+    确保用户输入在AI处理前就能看到，提升用户体验
+
+    Args:
+        messages: 用户消息列表
+        session_id: 会话ID
+        canvas_id: 画布ID
+        template_id: 模板ID
+        user_language: 用户语言
+    """
+    try:
+        # 获取最后一条用户消息
+        if not messages:
+            return
+
+        user_message = messages[-1]
+        if user_message.get('role') != 'user':
+            return
+
+        # 直接推送完整的用户消息
+        # 这样前端可以立即显示用户输入的文本和图片
+        logger.info(f"📤 [USER_MESSAGE] 准备推送用户消息到前端: session_id={session_id}, canvas_id={canvas_id}")
+
+        # 通过websocket推送用户消息
+        # 使用all_messages类型，因为前端已经定义了这个类型的处理器
+        await send_to_websocket(session_id, {
+            'type': 'all_messages',  # 使用all_messages类型推送消息
+            'messages': [user_message],  # 包装成数组格式
+            'timestamp': int(time.time() * 1000)
+        }, canvas_id=canvas_id)
+
+        # 获取消息内容统计
+        content = user_message.get('content', [])
+        if isinstance(content, list):
+            text_count = sum(1 for item in content if item.get('type') == 'text')
+            image_count = sum(1 for item in content if item.get('type') == 'image_url')
+            logger.info(f"✅ [USER_MESSAGE] 已推送用户消息到前端: {text_count}段文本, {image_count}张图片")
+        else:
+            logger.info(f"✅ [USER_MESSAGE] 已推送用户文本消息到前端")
+
+    except Exception as e:
+        logger.error(f"❌ [USER_MESSAGE] 推送用户消息失败: {e}")
+        logger.error(f"❌ [USER_MESSAGE] 错误详情: {type(e).__name__}: {e}")
 
 
 async def _process_magic_generation(
     messages: List[Dict[str, Any]],
     session_id: str,
     canvas_id: str,
+    system_prompt: str = "",
+    template_id: str = "",
+    user_uuid: Optional[str] = None,
+    user_info: Optional[Dict[str, Any]] = None,
+    aspect_ratio: str = "auto",
+    quantity: int = 1,
+    user_language: str = "en",
+    model_name: str = "",
+    provider: str = ""
 ) -> None:
     """
     Process magic generation in a separate async task.
@@ -85,11 +232,107 @@ async def _process_magic_generation(
         session_id: Session ID
         canvas_id: Canvas ID
     """
+    try:
+        # 🔥 发送图像处理通知
+        await send_generation_status(
+            session_id=session_id,
+            canvas_id=canvas_id,
+            status='progress',
+            message='📝 正在分析和处理图像...',
+            progress=0.6
+        )
+        
+        # 原来是基于云端生成
+        ai_response = await create_local_magic_response(messages, 
+                                                        session_id, 
+                                                        canvas_id, 
+                                                        template_id=template_id, 
+                                                        user_info=user_info, 
+                                                        aspect_ratio=aspect_ratio, 
+                                                        quantity=quantity,
+                                                        user_language=user_language,
+                                                        model_name=model_name,
+                                                        provider=provider)
 
-    ai_response = await create_jaaz_response(messages, session_id, canvas_id)
+        # 🔍 检查Magic Generation是否真正成功
+        is_generation_successful = False
+        if ai_response and isinstance(ai_response, dict):
+            content = ai_response.get('content', '')
+            # 获取成功消息的中英文版本进行检查
+            chinese_success_msg = i18n_service.get_image_generated_message('zh')
+            english_success_msg = i18n_service.get_image_generated_message('en')
+
+            # 只有包含成功标识的响应才被认为是成功
+            if chinese_success_msg in content or english_success_msg in content:
+                is_generation_successful = True
+                logger.info(f"✅ [DEBUG] Magic Generation成功检测: 图片已生成")
+            else:
+                logger.warning(f"❌ [DEBUG] Magic Generation失败检测: content={content[:100]}...")
+        else:
+            logger.error(f"❌ [DEBUG] Magic Generation返回异常响应: {type(ai_response)}")
+
+        # 🎯 只有在画图真正成功时才扣除积分
+        if is_generation_successful and user_info and user_info.get('id') and user_info.get('uuid'):
+            logger.info(f"🎯 [DEBUG] 魔法画图成功确认，开始积分扣除流程: user_id={user_info.get('id')}")
+            try:
+                deduction_result = await points_service.deduct_image_generation_points(
+                    user_id=user_info.get('id'),
+                    user_uuid=user_info.get('uuid'),
+                    session_id=session_id
+                )
+                if deduction_result['success']:
+                    logger.info(f"✅ 魔法画图积分扣除成功: {deduction_result['message']}")
+                    # 通过WebSocket通知前端积分变化
+                    notification_message = {
+                        'type': 'points_deducted',
+                        'points_deducted': deduction_result['points_deducted'],
+                        'balance_after': deduction_result['balance_after'],
+                        'message': f"画图完成，扣除{deduction_result['points_deducted']}积分，剩余{deduction_result['balance_after']}积分"
+                    }
+                    logger.info(f"📡 [DEBUG] 准备发送魔法画图积分扣除通知: {notification_message}")
+
+                    await send_to_websocket(session_id, notification_message)
+                    logger.info(f"📡 [DEBUG] 魔法画图积分扣除通知已发送到session: {session_id}")
+                else:
+                    logger.error(f"❌ 魔法画图积分扣除失败: {deduction_result['message']}")
+            except Exception as e:
+                logger.error(f"❌ 扣除魔法画图积分时发生错误: {e}")
+        elif not is_generation_successful:
+            logger.warning(f"💸 [DEBUG] Magic Generation失败，跳过积分扣除，避免错误收费")
+            # 通知用户图片生成失败，没有扣除积分
+            if user_info and user_info.get('id'):
+                await send_to_websocket(session_id, {
+                    'type': 'generation_failed',
+                    'message': '图片生成失败，未扣除积分',
+                    'reason': '图片生成服务暂时不可用，请稍后重试'
+                })
+        else:
+            logger.warning(f"⚠️ [DEBUG] 用户信息不完整，跳过积分扣除: user_info={user_info}")
+        
+        # 🔥 发送完成通知
+        await send_generation_status(
+            session_id=session_id,
+            canvas_id=canvas_id,
+            status='complete',
+            message='✨ 魔法生成完成！',
+            progress=1.0
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ 魔法生成失败: {e}")
+        # 🔥 发送错误通知
+        await send_generation_status(
+            session_id=session_id,
+            canvas_id=canvas_id,
+            status='error',
+            message=f'❌ 生成失败: {str(e)}',
+            progress=0.0
+        )
+        # 重新抛出异常以保持原有错误处理逻辑
+        raise
 
     # Save AI response to database
-    await db_service.create_message(session_id, 'assistant', json.dumps(ai_response))
+    await db_service.create_message(session_id, 'assistant', json.dumps(ai_response), user_uuid)
 
     # Send messages to frontend immediately
     all_messages = messages + [ai_response]
