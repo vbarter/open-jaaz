@@ -252,7 +252,11 @@ async def handle_chat(data: Dict[str, Any]) -> None:
             
             if user_has_drawing_intent == 'video':
                 logger.info(f"🎯 [DEBUG] 检测到视频意图，进行预积分检查")
-                await points_service.check_and_reserve_image_generation_points(user_info.get('id'), user_info.get('uuid'), required_points=5)
+                if model_name == "veo3-fast-frames":
+                    required_points = 60
+                else:
+                    required_points = 5
+                await points_service.check_and_reserve_image_generation_points(user_info.get('id'), user_info.get('uuid'), required_points=required_points)
             else:
                 logger.info(f"🎯 [DEBUG] 检测到画图意图，进行预积分检查")
                 await points_service.check_and_reserve_image_generation_points(user_info.get('id'), user_info.get('uuid'), required_points=2)
@@ -570,11 +574,15 @@ async def _process_generation(
             try:
                 # 扣除积分（积分检查已在主函数中完成）
                 if user_has_drawing_intent == 'video':
+                    if model_name == "veo3-fast-frames":
+                        deduction_points = 60
+                    else:
+                        deduction_points = 5
                     deduction_result = await points_service.deduct_image_generation_points(
                         user_id=user_info.get('id'),
                         user_uuid=user_info.get('uuid'),
                         session_id=session_id,
-                        deduction_points=5
+                        deduction_points=deduction_points
                     )
                 else:
                     deduction_result = await points_service.deduct_image_generation_points(
