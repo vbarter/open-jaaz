@@ -1453,18 +1453,25 @@ user input: {prompt}
             result = await self._chat_with_tuzi(prompt,
                                                 model,
                                                 stream=False,
-                                                timeout=360)  # 6分钟超时
+                                                timeout=500)  # 6分钟超时
             logger.info(f"🎨 Sora2 video generation result: {result}")
 
-            # 从 markdown 格式的链接中提取 URL
+            # 从 markdown 格式的链接中提取 URL，优先提取 [在线播放▶️] 链接
             if result and result.get('text_content'):
+                # 如果没找到，尝试查找任何 markdown 链接
                 match = re.search(r'\[.*?\]\((https?://[^\)]+)\)', result['text_content'])
                 if match:
                     video_url = match.group(1)
                     logger.info(f"✅ Extracted video URL: {video_url}")
+
+                    # 验证URL是否以.mp4结尾
+                    if not video_url.lower().endswith('.mp4'):
+                        logger.error(f"❌ Invalid video URL: does not end with .mp4 - {video_url}")
+                        return {'error': f"Invalid video URL format: {video_url}", 'status': "error"}
+
                     return {'result_url': video_url, 'status': "success"}
-            else:
-                return {'error': "No video URL found in response", 'status': "error"}
+
+            return {'error': "No video URL found in response", 'status': "error"}
 
     async def generate_video_by_seedance(
         self,
