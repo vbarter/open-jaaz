@@ -513,11 +513,11 @@ class TuziLLMService:
             # 注释掉错误的模型映射，直接使用用户选择的模型
             if model_name == "seedream-4.0" or model_name == "qwen-image-edit-plus":
                 model_name = "doubao-seedream-4-0-250828"
-            elif model_name == "gemini-2.5-flash-image":
-                model_name = "nano-banana"
+            # elif model_name == "gemini-2.5-flash-image":
+            #     model_name = "nano-banana"
             logger.info(f"🔍 [DEBUG] _handle_image_generation 使用模型: '{model_name}' (无映射)")
-            # result = await self.gemini_generate_by_tuzi(user_prompt, model_name, aspect_ratio=aspect_ratio, quantity=quantity)
-            result = await self.gemini_edit_image_by_yunwu(prompt=user_prompt, model_name=model_name)
+            result = await self.gemini_generate_by_tuzi(user_prompt, model_name, aspect_ratio=aspect_ratio, quantity=quantity)
+            # result = await self.gemini_edit_image_by_yunwu(prompt=user_prompt, model_name=model_name)
             if result:
                 logger.info(f"🎉 图片生成成功: {result.get('result_url', 'base64_data')}")
                 return result
