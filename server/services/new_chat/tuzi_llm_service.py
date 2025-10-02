@@ -350,7 +350,7 @@ class TuziLLMService:
                 if model_name.startswith("veo3"):
                     model_name = "veo3-fast-frames"
                 elif model_name.startswith("sora"):
-                    model_name = "sora-2"
+                    model_name = "sora-2-hd"
                 logger.info("🎥 检测到视频意图，执行视频生成流程")
                 return await self.generate_video(user_prompt, model_name, input_images=image_content)
             elif user_has_drawing_intent == "url":

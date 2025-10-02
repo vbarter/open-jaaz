@@ -284,7 +284,7 @@ class Sora2Service:
 
             # 模型映射
             model_mapping = {
-                "sora2": "sora-2",
+                "sora2": "sora-2-hd",
                 "veo3-fast": "veo3-fast",
                 "veo3": "veo3-fast",
             }
