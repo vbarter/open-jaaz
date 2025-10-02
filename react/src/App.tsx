@@ -5,8 +5,7 @@ import { LoginDialog } from '@/components/auth/LoginDialog'
 import { ThemeProvider } from '@/components/theme/ThemeProvider'
 import { ConfigsProvider } from '@/contexts/configs'
 import { AuthProvider } from '@/contexts/AuthContext'
-import { useTheme } from '@/hooks/use-theme'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
 import { openDB } from 'idb'
@@ -75,7 +74,6 @@ function PaymentSuccessHandler() {
       const payment = urlParams.get('payment')
       const points = urlParams.get('points')
       const level = urlParams.get('level')
-      const orderId = urlParams.get('order_id')
 
       if (payment === 'success') {
         // 显示成功通知
@@ -104,9 +102,6 @@ function PaymentSuccessHandler() {
 }
 
 function App() {
-  const { theme } = useTheme()
-  const { t } = useTranslation()
-
   // Auto-start ComfyUI on app startup
   useEffect(() => {
     const autoStartComfyUI = async () => {
@@ -137,7 +132,7 @@ function App() {
   }, [])
 
   return (
-    <ThemeProvider defaultTheme={theme} storageKey='vite-ui-theme'>
+    <ThemeProvider defaultTheme='light' storageKey='vite-ui-theme'>
       <PersistQueryClientProvider client={queryClient} persistOptions={{ persister }}>
         <AuthProvider>
           <ConfigsProvider>
