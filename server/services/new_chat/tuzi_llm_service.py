@@ -1417,7 +1417,7 @@ user input: {prompt}
             Exception: 当视频生成失败时抛出异常
         """
         # 1. 创建视频生成任务
-        if model == "sora-2":
+        if model.startswith("sora"):
             is_async_generation = False
         else:
             is_async_generation = True
