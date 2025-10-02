@@ -2,10 +2,17 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import TopMenu from '@/components/TopMenu'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Loader2, Sparkles } from 'lucide-react'
+import { Loader2, Sparkles, Clock, Heart, Eye } from 'lucide-react'
 import { getDiscoverVideos, Sora2TaskDetail } from '@/api/sora'
 import { DiscoverVideoCard } from '@/components/discover/DiscoverVideoCard'
 import { generateAvatarUrl } from '@/utils/avatarUtils'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 export const Route = createFileRoute('/discover')({
   component: DiscoverPage,
@@ -41,7 +48,7 @@ function DiscoverPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
-  const [total, setTotal] = useState(0)
+  const [sortBy, setSortBy] = useState<'time' | 'likes' | 'views'>('time')
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
@@ -61,12 +68,14 @@ function DiscoverPage() {
         const response = await getDiscoverVideos({
           limit: LIMIT,
           offset: offset,
+          sort_by: sortBy,
         })
 
         console.log('📋 [Discover] API Response:', {
           total: response.total,
           tasksCount: response.tasks.length,
-          firstTask: response.tasks[0]
+          firstTask: response.tasks[0],
+          sortBy: sortBy,
         })
 
         const newVideos = response.tasks.map(taskToVideo)
@@ -74,7 +83,6 @@ function DiscoverPage() {
           count: newVideos.length,
           firstVideo: newVideos[0]
         })
-        setTotal(response.total)
 
         if (append) {
           setVideos((prev) => [...prev, ...newVideos])
@@ -91,13 +99,18 @@ function DiscoverPage() {
         setIsLoadingMore(false)
       }
     },
-    []
+    [sortBy]
   )
 
-  // 初始加载
+  // 排序变化时重新加载
   useEffect(() => {
     loadVideos(0, false)
   }, [loadVideos])
+
+  // 处理排序变化
+  const handleSortChange = useCallback((value: string) => {
+    setSortBy(value as 'time' | 'likes' | 'views')
+  }, [])
 
   // 滚动加载更多 - 使用 IntersectionObserver
   useEffect(() => {
@@ -139,23 +152,43 @@ function DiscoverPage() {
         <div className='relative flex flex-col items-center pt-8 px-4 sm:px-6 pb-8'>
           {/* 标题区域 */}
           <div className='w-full max-w-[1400px] mx-auto mb-8'>
-            <div className='flex items-center justify-center gap-3 mb-4'>
+            <div className='flex items-center justify-center'>
               <h1 className='text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100'>
-                发现
+                发现精彩视频
               </h1>
             </div>
-            <p className='text-center text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-2'>
-              探索所有用户的精彩视频创作
-            </p>
-            {total > 0 && (
-              <p className='text-center text-gray-500 dark:text-gray-500 text-xs'>
-                共 {total} 个视频
-              </p>
-            )}
           </div>
 
           {/* 视频网格 */}
           <div className='w-full max-w-[1400px] mx-auto'>
+            {/* 排序选择器 */}
+            <div className='flex justify-start mb-4'>
+              <Select value={sortBy} onValueChange={handleSortChange}>
+                <SelectTrigger className='w-[140px]'>
+                  <SelectValue placeholder='排序方式' />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='time'>
+                    <div className='flex items-center gap-2'>
+                      <Clock className='w-4 h-4' />
+                      <span>时间排序</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value='likes'>
+                    <div className='flex items-center gap-2'>
+                      <Heart className='w-4 h-4' />
+                      <span>点赞排序</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value='views'>
+                    <div className='flex items-center gap-2'>
+                      <Eye className='w-4 h-4' />
+                      <span>浏览排序</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             {isLoading ? (
               <div className='flex flex-col items-center justify-center py-20 text-gray-400'>
                 <Loader2 className='w-16 h-16 mb-4 opacity-50 animate-spin' />

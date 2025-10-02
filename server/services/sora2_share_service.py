@@ -151,9 +151,11 @@ class Sora2ShareService:
                 """
                 SELECT s.id as sora2_id, s.user_uuid, s.prompt, s.model,
                        s.images, s.video_url, s.status, s.remark, s.ctime, s.mtime,
-                       sh.views, sh.likes
+                       sh.views, sh.likes,
+                       u.image_url as user_image_url
                 FROM tb_sora2 s
                 INNER JOIN tb_sora2_share sh ON s.id = sh.video_id
+                LEFT JOIN tb_user u ON s.user_uuid = u.uuid
                 WHERE sh.share_id = ?
                 """,
                 (share_id,)
@@ -176,6 +178,7 @@ class Sora2ShareService:
             "mtime": row[9],
             "views": row[10],
             "likes": row[11],
+            "user_image_url": row[12],
         }
 
 

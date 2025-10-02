@@ -365,7 +365,8 @@ class Sora2Service:
     async def list_all_success_videos(
         self,
         limit: int = 50,
-        offset: int = 0
+        offset: int = 0,
+        sort_by: str = "time"
     ) -> List[Dict[str, Any]]:
         """
         获取所有用户的成功视频（用于发现页面）
@@ -374,9 +375,10 @@ class Sora2Service:
         Args:
             limit: 返回数量限制
             offset: 偏移量
+            sort_by: 排序方式（time=时间，likes=点赞，views=浏览）
 
         Returns:
-            List[Dict]: 视频记录列表（按时间倒序）
+            List[Dict]: 视频记录列表（按指定方式排序）
         """
         # 导入分享服务
         from services.sora2_share_service import get_sora2_share_service
@@ -384,11 +386,19 @@ class Sora2Service:
 
         share_service = get_sora2_share_service()
 
+        # 根据排序类型确定 ORDER BY 子句
+        order_by_map = {
+            "time": "s.ctime DESC",
+            "likes": "COALESCE(sh.likes, 0) DESC, s.ctime DESC",
+            "views": "COALESCE(sh.views, 0) DESC, s.ctime DESC"
+        }
+        order_by = order_by_map.get(sort_by, "s.ctime DESC")
+
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = sqlite3.Row
 
             cursor = await db.execute(
-                """
+                f"""
                 SELECT s.id, s.user_uuid, s.prompt, s.model, s.images, s.video_url,
                        s.status, s.remark, s.ctime, s.mtime,
                        COALESCE(sh.views, 0) as views,
@@ -400,7 +410,7 @@ class Sora2Service:
                 LEFT JOIN tb_sora2_share sh ON s.id = sh.video_id
                 LEFT JOIN tb_user u ON s.user_uuid = u.uuid
                 WHERE s.status = 'success' AND s.video_url != ''
-                ORDER BY s.ctime DESC
+                ORDER BY {order_by}
                 LIMIT ? OFFSET ?
                 """,
                 (limit, offset)

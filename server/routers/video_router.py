@@ -652,6 +652,9 @@ class ShareVideoDetail(BaseModel):
     video_url: str = Field(..., description="视频URL")
     views: int = Field(..., description="访问量")
     likes: int = Field(..., description="点赞量")
+    user_uuid: str = Field(..., description="用户UUID")
+    user_image_url: Optional[str] = Field(None, description="用户头像URL")
+    ctime: str = Field(..., description="创建时间")
 
 
 @router.post("/sora2/share", response_model=CreateShareResponse)
@@ -747,7 +750,10 @@ async def get_sora2_share(share_id: str):
             prompt=video["prompt"],
             video_url=video["video_url"],
             views=video["views"] + 1,  # 返回更新后的访问量
-            likes=video["likes"]
+            likes=video["likes"],
+            user_uuid=video["user_uuid"],
+            user_image_url=video.get("user_image_url"),
+            ctime=video["ctime"]
         )
         
     except HTTPException:
@@ -807,7 +813,8 @@ async def like_sora2_share(share_id: str):
 @router.get("/sora2/discover", response_model=Sora2TaskListResponse)
 async def get_discover_videos(
     limit: int = Query(default=50, ge=1, le=100),
-    offset: int = Query(default=0, ge=0)
+    offset: int = Query(default=0, ge=0),
+    sort_by: Literal["time", "likes", "views"] = Query(default="time")
 ):
     """
     获取所有用户的成功视频（发现页面）
@@ -815,17 +822,19 @@ async def get_discover_videos(
     Args:
         limit: 每页数量（1-100，默认50）
         offset: 偏移量（默认0）
+        sort_by: 排序方式（time=时间，likes=点赞，views=浏览，默认time）
 
     Returns:
         视频列表和统计信息
     """
     try:
-        logger.info(f"📋 获取发现页面视频列表 - limit: {limit}, offset: {offset}")
+        logger.info(f"📋 获取发现页面视频列表 - limit: {limit}, offset: {offset}, sort_by: {sort_by}")
 
         # 获取视频列表
         videos = await sora2_service.list_all_success_videos(
             limit=limit,
-            offset=offset
+            offset=offset,
+            sort_by=sort_by
         )
 
         # 获取总数

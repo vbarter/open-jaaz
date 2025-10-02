@@ -185,6 +185,9 @@ export interface ShareVideoDetail {
   video_url: string
   views: number
   likes: number
+  user_uuid: string
+  user_image_url?: string
+  ctime: string
 }
 
 /**
@@ -276,6 +279,7 @@ export const likeShareVideo = async (
 export const getDiscoverVideos = async (params?: {
   limit?: number
   offset?: number
+  sort_by?: 'time' | 'likes' | 'views'
 }): Promise<Sora2TaskListResponse> => {
   console.log('[API Sora2] 获取发现页面视频列表 - 参数:', params)
 
@@ -283,6 +287,7 @@ export const getDiscoverVideos = async (params?: {
     const queryParams = new URLSearchParams()
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())
+    if (params?.sort_by) queryParams.append('sort_by', params.sort_by)
 
     const url = `/api/sora2/discover${queryParams.toString() ? `?${queryParams}` : ''}`
     console.log('[API Sora2] 请求URL:', url)

@@ -222,8 +222,16 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
         </div>
       )}
 
-      {/* 底部 - 播放量、点赞量和操作按钮 */}
+      {/* 底部信息栏 */}
       <div className='absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/70 to-transparent p-3'>
+        {/* 鼠标悬停时显示提示词 */}
+        {showPrompt && (
+          <div className='mb-2'>
+            <p className='text-white text-xs line-clamp-2'>{prompt}</p>
+          </div>
+        )}
+
+        {/* 播放量、点赞量和详情按钮 */}
         <div className='flex items-center justify-between'>
           {/* 左侧 - 播放量和点赞量 */}
           <div className='flex items-center gap-3'>
@@ -242,20 +250,13 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
           {/* 右侧 - 详情按钮 */}
           <button
             onClick={handleViewDetails}
-            className='w-7 h-7 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors border border-white/30'
+            className='w-7 h-7 flex items-center justify-center hover:scale-110 transition-transform'
             title='查看详情'
           >
-            <Info className='w-3.5 h-3.5 text-white' />
+            <Info className='w-4 h-4 text-white drop-shadow-lg' />
           </button>
         </div>
       </div>
-
-      {/* 鼠标悬停时显示提示词 */}
-      {showPrompt && (
-        <div className='absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 to-transparent p-3 pt-12'>
-          <p className='text-white text-xs line-clamp-2 mb-8'>{prompt}</p>
-        </div>
-      )}
     </div>
   )
 }
