@@ -376,60 +376,66 @@ class TuziLLMService:
                                     aspect_ratio: str = 'auto',
                                     quantity: int = 1) -> Dict[str, Any]:
         """处理图片编辑流程"""
+        file_paths: List[str] = []
+
         try:
             logger.info(f"🔍 [DEBUG] _handle_image_editing 开始")
-               
+
             # 获取用户文件目录
-            # user_email = user_info.get('email') if user_info else None
-            # user_id = user_info.get('uuid') if user_info else None
-            # user_files_dir = get_user_files_dir(user_email=user_email, user_id=user_id)
-    
+            user_email = user_info.get('email') if user_info else None
+            user_id = user_info.get('uuid') if user_info else None
+            from services.config_service import get_user_files_dir
+            user_files_dir = get_user_files_dir(user_email=user_email, user_id=user_id)
 
-            # 处理多个图片文件，生成file_path列表
-            # file_paths: List[str] = []
+            for i, image_item in enumerate(image_content):
+                # 为每个图片生成唯一文件名
+                file_id = str(uuid.uuid4())
 
-            # logger.info(f"🔍 [DEBUG] 接收到的图片内容: {image_content}")
-            
-            # for i, image_item in enumerate(image_content):
-            #     # 为每个图片生成唯一文件名
-            #     file_id = str(uuid.uuid4())
-                
-            #     if image_item.startswith('data:image/'):
-            #         # 从data URL中提取格式和数据
-            #         header, encoded = image_item.split(',', 1)
-            #         image_format = header.split(';')[0].split('/')[1]  # 获取图片格式(jpeg, png等)
-            #         image_data = base64.b64decode(encoded)
-            #         file_path = os.path.join(user_files_dir, f"{file_id}.{image_format}")
-            #     else:
-            #         # 假设是其他格式，默认保存为jpg
-            #         image_data = image_item.encode() if isinstance(image_item, str) else image_item
-            #         file_path = os.path.join(user_files_dir, f"{file_id}.jpg")
-        
-            #     # 写入文件
-            #     with open(file_path, 'wb') as f:
-            #         f.write(image_data)
-        
-            #     file_paths.append(file_path)
-            #     logger.info(f"✅ 图片 {i+1} 已保存到: {file_path}")
-            
-            # logger.info(f"✅ 总共保存了 {len(file_paths)} 个图片文件")
-            
-            # 使用gemini进行图片编辑，传递aspect_ratio和quantity
-            # result = await self.gemini_edit_image_by_tuzi(file_paths, user_prompt, model=model_name,
-            #                                               aspect_ratio=aspect_ratio, quantity=quantity)
-            result = await self.gemini_edit_image_by_yunwu(file_path=image_content, prompt=user_prompt)
-            
+                if image_item.startswith('data:image/'):
+                    # 从data URL中提取格式和数据
+                    header, encoded = image_item.split(',', 1)
+                    image_format = header.split(';')[0].split('/')[1]  # 获取图片格式(jpeg, png等)
+                    image_data = base64.b64decode(encoded)
+                    file_path = os.path.join(user_files_dir, f"{file_id}.{image_format}")
+                else:
+                    # 假设是其他格式，默认保存为jpg
+                    image_data = image_item.encode() if isinstance(image_item, str) else image_item
+                    file_path = os.path.join(user_files_dir, f"{file_id}.jpg")
+
+                # 写入文件
+                with open(file_path, 'wb') as f:
+                    f.write(image_data)
+
+                file_paths.append(file_path)
+                logger.info(f"✅ 图片 {i+1} 已保存到: {file_path}")
+
+            logger.info(f"✅ 总共保存了 {len(file_paths)} 个图片文件")
+
+            #使用gemini进行图片编辑，传递aspect_ratio和quantity
+            result = await self.gemini_edit_image_by_tuzi(file_paths, user_prompt, model=model_name,
+                                                          aspect_ratio=aspect_ratio, quantity=quantity)
+            # result = await self.gemini_edit_image_by_yunwu(file_path=image_content, prompt=user_prompt)
+
             if result:
                 logger.info(f"✅ 图片编辑成功: {result.get('result_url')}")
                 return result
             else:
                 logger.error("❌ 图片编辑失败")
                 return {"error": "Failed to edit image"}
-                
+
         except Exception as e:
             error_msg = f"Error in image editing: {str(e)}"
             logger.error(f"❌ {error_msg}")
             return {"error": error_msg}
+        finally:
+            # 清理临时图片文件
+            for file_path in file_paths:
+                try:
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                        logger.info(f"🗑️ 已删除临时文件: {file_path}")
+                except Exception as cleanup_error:
+                    logger.warning(f"⚠️ 清理临时文件失败 {file_path}: {cleanup_error}")
 
     async def _detect_image_generation_intent(self, user_prompt: str) -> bool:
         """使用大模型检测用户是否有画图意图"""
@@ -969,12 +975,6 @@ class TuziLLMService:
         Returns:
             Optional[Dict[str, str]]: 包含 result_url 或 image_base64 的字典，失败时返回None
         """
-        logger.info(f"🎯 [DEBUG] gemini_edit_image_by_tuzi 函数开始")
-        logger.info(f"🎯 [DEBUG] 接收到的模型参数: model='{model}'")
-        logger.info(f"🎯 [DEBUG] 接收到的其他参数: file_path={file_path}, prompt='{prompt[:100]}...', response_format='{response_format}'")
-        logger.info(f"🎯 [DEBUG] self.api_url={self.api_url}")
-        logger.info(f"🎯 [DEBUG] self.api_token={self.api_token}")
-
         try:
             # 参数验证
             if not file_path or len(file_path) == 0:
@@ -1023,10 +1023,10 @@ class TuziLLMService:
                 except Exception as e:
                     logger.error(f"🎯 [DEBUG]   file_size_error: {e}")
 
-                prompt = f"""
-基于用户输入的图片，结合用户需求，重新生成一张完整的图片，不要引用任何原文图片
-user input: {prompt}
-"""
+#                 prompt = f"""
+# 基于用户输入的图片，结合用户需求，重新生成一张完整的图片，不要引用任何原文图片
+# user input: {prompt}
+# """
                 # 将aspect_ratio转换为size参数（用于图片编辑）
                 size_map = {
                     "1:1": "1024x1024",
@@ -1252,16 +1252,8 @@ user input: {prompt}
                     timeout=timeout_seconds
                 )
                 
-                # 成功获得结果，处理响应
-                logger.info(f"✅ [重试 {attempt + 1}/{max_retries}] API调用成功")
-                
-                # 打印完整的响应数据
-                logger.info(f"📥 [DEBUG] API 响应原始数据:")
-                logger.info(f"   result.data 长度: {len(result.data) if result.data else 0}")
                 if result.data:
                     for i, data in enumerate(result.data):
-                        logger.info(f"   data[{i}] 属性: {dir(data)}")
-                        logger.info(f"   data[{i}] 内容: {data}")
                         if hasattr(data, '__dict__'):
                             logger.info(f"   data[{i}] __dict__: {data.__dict__}")
                         if hasattr(data, 'url'):
