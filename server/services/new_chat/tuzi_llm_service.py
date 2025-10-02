@@ -141,7 +141,7 @@ class TuziLLMService:
             payload.update(kwargs)
 
             headers = {
-                "Authorization": f"Bearer sk-3id68TiP9AKUFzIhSnz8KrTTDXDXKyR05xuOW7kyCIubMlDq",
+                "Authorization": f"Bearer sk-XFpK4d18H5NNcUZV0fwdwQaUbmQjAftofznCO1fHbDVYm0Qi",
                 "Content-Type": "application/json"
             }
 
@@ -187,7 +187,7 @@ class TuziLLMService:
         interval = interval or 2.0  # 默认轮询间隔 2 秒
 
         headers = {
-            "Authorization": f"Bearer sk-3id68TiP9AKUFzIhSnz8KrTTDXDXKyR05xuOW7kyCIubMlDq",
+            "Authorization": f"Bearer sk-XFpK4d18H5NNcUZV0fwdwQaUbmQjAftofznCO1fHbDVYm0Qi",
             "Content-Type": "application/json"
         }
 
