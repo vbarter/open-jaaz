@@ -33,6 +33,7 @@ export interface AuthStatus {
   is_logged_in: boolean
   user_info?: UserInfo
   tokenExpired?: boolean
+  image_url_missing?: boolean  // 新增：标记image_url是否缺失
 }
 
 export interface UserInfo {
@@ -163,6 +164,7 @@ export async function getAuthStatus(): Promise<AuthStatus> {
             status: 'logged_in' as const,
             is_logged_in: true,
             user_info: authData.user_info,
+            image_url_missing: authData.image_url_missing,  // 传递image_url_missing标志
           }
         }
       } else {

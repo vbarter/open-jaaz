@@ -221,34 +221,45 @@ async def check_auth_status(request: Request):
             logger.info(f"   - User UUID: {user.get('uuid', 'N/A')}")
 
             # 构建用户信息
+            # 处理时间字段（可能是datetime对象或字符串）
+            ctime = user.get("ctime")
+            mtime = user.get("mtime")
+            created_at = ctime.isoformat() if hasattr(ctime, 'isoformat') else ctime
+            updated_at = mtime.isoformat() if hasattr(mtime, 'isoformat') else mtime
+
             user_info = {
                 "id": str(user["id"]),
-                "username": user["username"],
+                "username": user.get("nickname", user["email"].split("@")[0]),  # 使用nickname，如果没有则从email提取
                 "email": user["email"],
-                "image_url": user.get("image_url"),
-                "logo_url": user.get("logo_url", ""),
-                "provider": user.get("provider"),
+                "image_url": user.get("image_url", ""),
+                "provider": "google",  # 默认provider
                 "level": user_level,
-                "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
-                "updated_at": user.get("updated_at").isoformat() if user.get("updated_at") else None,
+                "created_at": created_at,
+                "updated_at": updated_at,
             }
-            
+
+            # 检查image_url是否为空
+            image_url = user.get("image_url", "")
+            image_url_missing = not image_url or image_url.strip() == ""
+
             logger.info(f"✅ Auth check successful for user {user_id} ({user['email']}) with level: {user_level}")
             logger.info(f"🎯 PRICING: Returning user_info.level = {user_info['level']}")
-            
+            logger.info(f"🖼️ Image URL check: image_url={repr(image_url)}, missing={image_url_missing}")
+
             return {
                 "is_logged_in": True,
                 "status": "logged_in",
                 "user_info": user_info,
-                "token": auth_token  # 返回token以便前端同步
+                "token": auth_token,  # 返回token以便前端同步
+                "image_url_missing": image_url_missing  # 新增：标记image_url是否缺失
             }
             
         except Exception as token_error:
-            logger.error(f"❌ Token verification error: {token_error}")
+            logger.error(f"❌ Token verification error: {token_error}", exc_info=True)
             return {
                 "is_logged_in": False,
                 "status": "logged_out",
-                "message": "Token verification failed"
+                "message": f"Token verification failed: {str(token_error)}"
             }
             
     except Exception as e:

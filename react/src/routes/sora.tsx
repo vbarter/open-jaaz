@@ -39,7 +39,7 @@ import {
 import { EnhancedVideoPlayer } from '@/components/chat/EnhancedVideoPlayer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useConfigs } from '@/contexts/configs'
-import { refreshUserAvatar } from '@/api/auth'
+import { refreshUserAvatar, logout } from '@/api/auth'
 
 export const Route = createFileRoute('/sora')({
   component: SoraPage,
@@ -99,13 +99,47 @@ function SoraPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [videoToDelete, setVideoToDelete] = useState<string | null>(null)
 
-  // 检查登录状态
+  // 检查登录状态 & image_url
   useEffect(() => {
-    if (!isAuthLoading && !authStatus.is_logged_in) {
-      console.log('🔒 [Sora] 用户未登录，显示登录对话框')
-      setShowLoginDialog(true)
+    const checkAuthAndImageUrl = async () => {
+      if (!isAuthLoading) {
+        // 检查是否未登录
+        if (!authStatus.is_logged_in) {
+          console.log('🔒 [Sora] 用户未登录，显示登录对话框')
+          setShowLoginDialog(true)
+          return
+        }
+
+        // 检查image_url是否缺失（直接从user_info检查）
+        const imageUrl = authStatus.user_info?.image_url
+        const isImageUrlMissing = !imageUrl || imageUrl.trim() === ''
+
+        // console.log('🖼️ [Sora] 检查用户头像:', {
+        //   imageUrl,
+        //   isImageUrlMissing,
+        //   userInfo: authStatus.user_info,
+        // })
+
+        if (isImageUrlMissing) {
+          // console.log('🖼️ [Sora] 用户image_url缺失，静默退出登录')
+
+          // 静默退出登录（不显示错误提示）
+          try {
+            await logout()
+            // console.log('✅ [Sora] 退出登录成功')
+            // 退出后显示登录对话框
+            setShowLoginDialog(true)
+          } catch (error) {
+            console.error('❌ [Sora] 退出登录失败:', error)
+            // 即使退出失败也显示登录对话框
+            setShowLoginDialog(true)
+          }
+        }
+      }
     }
-  }, [isAuthLoading, authStatus.is_logged_in, setShowLoginDialog])
+
+    checkAuthAndImageUrl()
+  }, [isAuthLoading, authStatus.is_logged_in, authStatus.user_info, setShowLoginDialog, t])
 
   // 刷新用户头像（如果需要）
   useEffect(() => {
@@ -113,10 +147,10 @@ function SoraPage() {
       // 只在用户已登录时检查头像
       if (!isAuthLoading && authStatus.is_logged_in) {
         try {
-          console.log('📸 [Sora] 检查用户头像...')
+          // console.log('📸 [Sora] 检查用户头像...')
           const result = await refreshUserAvatar()
           if (result.success && result.image_url) {
-            console.log('✅ [Sora] 用户头像存在:', result.image_url)
+            // console.log('✅ [Sora] 用户头像存在:', result.image_url)
           } else {
             console.warn('⚠️ [Sora] 用户头像为空:', result.message)
           }
