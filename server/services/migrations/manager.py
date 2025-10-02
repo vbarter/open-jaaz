@@ -18,13 +18,14 @@ from services.migrations.v15_add_sora2_share_table import V15AddSora2ShareTable
 from services.migrations.v16_add_user_logo_url import V16AddUserLogoUrl
 from services.migrations.v17_add_user_image_url import V17AddUserImageUrl
 from services.migrations.v18_remove_logo_url import V18RemoveLogoUrl
+from services.migrations.v19_add_views_likes_to_sora2 import V19AddViewsLikesToSora2
 from . import Migration
 from log import get_logger
 
 logger = get_logger(__name__)
 
 # Database version
-CURRENT_VERSION = 18
+CURRENT_VERSION = 19
 
 ALL_MIGRATIONS = [
     {
@@ -98,6 +99,10 @@ ALL_MIGRATIONS = [
     {
         'version': 18,
         'migration': V18RemoveLogoUrl,
+    },
+    {
+        'version': 19,
+        'migration': V19AddViewsLikesToSora2,
     },
 ]
 class MigrationManager:
