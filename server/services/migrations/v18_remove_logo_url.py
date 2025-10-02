@@ -2,67 +2,79 @@
 Migration v18: Remove logo_url field from tb_user
 只保留 image_url 字段用于存储用户头像
 """
+from . import Migration
 import sqlite3
 from log import get_logger
 
 logger = get_logger(__name__)
 
 
-def upgrade(conn: sqlite3.Connection):
-    """执行升级"""
-    logger.info("📦 Migration v18: Removing logo_url field from tb_user")
+class V18RemoveLogoUrl(Migration):
+    version = 18
+    description = "Remove logo_url field from tb_user table, keep only image_url"
 
-    # SQLite 不支持直接删除列，需要重建表
-    # 1. 创建新表（不包含 logo_url）
-    conn.execute("""
-        CREATE TABLE tb_user_new (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            nickname TEXT NOT NULL,
-            points INTEGER DEFAULT 0,
-            ctime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            mtime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            uuid TEXT UNIQUE NOT NULL,
-            level TEXT DEFAULT 'free',
-            subscription_id TEXT DEFAULT '',
-            order_id TEXT DEFAULT '',
-            image_url TEXT DEFAULT ''
-        )
-    """)
+    def up(self, conn: sqlite3.Connection) -> None:
+        """执行升级 - 删除 logo_url 字段"""
+        logger.info("📦 Migration v18: Removing logo_url field from tb_user")
 
-    # 2. 复制数据（排除 logo_url）
-    conn.execute("""
-        INSERT INTO tb_user_new (
-            id, email, nickname, points, ctime, mtime, uuid, level,
-            subscription_id, order_id, image_url
-        )
-        SELECT
-            id, email, nickname, points, ctime, mtime, uuid, level,
-            subscription_id, order_id, image_url
-        FROM tb_user
-    """)
+        # 检查 logo_url 列是否存在
+        cursor = conn.execute("PRAGMA table_info(tb_user)")
+        columns = [column[1] for column in cursor.fetchall()]
 
-    # 3. 删除旧表
-    conn.execute("DROP TABLE tb_user")
+        if 'logo_url' not in columns:
+            logger.info("⚠️ logo_url column does not exist, skipping migration")
+            return
 
-    # 4. 重命名新表
-    conn.execute("ALTER TABLE tb_user_new RENAME TO tb_user")
+        # SQLite 不支持直接删除列，需要重建表
+        # 1. 创建新表（不包含 logo_url）
+        conn.execute("""
+            CREATE TABLE tb_user_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                nickname TEXT NOT NULL,
+                points INTEGER DEFAULT 0,
+                ctime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                mtime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                uuid TEXT UNIQUE NOT NULL,
+                level TEXT DEFAULT 'free',
+                subscription_id TEXT DEFAULT '',
+                order_id TEXT DEFAULT '',
+                image_url TEXT DEFAULT ''
+            )
+        """)
 
-    # 5. 重建索引
-    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_email ON tb_user(email)")
-    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_uuid ON tb_user(uuid)")
+        # 2. 复制数据（排除 logo_url）
+        conn.execute("""
+            INSERT INTO tb_user_new (
+                id, email, nickname, points, ctime, mtime, uuid, level,
+                subscription_id, order_id, image_url
+            )
+            SELECT
+                id, email, nickname, points, ctime, mtime, uuid, level,
+                subscription_id, order_id, image_url
+            FROM tb_user
+        """)
 
-    logger.info("✅ Migration v18 completed: logo_url field removed")
+        # 3. 删除旧表
+        conn.execute("DROP TABLE tb_user")
 
+        # 4. 重命名新表
+        conn.execute("ALTER TABLE tb_user_new RENAME TO tb_user")
 
-def downgrade(conn: sqlite3.Connection):
-    """执行降级"""
-    logger.info("📦 Migration v18 downgrade: Re-adding logo_url field")
+        # 5. 重建索引
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_email ON tb_user(email)")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_uuid ON tb_user(uuid)")
 
-    # 重新添加 logo_url 字段
-    conn.execute("""
-        ALTER TABLE tb_user
-        ADD COLUMN logo_url TEXT DEFAULT ''
-    """)
+        logger.info("✅ Migration v18 completed: logo_url field removed")
 
-    logger.info("✅ Migration v18 downgrade completed")
+    def down(self, conn: sqlite3.Connection) -> None:
+        """执行降级 - 重新添加 logo_url 字段"""
+        logger.info("📦 Migration v18 downgrade: Re-adding logo_url field")
+
+        # 重新添加 logo_url 字段
+        conn.execute("""
+            ALTER TABLE tb_user
+            ADD COLUMN logo_url TEXT DEFAULT ''
+        """)
+
+        logger.info("✅ Migration v18 downgrade completed")

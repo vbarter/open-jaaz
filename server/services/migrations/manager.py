@@ -17,7 +17,7 @@ from services.migrations.v14_add_sora2_table import V14AddSora2Table
 from services.migrations.v15_add_sora2_share_table import V15AddSora2ShareTable
 from services.migrations.v16_add_user_logo_url import V16AddUserLogoUrl
 from services.migrations.v17_add_user_image_url import V17AddUserImageUrl
-from services.migrations import v18_remove_logo_url
+from services.migrations.v18_remove_logo_url import V18RemoveLogoUrl
 from . import Migration
 from log import get_logger
 
@@ -97,7 +97,7 @@ ALL_MIGRATIONS = [
     },
     {
         'version': 18,
-        'migration': v18_remove_logo_url,
+        'migration': V18RemoveLogoUrl,
     },
 ]
 class MigrationManager:
