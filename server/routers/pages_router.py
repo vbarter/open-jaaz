@@ -902,8 +902,8 @@ async def share_page(id: str = Query(..., description="分享ID")):
         description = (prompt[:200] + "...") if len(prompt) > 200 else prompt
         description = description.replace('"', '&quot;').replace("'", '&#39;').replace('<', '&lt;').replace('>', '&gt;')
 
-        # 增加访问量
-        await share_service.increment_views(id)
+        # 注意: 访问量由前端 React 组件调用 POST /api/sora2/share/{share_id}/view 来增加
+        # 这里不再调用 increment_views，避免 SSR + CSR 双重计数
 
         # 读取构建后的 index.html
         dist_html_path = os.path.join(os.path.dirname(__file__), "..", "..", "react", "dist", "index.html")
@@ -957,7 +957,7 @@ async def share_page(id: str = Query(..., description="分享ID")):
                 f'<meta charset="UTF-8" />{og_tags}'
             )
 
-            logger.info(f"✅ 分享页面渲染成功 - share_id: {id}, views: {views + 1}")
+            logger.info(f"✅ 分享页面渲染成功 - share_id: {id}, views: {views}")
             return base_html
         else:
             # 如果找不到构建文件，返回开发环境 HTML

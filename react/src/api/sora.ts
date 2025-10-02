@@ -45,8 +45,6 @@ export interface Sora2TaskListResponse {
  * 生成 Sora2 视频
  */
 export const generateSora2Video = async (request: Sora2GenRequest): Promise<Sora2GenResponse> => {
-  console.log('[API Sora2] 开始发送 Sora2 视频生成请求:', request)
-
   try {
     const response = await fetch('/api/sora_2_gen', {
       method: 'POST',
@@ -56,12 +54,6 @@ export const generateSora2Video = async (request: Sora2GenRequest): Promise<Sora
       body: JSON.stringify(request),
     })
 
-    console.log('[API Sora2] 收到响应:', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-    })
-
     if (!response.ok) {
       const errorText = await response.text()
       console.error('[API Sora2] 请求失败，错误响应:', errorText)
@@ -69,7 +61,6 @@ export const generateSora2Video = async (request: Sora2GenRequest): Promise<Sora
     }
 
     const data = await response.json()
-    console.log('[API Sora2] 请求成功，响应数据:', data)
 
     return data as Sora2GenResponse
   } catch (error) {
@@ -86,8 +77,6 @@ export const getSora2Tasks = async (params?: {
   limit?: number
   offset?: number
 }): Promise<Sora2TaskListResponse> => {
-  console.log('[API Sora2] 获取任务列表 - 参数:', params)
-
   try {
     const queryParams = new URLSearchParams()
     if (params?.status) queryParams.append('status', params.status)
@@ -95,14 +84,11 @@ export const getSora2Tasks = async (params?: {
     if (params?.offset) queryParams.append('offset', params.offset.toString())
 
     const url = `/api/sora2/tasks${queryParams.toString() ? `?${queryParams}` : ''}`
-    console.log('[API Sora2] 请求URL:', url)
 
     const response = await fetch(url, {
       method: 'GET',
       credentials: 'include', // 包含 cookies（认证信息）
     })
-
-    console.log('[API Sora2] 响应状态:', response.status, response.statusText)
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -111,7 +97,6 @@ export const getSora2Tasks = async (params?: {
     }
 
     const data = await response.json()
-    console.log('[API Sora2] 任务列表获取成功 - 数据:', data)
 
     return data as Sora2TaskListResponse
   } catch (error) {
@@ -149,8 +134,6 @@ export const getSora2Task = async (taskId: number): Promise<Sora2TaskDetail> => 
  * 删除 Sora2 任务
  */
 export const deleteSora2Task = async (taskId: string): Promise<void> => {
-  console.log('[API Sora2] 删除任务:', taskId)
-
   try {
     const response = await fetch(`/api/sora2/tasks/${taskId}`, {
       method: 'DELETE',
@@ -162,8 +145,6 @@ export const deleteSora2Task = async (taskId: string): Promise<void> => {
       console.error('[API Sora2] 删除任务失败:', errorText)
       throw new Error(`删除任务失败: ${response.status} ${response.statusText}`)
     }
-
-    console.log('[API Sora2] 任务删除成功')
   } catch (error) {
     console.error('[API Sora2] 删除任务出错:', error)
     throw error
@@ -194,8 +175,6 @@ export interface ShareVideoDetail {
  * 创建分享链接
  */
 export const createShare = async (videoId: number): Promise<CreateShareResponse> => {
-  console.log('[API Sora2] 创建分享:', videoId)
-
   try {
     const response = await fetch('/api/sora2/share', {
       method: 'POST',
@@ -213,7 +192,6 @@ export const createShare = async (videoId: number): Promise<CreateShareResponse>
     }
 
     const data = await response.json()
-    console.log('[API Sora2] 分享创建成功:', data)
     return data as CreateShareResponse
   } catch (error) {
     console.error('[API Sora2] 创建分享出错:', error)
@@ -241,6 +219,34 @@ export const getShareVideo = async (shareId: string): Promise<ShareVideoDetail> 
     return data as ShareVideoDetail
   } catch (error) {
     console.error('[API Sora2] 获取分享视频出错:', error)
+    throw error
+  }
+}
+
+/**
+ * 增加分享视频访问量
+ */
+export const incrementShareView = async (
+  shareId: string
+): Promise<{ success: boolean; views: number }> => {
+  // console.log('[API Sora2] 增加访问量:', shareId)
+
+  try {
+    const response = await fetch(`/api/sora2/share/${shareId}/view`, {
+      method: 'POST',
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[API Sora2] 增加访问量失败:', errorText)
+      throw new Error(`增加访问量失败: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    // console.log('[API Sora2] 访问量增加成功:', data)
+    return data
+  } catch (error) {
+    console.error('[API Sora2] 增加访问量出错:', error)
     throw error
   }
 }
@@ -281,8 +287,6 @@ export const getDiscoverVideos = async (params?: {
   offset?: number
   sort_by?: 'time' | 'likes' | 'views'
 }): Promise<Sora2TaskListResponse> => {
-  console.log('[API Sora2] 获取发现页面视频列表 - 参数:', params)
-
   try {
     const queryParams = new URLSearchParams()
     if (params?.limit) queryParams.append('limit', params.limit.toString())
@@ -290,26 +294,118 @@ export const getDiscoverVideos = async (params?: {
     if (params?.sort_by) queryParams.append('sort_by', params.sort_by)
 
     const url = `/api/sora2/discover${queryParams.toString() ? `?${queryParams}` : ''}`
-    console.log('[API Sora2] 请求URL:', url)
-
     const response = await fetch(url, {
       method: 'GET',
     })
-
-    console.log('[API Sora2] 响应状态:', response.status, response.statusText)
-
     if (!response.ok) {
       const errorText = await response.text()
       console.error('[API Sora2] 获取发现页面视频列表失败 - 错误响应:', errorText)
       throw new Error(`获取发现页面视频列表失败: ${response.status} ${response.statusText}`)
     }
-
     const data = await response.json()
-    console.log('[API Sora2] 发现页面视频列表获取成功 - 数据:', data)
-
     return data as Sora2TaskListResponse
   } catch (error) {
     console.error('[API Sora2] 获取发现页面视频列表出错:', error)
+    throw error
+  }
+}
+
+/**
+ * ==================== 互动功能接口（浏览、点赞）====================
+ */
+
+export interface RecordViewResponse {
+  success: boolean
+  views: number
+}
+
+export interface ToggleLikeResponse {
+  success: boolean
+  is_liked: boolean
+  likes: number
+}
+
+export interface UserLikesResponse {
+  liked_video_ids: number[]
+}
+
+/**
+ * 记录视频播放次数
+ */
+export const recordVideoView = async (videoId: number): Promise<RecordViewResponse> => {
+  try {
+    const response = await fetch('/api/sora2/view', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ video_id: videoId }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[API Sora2] 记录浏览失败:', errorText)
+      throw new Error(`记录浏览失败: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data as RecordViewResponse
+  } catch (error) {
+    console.error('[API Sora2] 记录浏览出错:', error)
+    throw error
+  }
+}
+
+/**
+ * 切换视频点赞状态
+ */
+export const toggleVideoLike = async (videoId: number): Promise<ToggleLikeResponse> => {
+  try {
+    const response = await fetch('/api/sora2/like', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ video_id: videoId }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[API Sora2] 切换点赞失败:', errorText)
+      throw new Error(`切换点赞失败: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data as ToggleLikeResponse
+  } catch (error) {
+    console.error('[API Sora2] 切换点赞出错:', error)
+    throw error
+  }
+}
+
+/**
+ * 获取用户的点赞列表
+ */
+export const getUserLikes = async (videoIds: number[]): Promise<UserLikesResponse> => {
+  try {
+    const idsParam = videoIds.join(',')
+    const response = await fetch(`/api/sora2/user-likes?video_ids=${idsParam}`, {
+      method: 'GET',
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[API Sora2] 获取用户点赞列表失败:', errorText)
+      throw new Error(`获取用户点赞列表失败: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data as UserLikesResponse
+  } catch (error) {
+    console.error('[API Sora2] 获取用户点赞列表出错:', error)
     throw error
   }
 }

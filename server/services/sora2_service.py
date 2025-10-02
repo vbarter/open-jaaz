@@ -131,7 +131,9 @@ class Sora2Service:
             db.row_factory = sqlite3.Row
             cursor = await db.execute(
                 """
-                SELECT id, user_uuid, prompt, model, images, video_url, status, remark, ctime, mtime
+                SELECT id, user_uuid, prompt, model, images, video_url, status, remark, ctime, mtime,
+                       COALESCE(views, 0) as views,
+                       COALESCE(likes, 0) as likes
                 FROM tb_sora2
                 WHERE id = ?
                 """,
@@ -180,8 +182,9 @@ class Sora2Service:
                     """
                     SELECT s.id, s.user_uuid, s.prompt, s.model, s.images, s.video_url,
                            s.status, s.remark, s.ctime, s.mtime,
-                           COALESCE(sh.views, 0) as views,
-                           COALESCE(sh.likes, 0) as likes
+                           COALESCE(s.views, 0) as views,
+                           COALESCE(s.likes, 0) as likes,
+                           sh.share_id as share_id
                     FROM tb_sora2 s
                     LEFT JOIN tb_sora2_share sh ON s.id = sh.video_id
                     WHERE s.user_uuid = ? AND s.status = ?
@@ -195,8 +198,9 @@ class Sora2Service:
                     """
                     SELECT s.id, s.user_uuid, s.prompt, s.model, s.images, s.video_url,
                            s.status, s.remark, s.ctime, s.mtime,
-                           COALESCE(sh.views, 0) as views,
-                           COALESCE(sh.likes, 0) as likes
+                           COALESCE(s.views, 0) as views,
+                           COALESCE(s.likes, 0) as likes,
+                           sh.share_id as share_id
                     FROM tb_sora2 s
                     LEFT JOIN tb_sora2_share sh ON s.id = sh.video_id
                     WHERE s.user_uuid = ?
@@ -387,10 +391,11 @@ class Sora2Service:
         share_service = get_sora2_share_service()
 
         # 根据排序类型确定 ORDER BY 子句
+        # 注意：使用 tb_sora2 表的 views 和 likes 字段（实时统计）
         order_by_map = {
             "time": "s.ctime DESC",
-            "likes": "COALESCE(sh.likes, 0) DESC, s.ctime DESC",
-            "views": "COALESCE(sh.views, 0) DESC, s.ctime DESC"
+            "likes": "COALESCE(s.likes, 0) DESC, s.ctime DESC",
+            "views": "COALESCE(s.views, 0) DESC, s.ctime DESC"
         }
         order_by = order_by_map.get(sort_by, "s.ctime DESC")
 
@@ -401,8 +406,8 @@ class Sora2Service:
                 f"""
                 SELECT s.id, s.user_uuid, s.prompt, s.model, s.images, s.video_url,
                        s.status, s.remark, s.ctime, s.mtime,
-                       COALESCE(sh.views, 0) as views,
-                       COALESCE(sh.likes, 0) as likes,
+                       COALESCE(s.views, 0) as views,
+                       COALESCE(s.likes, 0) as likes,
                        sh.share_id as share_id,
                        u.image_url as user_image_url,
                        u.email as user_email
@@ -440,9 +445,7 @@ class Sora2Service:
                             base_url=BASE_URL
                         )
                         record['share_id'] = share_record['share_id']
-                        # 新创建的分享，views 和 likes 都是 0
-                        record['views'] = 0
-                        record['likes'] = 0
+                        # 注意: views 和 likes 已经从 tb_sora2 表读取，不需要重置为 0
                         logger.info(f"✅ 分享创建成功: share_id={share_record['share_id']}")
                     except Exception as e:
                         logger.error(f"❌ 为视频 #{record['id']} 创建分享失败: {e}")

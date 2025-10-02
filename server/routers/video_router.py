@@ -722,45 +722,87 @@ async def create_sora2_share(
 async def get_sora2_share(share_id: str):
     """
     获取分享视频详情（公开访问，无需登录）
-    
+
+    注意: 此接口只读取数据，不更新 views
+    views 的更新由 POST /sora2/share/{share_id}/view 接口负责
+
     Args:
         share_id: 分享ID
-        
+
     Returns:
         视频详情（prompt, video_url, views, likes）
     """
     try:
-        logger.info(f"👁️ 访问分享 - share_id: {share_id}")
-        
+        logger.info(f"👁️ 获取分享信息 - share_id: {share_id}")
+
         # 获取分享服务
         share_service = get_sora2_share_service()
-        
-        # 获取视频信息
+
+        # 获取视频信息（只读取，不更新）
         video = await share_service.get_video_by_share_id(share_id)
-        
+
         if not video:
             raise HTTPException(status_code=404, detail="分享不存在或已失效")
-        
-        # 增加访问量
-        await share_service.increment_views(share_id)
-        
-        logger.info(f"✅ 分享访问成功 - share_id: {share_id}, views: {video['views'] + 1}")
-        
+
+        logger.info(f"✅ 获取分享信息成功 - share_id: {share_id}")
+
         return ShareVideoDetail(
             prompt=video["prompt"],
             video_url=video["video_url"],
-            views=video["views"] + 1,  # 返回更新后的访问量
+            views=video["views"],
             likes=video["likes"],
             user_uuid=video["user_uuid"],
             user_image_url=video.get("user_image_url"),
             ctime=video["ctime"]
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"❌ 获取分享失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"获取分享失败: {str(e)}")
+
+
+@router.post("/sora2/share/{share_id}/view")
+async def increment_sora2_share_view(share_id: str):
+    """
+    增加分享视频访问量（无需登录）
+
+    策略: 每次调用 views +1（只增不减）
+
+    Args:
+        share_id: 分享ID
+
+    Returns:
+        更新后的访问量
+    """
+    try:
+        logger.info(f"👁️ 增加访问量 - share_id: {share_id}")
+
+        # 获取分享服务
+        share_service = get_sora2_share_service()
+
+        # 增加访问量
+        success = await share_service.increment_views(share_id)
+
+        if not success:
+            raise HTTPException(status_code=404, detail="分享不存在或已失效")
+
+        # 获取更新后的视频信息
+        video = await share_service.get_video_by_share_id(share_id)
+
+        logger.info(f"✅ 访问量增加成功 - share_id: {share_id}, views: {video['views']}")
+
+        return {
+            "success": True,
+            "views": video["views"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 增加访问量失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"增加访问量失败: {str(e)}")
 
 
 @router.post("/sora2/share/{share_id}/like")
@@ -852,3 +894,297 @@ async def get_discover_videos(
     except Exception as e:
         logger.error(f"❌ 获取发现页面视频列表失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"获取视频列表失败: {str(e)}")
+
+
+# ==================== Sora2 互动功能（浏览、点赞）====================
+
+class RecordViewRequest(BaseModel):
+    """记录浏览请求"""
+    video_id: int = Field(..., description="视频ID")
+
+
+class RecordViewResponse(BaseModel):
+    """记录浏览响应"""
+    success: bool = Field(..., description="是否成功")
+    views: int = Field(..., description="当前浏览量")
+
+
+class ToggleLikeRequest(BaseModel):
+    """切换点赞请求"""
+    video_id: int = Field(..., description="视频ID")
+
+
+class ToggleLikeResponse(BaseModel):
+    """切换点赞响应"""
+    success: bool = Field(..., description="是否成功")
+    is_liked: bool = Field(..., description="当前是否已点赞")
+    likes: int = Field(..., description="当前点赞量")
+
+
+class UserLikesResponse(BaseModel):
+    """用户点赞列表响应"""
+    liked_video_ids: list[int] = Field(..., description="已点赞的视频ID列表")
+
+
+@router.post("/sora2/view", response_model=RecordViewResponse)
+async def record_video_view(
+    request: RecordViewRequest,
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional)
+):
+    """
+    记录视频播放次数（支持重复点击）
+
+    策略：views 只增不减
+    - 每次点击播放按钮时，tb_sora2.views +1
+    - 支持重复点击，无限累加
+    - 不需要登录，匿名用户也可触发
+
+    Args:
+        request: 记录浏览请求
+        current_user: 当前用户（可选）
+
+    Returns:
+        更新后的浏览量
+    """
+    import sqlite3
+    from datetime import datetime
+
+    try:
+        video_id = request.video_id
+        user_uuid = current_user.uuid if current_user else "anonymous"
+
+        logger.info(f"👁️ 记录浏览 - video_id: {video_id}, user: {user_uuid[:8]}...")
+
+        # 验证视频是否存在
+        task = await sora2_service.get_record(video_id)
+        if not task:
+            raise HTTPException(status_code=404, detail=f"视频 #{video_id} 不存在")
+
+        # 增加浏览量
+        from services.db_service import db_service
+        db_path = db_service.db_path
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        try:
+            # 更新 tb_sora2 表的 views 字段
+            cursor.execute("""
+                UPDATE tb_sora2
+                SET views = COALESCE(views, 0) + 1,
+                    mtime = ?
+                WHERE id = ?
+            """, (datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'), video_id))
+
+            # 获取更新后的浏览量
+            cursor.execute("SELECT views FROM tb_sora2 WHERE id = ?", (video_id,))
+            result = cursor.fetchone()
+            views = result[0] if result else 0
+
+            conn.commit()
+
+            logger.info(f"✅ 浏览量更新成功 - video_id: {video_id}, views: {views}")
+
+            return RecordViewResponse(success=True, views=views)
+
+        finally:
+            conn.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 记录浏览失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"记录浏览失败: {str(e)}")
+
+
+@router.post("/sora2/like", response_model=ToggleLikeResponse)
+async def toggle_video_like(
+    request: ToggleLikeRequest,
+    current_user: CurrentUser = Depends(get_current_user_optional)
+):
+    """
+    切换视频点赞状态
+
+    策略：likes 有增有减
+    - 点赞时：tb_sora_feedback.is_liked = 1, tb_sora2.likes +1
+    - 取消点赞时：tb_sora_feedback.is_liked = 0, tb_sora2.likes -1
+    - 每个用户对每个视频只能有一条点赞记录（UNIQUE约束）
+    - 必须登录才能点赞
+
+    工作流程：
+    1. 检查用户是否已点赞（查询 tb_sora_feedback）
+    2. 切换点赞状态（INSERT 或 UPDATE）
+    3. 增量更新 tb_sora2.likes (+1 或 -1)
+    4. 返回最新的点赞状态和总点赞数
+
+    Args:
+        request: 切换点赞请求
+        current_user: 当前用户（必需登录）
+
+    Returns:
+        点赞状态和点赞量
+    """
+    import sqlite3
+    from datetime import datetime
+
+    try:
+        # 验证用户登录
+        if not current_user:
+            raise HTTPException(status_code=401, detail="请先登录")
+
+        video_id = request.video_id
+        user_uuid = current_user.uuid
+
+        logger.info(f"❤️ 切换点赞 - video_id: {video_id}, user: {user_uuid[:8]}...")
+
+        # 验证视频是否存在
+        task = await sora2_service.get_record(video_id)
+        if not task:
+            raise HTTPException(status_code=404, detail=f"视频 #{video_id} 不存在")
+
+        from services.db_service import db_service
+        db_path = db_service.db_path
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        try:
+            now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+
+            # 检查用户是否已点赞
+            cursor.execute("""
+                SELECT is_liked FROM tb_sora_feedback
+                WHERE video_id = ? AND user_uuid = ?
+            """, (video_id, user_uuid))
+
+            result = cursor.fetchone()
+            likes_delta = 0  # 点赞数变化量: +1 或 -1
+
+            if result is None:
+                # 首次点赞 - 插入新记录
+                cursor.execute("""
+                    INSERT INTO tb_sora_feedback (video_id, user_uuid, is_liked, ctime, mtime)
+                    VALUES (?, ?, 1, ?, ?)
+                """, (video_id, user_uuid, now, now))
+                is_liked = True
+                likes_delta = +1  # 新增点赞，likes +1
+
+            else:
+                # 切换点赞状态
+                current_liked = result[0]
+                new_liked = 0 if current_liked == 1 else 1
+
+                cursor.execute("""
+                    UPDATE tb_sora_feedback
+                    SET is_liked = ?, mtime = ?
+                    WHERE video_id = ? AND user_uuid = ?
+                """, (new_liked, now, video_id, user_uuid))
+
+                is_liked = new_liked == 1
+
+                if new_liked == 1:
+                    likes_delta = +1  # 从不喜欢变成喜欢，likes +1
+                else:
+                    likes_delta = -1  # 从喜欢变成不喜欢，likes -1
+
+            # 更新 tb_sora2 表的 likes 字段（增量更新）
+            # 策略：likes 有增有减
+            # - 点赞时 +1
+            # - 取消点赞时 -1
+            cursor.execute("""
+                UPDATE tb_sora2
+                SET likes = MAX(0, COALESCE(likes, 0) + ?),
+                    mtime = ?
+                WHERE id = ?
+            """, (likes_delta, now, video_id))
+
+            # 获取更新后的点赞量
+            cursor.execute("SELECT likes FROM tb_sora2 WHERE id = ?", (video_id,))
+            likes_count = cursor.fetchone()[0]
+
+            conn.commit()
+
+            logger.info(f"✅ 点赞状态更新成功 - video_id: {video_id}, is_liked: {is_liked}, likes: {likes_count}")
+
+            return ToggleLikeResponse(
+                success=True,
+                is_liked=is_liked,
+                likes=likes_count
+            )
+
+        finally:
+            conn.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 切换点赞失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"切换点赞失败: {str(e)}")
+
+
+@router.get("/sora2/user-likes", response_model=UserLikesResponse)
+async def get_user_likes(
+    video_ids: str = Query(..., description="视频ID列表（逗号分隔）"),
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional)
+):
+    """
+    获取用户的点赞列表
+
+    用于前端批量查询哪些视频已被当前用户点赞
+
+    Args:
+        video_ids: 视频ID列表（逗号分隔，例如：1,2,3）
+        current_user: 当前用户（可选）
+
+    Returns:
+        已点赞的视频ID列表
+    """
+    import sqlite3
+
+    try:
+        # 如果未登录，返回空列表
+        if not current_user:
+            return UserLikesResponse(liked_video_ids=[])
+
+        user_uuid = current_user.uuid
+
+        # 解析视频ID列表
+        try:
+            video_id_list = [int(vid.strip()) for vid in video_ids.split(',') if vid.strip()]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="无效的视频ID格式")
+
+        if not video_id_list:
+            return UserLikesResponse(liked_video_ids=[])
+
+        logger.info(f"🔍 查询用户点赞 - user: {user_uuid[:8]}..., videos: {len(video_id_list)}")
+
+        from services.db_service import db_service
+        db_path = db_service.db_path
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        try:
+            # 查询用户已点赞的视频
+            placeholders = ','.join(['?' for _ in video_id_list])
+            cursor.execute(f"""
+                SELECT video_id FROM tb_sora_feedback
+                WHERE user_uuid = ? AND is_liked = 1
+                AND video_id IN ({placeholders})
+            """, [user_uuid] + video_id_list)
+
+            liked_ids = [row[0] for row in cursor.fetchall()]
+
+            logger.info(f"✅ 查询成功 - user: {user_uuid[:8]}..., liked: {len(liked_ids)}/{len(video_id_list)}")
+
+            return UserLikesResponse(liked_video_ids=liked_ids)
+
+        finally:
+            conn.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 查询用户点赞失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"查询用户点赞失败: {str(e)}")

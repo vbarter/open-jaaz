@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import TopMenu from '@/components/TopMenu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Loader2, Sparkles, Clock, Heart, Eye } from 'lucide-react'
-import { getDiscoverVideos, Sora2TaskDetail } from '@/api/sora'
+import { getDiscoverVideos, getUserLikes, Sora2TaskDetail } from '@/api/sora'
 import { DiscoverVideoCard } from '@/components/discover/DiscoverVideoCard'
 import { generateAvatarUrl } from '@/utils/avatarUtils'
 import {
@@ -51,11 +51,50 @@ function DiscoverPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [sortBy, setSortBy] = useState<'time' | 'likes' | 'views'>('time')
+  const [likedVideoIds, setLikedVideoIds] = useState<Set<number>>(new Set())
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
 
   const LIMIT = 60 // 一次加载60个视频（10行，每行6个）
+
+  // 加载用户点赞状态
+  const loadUserLikes = useCallback(async (videoIds: number[]) => {
+    if (videoIds.length === 0) return
+
+    try {
+      const result = await getUserLikes(videoIds)
+      setLikedVideoIds(new Set(result.liked_video_ids))
+      console.log('✅ [Discover] 加载用户点赞状态:', result.liked_video_ids.length)
+    } catch (error) {
+      console.error('❌ [Discover] 加载用户点赞状态失败:', error)
+    }
+  }, [])
+
+  // 点赞变化回调
+  const handleLikeChange = useCallback((videoId: string, isLiked: boolean, newLikes: number) => {
+    const numId = parseInt(videoId)
+
+    // 更新点赞状态
+    setLikedVideoIds(prev => {
+      const newSet = new Set(prev)
+      if (isLiked) {
+        newSet.add(numId)
+      } else {
+        newSet.delete(numId)
+      }
+      return newSet
+    })
+
+    // 更新视频点赞数
+    setVideos(prev =>
+      prev.map(v =>
+        v.id === videoId
+          ? { ...v, likes: newLikes }
+          : v
+      )
+    )
+  }, [])
 
   // 加载视频列表
   const loadVideos = useCallback(
@@ -94,6 +133,9 @@ function DiscoverPage() {
 
         // 检查是否还有更多数据
         setHasMore(offset + LIMIT < response.total)
+
+        // 加载用户点赞状态
+        await loadUserLikes(newVideos.map(v => parseInt(v.id)))
       } catch (error) {
         console.error(t('loadError'), error)
       } finally {
@@ -208,6 +250,7 @@ function DiscoverPage() {
                   {videos.map((video) => (
                     <div key={video.id} className='w-full aspect-[9/16] overflow-hidden bg-black rounded-lg'>
                       <DiscoverVideoCard
+                        videoId={video.id}
                         videoUrl={video.videoUrl}
                         prompt={video.prompt}
                         views={video.views}
@@ -215,6 +258,8 @@ function DiscoverPage() {
                         userUuid={video.userUuid}
                         userImageUrl={video.userImageUrl}
                         shareId={video.shareId}
+                        isLiked={likedVideoIds.has(parseInt(video.id))}
+                        onLikeChange={handleLikeChange}
                       />
                     </div>
                   ))}

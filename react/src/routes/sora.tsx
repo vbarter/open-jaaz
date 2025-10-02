@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import TopMenu from '@/components/TopMenu'
 import { Button } from '@/components/ui/button'
@@ -26,6 +26,11 @@ import {
   ArrowUpRight,
   Video,
   MessageCircle,
+  Volume2,
+  VolumeX,
+  Maximize2,
+  Download,
+  Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -77,6 +82,116 @@ const taskToVideo = (task: Sora2TaskDetail): GeneratedVideo => ({
   likes: task.likes ?? 0,
 })
 
+// 视频卡片底部操作按钮组件
+interface VideoCardActionsProps {
+  videoUrl: string
+  videoId: string
+}
+
+const VideoCardActions: React.FC<VideoCardActionsProps> = ({ videoUrl, videoId }) => {
+  const [isMuted, setIsMuted] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+
+  // 查找视频元素（通过videoId）
+  useEffect(() => {
+    const findVideo = () => {
+      // 查找父容器中的 video 元素
+      const container = document.querySelector(`[data-video-id="${videoId}"]`)
+      if (container) {
+        const video = container.querySelector('video')
+        if (video) {
+          videoRef.current = video
+          setIsMuted(video.muted)
+        }
+      }
+    }
+
+    // 延迟查找，确保视频元素已渲染
+    setTimeout(findVideo, 100)
+  }, [videoId])
+
+  // 音量切换
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const video = videoRef.current
+    if (video) {
+      video.muted = !video.muted
+      setIsMuted(video.muted)
+    }
+  }
+
+  // 页面内放大切换（9:16比例）
+  const toggleExpand = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsExpanded(!isExpanded)
+
+    // 触发自定义事件通知父组件
+    const event = new CustomEvent('video-expand-toggle', {
+      detail: { videoId, isExpanded: !isExpanded }
+    })
+    window.dispatchEvent(event)
+  }
+
+  // 下载视频
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      const response = await fetch(videoUrl)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `video_${videoId}.mp4`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      // 跨域失败时直接打开链接
+      window.open(videoUrl, '_blank')
+    }
+  }
+
+  return (
+    <div className='absolute bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black/80 via-black/60 to-transparent px-3 py-2'>
+      {/* 按钮组 - 均匀分布 */}
+      <div className='flex items-center justify-between gap-2'>
+        {/* 音量按钮 */}
+        <button
+          onClick={toggleMute}
+          className='flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-all duration-200 group'
+          title={isMuted ? '取消静音' : '静音'}
+        >
+          {isMuted ? (
+            <VolumeX className='w-4 h-4 text-white group-hover:scale-110 transition-transform' />
+          ) : (
+            <Volume2 className='w-4 h-4 text-white group-hover:scale-110 transition-transform' />
+          )}
+        </button>
+
+        {/* 放大按钮 */}
+        <button
+          onClick={toggleExpand}
+          className='flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-all duration-200 group'
+          title={isExpanded ? '缩小' : '放大'}
+        >
+          <Maximize2 className={`w-4 h-4 text-white group-hover:scale-110 transition-transform ${isExpanded ? 'text-blue-400' : ''}`} />
+        </button>
+
+        {/* 下载按钮 */}
+        <button
+          onClick={handleDownload}
+          className='flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-all duration-200 group'
+          title='下载视频'
+        >
+          <Download className='w-4 h-4 text-white group-hover:scale-110 transition-transform' />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function SoraPage() {
   const { t } = useTranslation('sora')
   const { t: tCommon } = useTranslation('common')
@@ -98,6 +213,9 @@ function SoraPage() {
   // 删除确认对话框状态
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [videoToDelete, setVideoToDelete] = useState<string | null>(null)
+
+  // 视频放大状态
+  const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null)
 
   // 检查登录状态 & image_url
   useEffect(() => {
@@ -171,6 +289,32 @@ function SoraPage() {
   // 积分不足对话框状态
   const [pointsDialogOpen, setPointsDialogOpen] = useState(false)
   const [currentPoints, setCurrentPoints] = useState<number>(0)
+
+  // 监听视频放大事件
+  useEffect(() => {
+    const handleExpandToggle = (event: Event) => {
+      const customEvent = event as CustomEvent<{ videoId: string; isExpanded: boolean }>
+      const { videoId, isExpanded } = customEvent.detail
+      setExpandedVideoId(isExpanded ? videoId : null)
+    }
+
+    window.addEventListener('video-expand-toggle', handleExpandToggle)
+    return () => window.removeEventListener('video-expand-toggle', handleExpandToggle)
+  }, [])
+
+  // 键盘ESC关闭支持
+  useEffect(() => {
+    if (!expandedVideoId) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setExpandedVideoId(null)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [expandedVideoId])
 
   // WebSocket连接逻辑
   const connectWebSocket = useCallback(() => {
@@ -488,8 +632,8 @@ function SoraPage() {
     <div className='flex flex-col h-screen relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20'>
       <TopMenu />
 
-      <ScrollArea className='h-full relative z-10 pb-32'>
-        <div className='relative flex flex-col items-center pt-8 px-4 sm:px-6'>
+      <ScrollArea className='h-full relative z-10'>
+        <div className='relative flex flex-col items-center pt-8 px-4 sm:px-6 pb-40'>
           {/* 标题区域 */}
           <div className='w-full max-w-6xl mx-auto mb-8'>
             <div className='flex items-center justify-center gap-3 mb-4'>
@@ -541,13 +685,98 @@ function SoraPage() {
                 <p className='text-lg'>{t('emptyState')}</p>
               </div>
             ) : (
-              <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5 sm:gap-2'>
-                {videos.map((video) => (
-                  <div key={video.id} className='relative group'>
-                    {/* 统一的9:16容器 - 确保所有卡片尺寸一致 */}
-                    <div className='w-full aspect-[9/16] relative overflow-hidden bg-black rounded-lg'>
+              <>
+                {/* 沉浸式全屏视频查看器 */}
+                {expandedVideoId && videos.find(v => v.id === expandedVideoId) && (
+                  <div
+                    className='fixed inset-0 z-50 bg-black flex items-center justify-center'
+                    onClick={(e) => {
+                      // 点击背景区域关闭（不包括视频和信息面板）
+                      if (e.target === e.currentTarget) {
+                        setExpandedVideoId(null)
+                      }
+                    }}
+                  >
+                    {(() => {
+                      const currentIndex = videos.findIndex(v => v.id === expandedVideoId)
+                      const video = videos[currentIndex]
+
+                      return (
+                        <>
+
+                          {/* 主内容区域 */}
+                          <div className='flex items-center justify-center gap-8 h-full max-w-7xl mx-auto px-4'>
+                            {/* 视频容器 */}
+                            <div className='flex-shrink-0 h-[90vh] aspect-[9/16] relative bg-black rounded-lg overflow-hidden shadow-2xl'>
+                              <div className='absolute inset-0' data-video-id={video.id}>
+                                <EnhancedVideoPlayer
+                                  content=''
+                                  videoUrl={video.videoUrl}
+                                  videoId={video.id}
+                                  fillContainer={true}
+                                />
+                              </div>
+
+                              {/* 底部控制按钮 */}
+                              <VideoCardActions videoUrl={video.videoUrl} videoId={video.id} />
+                            </div>
+
+                            {/* 右侧信息面板 */}
+                            <div className='flex-shrink-0 w-80 h-[90vh] flex flex-col gap-6 text-white'>
+                              {/* 用户信息 */}
+                              <div className='flex flex-col gap-2'>
+                                <p className='font-semibold text-xl'>创作者</p>
+                                <div className='flex items-center gap-2 text-sm text-gray-400'>
+                                  <Clock className='w-4 h-4' />
+                                  <span>{new Date(video.createdAt).toLocaleDateString('zh-CN', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}</span>
+                                </div>
+                              </div>
+
+                              {/* 分隔线 */}
+                              <div className='h-px bg-gray-700' />
+
+                              {/* 提示词 */}
+                              <div className='flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent'>
+                                <h3 className='text-sm font-semibold text-gray-400 mb-2'>视频提示词</h3>
+                                <p className='text-base leading-relaxed text-gray-200'>
+                                  {video.prompt}
+                                </p>
+                              </div>
+
+                              {/* 分隔线 */}
+                              <div className='h-px bg-gray-700' />
+
+                              {/* 互动数据 */}
+                              <div className='flex items-center gap-6'>
+                                <div className='flex items-center gap-2'>
+                                  <Heart className='w-5 h-5 text-red-400' />
+                                  <span className='text-lg font-semibold'>{video.likes ?? 0}</span>
+                                </div>
+                                <div className='flex items-center gap-2'>
+                                  <Eye className='w-5 h-5 text-blue-400' />
+                                  <span className='text-lg font-semibold'>{video.views ?? 0}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )
+                    })()}
+                  </div>
+                )}
+
+                {/* 视频网格 */}
+                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5 sm:gap-2'>
+                  {videos.map((video) => (
+                    <div key={video.id} className='relative group'>
+                        {/* 统一的9:16容器 - 确保所有卡片尺寸一致 */}
+                        <div className='w-full aspect-[9/16] relative overflow-hidden bg-black rounded-lg'>
                       {/* 统计信息 - 左上角 */}
-                      <div className='absolute top-2 left-2 z-20 flex items-center gap-0.5 sm:gap-1'>
+                      <div className='absolute top-2 left-2 z-30 flex items-center gap-0.5 sm:gap-1'>
                         {/* 播放量 */}
                         <div className='flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white'>
                           <Eye className='w-2.5 h-2.5 sm:w-3 sm:h-3' />
@@ -565,7 +794,7 @@ function SoraPage() {
                       </div>
 
                       {/* 操作按钮组 - 右上角 */}
-                      <div className='absolute top-2 right-2 z-20 flex gap-1.5'>
+                      <div className='absolute top-2 right-2 z-30 flex gap-1.5'>
                         {/* 分享按钮 */}
                         {video.status === 'completed' && (
                           <button
@@ -596,16 +825,22 @@ function SoraPage() {
                           </p>
                         </div>
                       ) : video.status === 'completed' && video.videoUrl ? (
-                        <div className='absolute inset-0'>
-                          <EnhancedVideoPlayer
-                            content=''
-                            videoUrl={video.videoUrl}
-                            fillContainer={true}
-                          />
-                        </div>
+                        <>
+                          <div className='absolute inset-0' data-video-id={video.id}>
+                            <EnhancedVideoPlayer
+                              content=''
+                              videoUrl={video.videoUrl}
+                              videoId={video.id}
+                              fillContainer={true}
+                            />
+                          </div>
+
+                          {/* 底部固定按钮组 */}
+                          <VideoCardActions videoUrl={video.videoUrl} videoId={video.id} />
+                        </>
                       ) : (
                         <div
-                          className='absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex flex-col items-center justify-center'
+                          className='absolute inset-0 z-10 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex flex-col items-center justify-center'
                           style={{
                             backgroundImage: 'url(/magicart.png)',
                             backgroundSize: '50%',
@@ -629,15 +864,17 @@ function SoraPage() {
                       )}
                     </div>
                   </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>
       </ScrollArea>
 
-      {/* 固定在底部的输入框 */}
-      <div className='fixed bottom-0 left-0 right-0 z-50 pb-6 px-4'>
+      {/* 固定在底部的输入框 - 只在非放大模式下显示 */}
+      {!expandedVideoId && (
+        <div className='fixed bottom-0 left-0 right-0 z-50 pb-6 px-4'>
         <div className='max-w-4xl mx-auto'>
           <div
             className={`relative backdrop-blur-xl bg-white/80 dark:bg-gray-800/80 rounded-xl px-6 py-4 shadow-2xl border border-gray-200/50 dark:border-gray-700/50 ${
@@ -684,7 +921,8 @@ function SoraPage() {
             </Button>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* 删除确认对话框 */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
