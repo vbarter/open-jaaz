@@ -22,7 +22,8 @@
   "share": {
     "title": "Amazing Video",
     "copied": "Link copied to clipboard",
-    "failed": "Share failed"
+    "failed": "Share failed",
+    "loginRequired": "Please log in before sharing"
   },
   "like": {
     "loginRequired": "Please log in before liking",

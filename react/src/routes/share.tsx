@@ -409,6 +409,15 @@ function SharePage() {
     loadMoreVideosRef.current = loadMoreVideos
   }, [loadMoreVideos])
 
+  const handleVideoReady = useCallback((index: number) => {
+    if (index !== currentIndex) return
+    const video = videoRefs.current.get(index)
+    if (!video) return
+
+    video.muted = isMuted
+    playVideo(index)
+  }, [currentIndex, isMuted, playVideo])
+
   // 加载初始分享视频
   useEffect(() => {
     const loadInitialVideo = async () => {
@@ -721,6 +730,8 @@ function SharePage() {
                     x5-video-player-type='h5'
                     preload={isActive ? 'auto' : 'metadata'}
                     muted={isMuted}
+                    onLoadedData={() => handleVideoReady(index)}
+                    onCanPlay={() => handleVideoReady(index)}
                   >
                     <source src={video.videoUrl} type='video/mp4' />
                   </video>
