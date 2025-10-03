@@ -5,6 +5,7 @@ import uuid
 import json
 import asyncio
 import aiohttp
+import aiofiles
 import re
 from typing import Dict, Any, Optional, List, Literal, AsyncGenerator, Union
 from utils.http_client import HttpClient
@@ -588,7 +589,8 @@ class TuziLLMService:
                               prompt: str, 
                               model: str, 
                               stream: bool = False,
-                              timeout: int = 60) -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None]]:
+                              timeout: int = 60,
+                              provider: str = "yunwu") -> Union[Optional[Dict[str, Any]], AsyncGenerator[str, None]]:
         """GPT 文本对话
         
         Args:
@@ -609,9 +611,19 @@ class TuziLLMService:
         logger.info(f"💬 [DEBUG] 使用文本对话模式")
         logger.info(f"🚀 [DEBUG] 调用 client.chat.completions.create...")
 
-        client = AsyncOpenAI(
-                api_key=self.api_token,
-                base_url=self.api_url,
+        if provider == "yunwu":
+            # yunwu sora 2 api
+            client = AsyncOpenAI(
+                    api_key=self.api_token,
+                    base_url=self.api_url,
+                    timeout=timeout,  # 超时时间由调用方指定
+                    max_retries=0   # 禁用重试，避免重复调用
+                )
+        else:
+            # tuzi sora 2 api
+            client = AsyncOpenAI(
+                api_key="sk-nUbAtUv6vhRCGx9fsq45YRnBp6oxIY2D8hUdK0etrr5ZsZli",
+                base_url="https://api.tu-zi.com/v1",
                 timeout=timeout,  # 超时时间由调用方指定
                 max_retries=0   # 禁用重试，避免重复调用
             )
@@ -1442,28 +1454,130 @@ user input: {prompt}
             logger.info(f"✅ Video generated successfully: {result.get('result_url')}")
             return result
         else:
+            provider = "yunwu"
             result = await self._chat_with_tuzi(prompt,
                                                 model,
                                                 stream=False,
-                                                timeout=500)  # 6分钟超时
+                                                timeout=500,
+                                                provider=provider)  # 6分钟超时
             logger.info(f"🎨 Sora2 video generation result: {result}")
 
             # 从 markdown 格式的链接中提取 URL，优先提取 [在线播放▶️] 链接
             if result and result.get('text_content'):
-                # 如果没找到，尝试查找任何 markdown 链接
-                match = re.search(r'\[.*?\]\((https?://[^\)]+)\)', result['text_content'])
-                if match:
-                    video_url = match.group(1)
-                    logger.info(f"✅ Extracted video URL: {video_url}")
+                if provider == "yunwu":
+                    # 如果没找到，尝试查找任何 markdown 链接
+                    match = re.search(r'\[.*?\]\((https?://[^\)]+)\)', result['text_content'])
+                    if match:
+                        video_url = match.group(1)
+                        logger.info(f"✅ Extracted video URL: {video_url}")
 
-                    # 验证URL是否以.mp4结尾
-                    if not video_url.lower().endswith('.mp4'):
-                        logger.error(f"❌ Invalid video URL: does not end with .mp4 - {video_url}")
-                        return {'error': f"Invalid video URL format: {video_url}", 'status': "error"}
+                        # 验证URL是否以.mp4结尾
+                        if not video_url.lower().endswith('.mp4'):
+                            logger.error(f"❌ Invalid video URL: does not end with .mp4 - {video_url}")
+                            return {'error': f"Invalid video URL format: {video_url}", 'status': "error"}
 
-                    return {'result_url': video_url, 'status': "success"}
+                        return {'result_url': video_url, 'status': "success"}
+                elif provider == "tuzi":
+                    # 提取所有 markdown 链接，优先查找 [在线播放▶️] 链接
+                    play_match = re.search(r'\[在线播放▶️\]\((https?://[^\)]+\.mp4[^\)]*)\)', result['text_content'])
+                    if play_match:
+                        video_url = play_match.group(1)
+                        logger.info(f"✅ Extracted video URL from [在线播放▶️]: {video_url[:100]}...")
+
+                        # 下载并上传到腾讯云
+                        cloud_url = await self._download_and_upload_video(video_url)
+                        if cloud_url:
+                            return {'result_url': cloud_url, 'status': "success"}
+                        else:
+                            # 如果上传失败，返回原始URL
+                            logger.warning(f"⚠️ 视频上传腾讯云失败，使用原始URL")
+                            return {'result_url': video_url, 'status': "success"}
+
+                    # 如果没找到播放链接，尝试查找任何.mp4链接
+                    match = re.search(r'\[.*?\]\((https?://[^\)]+\.mp4[^\)]*)\)', result['text_content'])
+                    if match:
+                        video_url = match.group(1)
+                        logger.info(f"✅ Extracted video URL: {video_url[:100]}...")
+
+                        # 下载并上传到腾讯云
+                        cloud_url = await self._download_and_upload_video(video_url)
+                        if cloud_url:
+                            return {'result_url': cloud_url, 'status': "success"}
+                        else:
+                            # 如果上传失败，返回原始URL
+                            logger.warning(f"⚠️ 视频上传腾讯云失败，使用原始URL")
+                            return {'result_url': video_url, 'status': "success"}
 
             return {'error': "No video URL found in response", 'status': "error"}
+
+    async def _download_and_upload_video(self, video_url: str) -> Optional[str]:
+        """
+        下载视频并上传到腾讯云
+
+        Args:
+            video_url: 视频URL
+
+        Returns:
+            腾讯云URL，失败返回None
+        """
+        import tempfile
+        from utils.cos_image_service import get_cos_image_service
+
+        temp_file_path = None
+        try:
+            logger.info(f"📥 开始下载视频: {video_url[:100]}...")
+
+            # 下载视频到临时文件
+            async with HttpClient.create_aiohttp() as session:
+                async with session.get(video_url, timeout=aiohttp.ClientTimeout(total=120.0)) as response:
+                    if response.status != 200:
+                        logger.error(f"❌ 下载视频失败，状态码: {response.status}")
+                        return None
+
+                    # 创建临时文件
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_file:
+                        temp_file_path = temp_file.name
+                        video_data = await response.read()
+                        temp_file.write(video_data)
+
+                    file_size_mb = len(video_data) / (1024 * 1024)
+                    logger.info(f"✅ 视频下载成功: {file_size_mb:.2f}MB")
+
+            # 上传到腾讯云
+            logger.info(f"☁️ 开始上传视频到腾讯云...")
+            cos_service = get_cos_image_service()
+
+            # 生成唯一的云端文件名
+            video_key = f"videos/{uuid.uuid4().hex}.mp4"
+
+            # 使用现有的上传方法
+            async with aiofiles.open(temp_file_path, 'rb') as f:
+                video_bytes = await f.read()
+
+            cos_url = await cos_service.upload_image_from_bytes(
+                image_bytes=video_bytes,
+                image_key=video_key,
+                content_type='video/mp4'
+            )
+
+            if cos_url:
+                logger.info(f"✅ 视频上传成功: {cos_url}")
+                return cos_url
+            else:
+                logger.error("❌ 视频上传失败")
+                return None
+
+        except Exception as e:
+            logger.error(f"❌ 下载或上传视频失败: {e}")
+            return None
+        finally:
+            # 清理临时文件
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.remove(temp_file_path)
+                    logger.info(f"🗑️ 临时文件已删除: {temp_file_path}")
+                except Exception as e:
+                    logger.warning(f"⚠️ 删除临时文件失败: {e}")
 
     async def generate_video_by_seedance(
         self,
