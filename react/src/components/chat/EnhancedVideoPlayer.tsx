@@ -394,61 +394,16 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
               </div>
 
               {/* 控制按钮 */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {/* 播放/暂停 */}
-                  <Button
-                    onClick={togglePlay}
-                    variant="ghost"
-                    size="icon"
-                    className="text-white hover:bg-white/20"
-                  >
-                    {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-                  </Button>
-
-                  {/* 音量控制 */}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      onClick={toggleMute}
-                      variant="ghost"
-                      size="icon"
-                      className="text-white hover:bg-white/20"
-                    >
-                      {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                    </Button>
-                    {!isMobile && (
-                      <Slider
-                        value={[isMuted ? 0 : volume]}
-                        max={1}
-                        step={0.1}
-                        onValueChange={handleVolumeChange}
-                        className="w-20"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {/* 下载按钮 */}
-                  <Button
-                    onClick={handleDownload}
-                    variant="ghost"
-                    size="icon"
-                    className="text-white hover:bg-white/20"
-                  >
-                    <Download className="w-5 h-5" />
-                  </Button>
-
-                  {/* 全屏按钮 */}
-                  <Button
-                    onClick={toggleFullscreen}
-                    variant="ghost"
-                    size="icon"
-                    className="text-white hover:bg-white/20"
-                  >
-                    <Maximize2 className="w-5 h-5" />
-                  </Button>
-                </div>
+              <div className="flex items-center justify-end">
+                {/* 下载按钮 */}
+                <Button
+                  onClick={handleDownload}
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:bg-white/20"
+                >
+                  <Download className="w-5 h-5" />
+                </Button>
               </div>
             </div>
           </div>
