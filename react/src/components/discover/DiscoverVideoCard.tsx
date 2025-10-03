@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { Loader2, Play, Volume2, VolumeX, Eye, Heart, User, Info } from 'lucide-react'
+import { Loader2, Play, Volume2, VolumeX, Eye, Heart, User, Info, Maximize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { generateAvatarUrl } from '@/utils/avatarUtils'
 import { useNavigate } from '@tanstack/react-router'
@@ -16,6 +16,7 @@ interface DiscoverVideoCardProps {
   shareId?: string // 分享ID
   isLiked?: boolean // 是否已点赞
   onLikeChange?: (videoId: string, isLiked: boolean, newLikes: number) => void // 点赞变化回调
+  onFullscreen?: (videoId: string) => void // 全屏回调
   className?: string
 }
 
@@ -30,6 +31,7 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
   shareId,
   isLiked: initialIsLiked = false,
   onLikeChange,
+  onFullscreen,
   className,
 }) => {
   const navigate = useNavigate()
@@ -172,6 +174,14 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
     }
   }, [shareId, navigate])
 
+  // 全屏播放
+  const handleFullscreen = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (onFullscreen) {
+      onFullscreen(videoId)
+    }
+  }, [videoId, onFullscreen])
+
   // 监听视频播放状态
   useEffect(() => {
     const video = videoRef.current
@@ -225,7 +235,6 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
         webkit-playsinline='true'
         x5-playsinline='true'
         x5-video-player-type='h5'
-        crossOrigin='anonymous'
         onLoadedMetadata={handleLoadedMetadata}
         onCanPlay={handleCanPlay}
         onError={handleError}
@@ -314,14 +323,28 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
             </button>
           </div>
 
-          {/* 右侧 - 详情按钮 */}
-          <button
-            onClick={handleViewDetails}
-            className='w-7 h-7 flex items-center justify-center hover:scale-110 transition-transform'
-            title='查看详情'
-          >
-            <Info className='w-4 h-4 text-white drop-shadow-lg' />
-          </button>
+          {/* 右侧 - 详情按钮和全屏按钮 */}
+          <div className='flex items-center gap-2'>
+            {/* 详情按钮 */}
+            <button
+              onClick={handleViewDetails}
+              className='w-7 h-7 flex items-center justify-center hover:scale-110 transition-transform'
+              title='查看详情'
+            >
+              <Info className='w-4 h-4 text-white drop-shadow-lg' />
+            </button>
+
+            {/* 全屏按钮 - 仅移动端显示 */}
+            {isMobile && onFullscreen && (
+              <button
+                onClick={handleFullscreen}
+                className='w-7 h-7 flex items-center justify-center hover:scale-110 transition-transform'
+                title='全屏播放'
+              >
+                <Maximize2 className='w-4 h-4 text-white drop-shadow-lg' />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

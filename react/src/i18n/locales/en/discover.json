@@ -10,5 +10,11 @@
     "time": "Recent",
     "likes": "Most Liked",
     "views": "Most Viewed"
+  },
+  "fullscreen": {
+    "swipeHint": "👆 Swipe up/down to switch videos",
+    "close": "Close",
+    "mute": "Mute",
+    "unmute": "Unmute"
   }
 }

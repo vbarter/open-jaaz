@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Loader2, Sparkles, Clock, Heart, Eye } from 'lucide-react'
 import { getDiscoverVideos, getUserLikes, Sora2TaskDetail } from '@/api/sora'
 import { DiscoverVideoCard } from '@/components/discover/DiscoverVideoCard'
+import { FullscreenVideoViewer } from '@/components/discover/FullscreenVideoViewer'
 import { generateAvatarUrl } from '@/utils/avatarUtils'
 import {
   Select,
@@ -52,6 +53,7 @@ function DiscoverPage() {
   const [hasMore, setHasMore] = useState(true)
   const [sortBy, setSortBy] = useState<'time' | 'likes' | 'views'>('time')
   const [likedVideoIds, setLikedVideoIds] = useState<Set<number>>(new Set())
+  const [fullscreenVideoId, setFullscreenVideoId] = useState<string | null>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
@@ -154,6 +156,16 @@ function DiscoverPage() {
   // 处理排序变化
   const handleSortChange = useCallback((value: string) => {
     setSortBy(value as 'time' | 'likes' | 'views')
+  }, [])
+
+  // 打开全屏播放
+  const handleFullscreen = useCallback((videoId: string) => {
+    setFullscreenVideoId(videoId)
+  }, [])
+
+  // 关闭全屏播放
+  const handleCloseFullscreen = useCallback(() => {
+    setFullscreenVideoId(null)
   }, [])
 
   // 滚动加载更多 - 使用 IntersectionObserver
@@ -260,6 +272,7 @@ function DiscoverPage() {
                         shareId={video.shareId}
                         isLiked={likedVideoIds.has(parseInt(video.id))}
                         onLikeChange={handleLikeChange}
+                        onFullscreen={handleFullscreen}
                       />
                     </div>
                   ))}
@@ -282,6 +295,25 @@ function DiscoverPage() {
           </div>
         </div>
       </ScrollArea>
+
+      {/* 全屏视频查看器 */}
+      {fullscreenVideoId && (
+        <FullscreenVideoViewer
+          videos={videos.map(v => ({
+            id: v.id,
+            videoUrl: v.videoUrl,
+            prompt: v.prompt,
+            views: v.views,
+            likes: v.likes,
+            userUuid: v.userUuid,
+            userImageUrl: v.userImageUrl,
+            isLiked: likedVideoIds.has(parseInt(v.id)),
+          }))}
+          initialIndex={videos.findIndex(v => v.id === fullscreenVideoId)}
+          onClose={handleCloseFullscreen}
+          onLikeChange={handleLikeChange}
+        />
+      )}
     </div>
   )
 }

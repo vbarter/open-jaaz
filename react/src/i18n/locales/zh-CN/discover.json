@@ -10,5 +10,11 @@
     "time": "时间排序",
     "likes": "点赞排序",
     "views": "浏览排序"
+  },
+  "fullscreen": {
+    "swipeHint": "👆 上下滑动切换视频",
+    "close": "关闭",
+    "mute": "静音",
+    "unmute": "取消静音"
   }
 }
