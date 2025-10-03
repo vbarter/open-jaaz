@@ -14,6 +14,7 @@ import templateUseEn from './locales/en/template-use.json'
 import soraEn from './locales/en/sora.json'
 import inviteEn from './locales/en/invite.json'
 import discoverEn from './locales/en/discover.json'
+import shareEn from './locales/en/share.json'
 
 import commonZh from './locales/zh-CN/common.json'
 import homeZh from './locales/zh-CN/home.json'
@@ -26,6 +27,7 @@ import templateUseZh from './locales/zh-CN/template-use.json'
 import soraZh from './locales/zh-CN/sora.json'
 import inviteZh from './locales/zh-CN/invite.json'
 import discoverZh from './locales/zh-CN/discover.json'
+import shareZh from './locales/zh-CN/share.json'
 
 const resources = {
   en: {
@@ -40,6 +42,7 @@ const resources = {
     sora: soraEn,
     invite: inviteEn,
     discover: discoverEn,
+    share: shareEn,
   },
   'zh-CN': {
     common: commonZh,
@@ -53,6 +56,7 @@ const resources = {
     sora: soraZh,
     invite: inviteZh,
     discover: discoverZh,
+    share: shareZh,
   },
 }
 
@@ -63,7 +67,7 @@ i18n
     resources,
     fallbackLng: 'en',
     defaultNS: 'common',
-    ns: ['common', 'home', 'canvas', 'chat', 'settings', 'pricing', 'templates', 'template-use', 'sora', 'invite', 'discover'],
+    ns: ['common', 'home', 'canvas', 'chat', 'settings', 'pricing', 'templates', 'template-use', 'sora', 'invite', 'discover', 'share'],
 
     detection: {
       order: ['localStorage', 'navigator', 'htmlTag'],

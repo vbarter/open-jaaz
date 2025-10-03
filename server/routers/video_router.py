@@ -905,6 +905,125 @@ async def get_discover_videos(
         raise HTTPException(status_code=500, detail=f"获取视频列表失败: {str(e)}")
 
 
+@router.get("/sora2/share_show")
+async def get_share_show_video(
+    exclude_ids: Optional[str] = Query(None, description="排除的视频ID列表，逗号分隔")
+):
+    """
+    随机获取一条成功的Sora2视频（用于share页面随机推荐）
+
+    从 tb_sora2 表中:
+    1. 筛选 status = 'success' 的视频
+    2. 排除 exclude_ids 中的视频
+    3. 随机选择一条返回
+    4. 如果没有可用视频，返回空对象
+
+    Args:
+        exclude_ids: 排除的视频ID列表，逗号分隔（可选）
+
+    Returns:
+        随机视频详情，如果没有可用视频返回 {"id": null}
+    """
+    try:
+        import sqlite3
+        import aiosqlite
+        from services.db_service import DB_PATH
+        from services.sora2_share_service import get_sora2_share_service
+
+        logger.info(f"🎲 获取随机分享视频 - exclude_ids: {exclude_ids}")
+
+        # 解析排除ID列表
+        excluded = []
+        if exclude_ids:
+            try:
+                excluded = [int(id.strip()) for id in exclude_ids.split(',') if id.strip()]
+                logger.info(f"📋 排除视频: {excluded}")
+            except ValueError as e:
+                logger.warning(f"⚠️ 解析exclude_ids失败: {e}")
+                excluded = []
+
+        # 查询随机视频
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = sqlite3.Row
+
+            # 构建SQL查询
+            if excluded:
+                placeholders = ','.join('?' * len(excluded))
+                query = f"""
+                    SELECT s.id, s.user_uuid, s.prompt, s.model, s.images, s.video_url,
+                           s.status, s.remark, s.ctime, s.mtime,
+                           COALESCE(s.views, 0) as views,
+                           COALESCE(s.likes, 0) as likes,
+                           sh.share_id as share_id,
+                           u.image_url as user_image_url
+                    FROM tb_sora2 s
+                    LEFT JOIN tb_sora2_share sh ON s.id = sh.video_id
+                    LEFT JOIN tb_user u ON s.user_uuid = u.uuid
+                    WHERE s.status = 'success' AND s.video_url != ''
+                    AND s.id NOT IN ({placeholders})
+                    ORDER BY RANDOM()
+                    LIMIT 1
+                """
+                cursor = await db.execute(query, excluded)
+            else:
+                query = """
+                    SELECT s.id, s.user_uuid, s.prompt, s.model, s.images, s.video_url,
+                           s.status, s.remark, s.ctime, s.mtime,
+                           COALESCE(s.views, 0) as views,
+                           COALESCE(s.likes, 0) as likes,
+                           sh.share_id as share_id,
+                           u.image_url as user_image_url
+                    FROM tb_sora2 s
+                    LEFT JOIN tb_sora2_share sh ON s.id = sh.video_id
+                    LEFT JOIN tb_user u ON s.user_uuid = u.uuid
+                    WHERE s.status = 'success' AND s.video_url != ''
+                    ORDER BY RANDOM()
+                    LIMIT 1
+                """
+                cursor = await db.execute(query)
+
+            row = await cursor.fetchone()
+
+            if not row:
+                logger.info("⚠️ 没有更多可用的随机视频")
+                return {"id": None}
+
+            record = dict(row)
+
+            # 解析 JSON 字段
+            if record['images']:
+                try:
+                    import json
+                    record['images'] = json.loads(record['images'])
+                except:
+                    record['images'] = []
+            else:
+                record['images'] = []
+
+            # 如果没有 share_id，自动创建分享记录
+            if not record.get('share_id'):
+                try:
+                    logger.info(f"🔗 自动为视频 #{record['id']} 创建分享记录")
+                    share_service = get_sora2_share_service()
+                    share_record = await share_service.create_share(
+                        user_uuid=record['user_uuid'],
+                        video_id=record['id'],
+                        base_url=BASE_URL
+                    )
+                    record['share_id'] = share_record['share_id']
+                    logger.info(f"✅ 分享创建成功: share_id={share_record['share_id']}")
+                except Exception as e:
+                    logger.error(f"❌ 为视频 #{record['id']} 创建分享失败: {e}")
+                    record['share_id'] = None
+
+            logger.info(f"✅ 返回随机视频 #{record['id']}")
+            return record
+
+    except Exception as e:
+        logger.error(f"❌ 获取随机分享视频失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取随机视频失败: {str(e)}")
+
+
 # ==================== Sora2 互动功能（浏览、点赞）====================
 
 class RecordViewRequest(BaseModel):

@@ -2,6 +2,8 @@
   "title": "发现精彩视频",
   "loading": "加载中...",
   "loadingMore": "加载更多...",
+  "refreshing": "刷新中...",
+  "pullToRefresh": "下拉刷新",
   "noVideos": "暂无视频",
   "allLoaded": "已加载全部视频",
   "loadError": "加载视频列表失败",
@@ -16,5 +18,14 @@
     "close": "关闭",
     "mute": "静音",
     "unmute": "取消静音"
+  },
+  "share": {
+    "title": "精彩视频分享",
+    "copied": "链接已复制到剪贴板",
+    "failed": "分享失败"
+  },
+  "like": {
+    "loginRequired": "请先登录后再尝试点赞",
+    "failed": "点赞失败，请稍后重试"
   }
 }

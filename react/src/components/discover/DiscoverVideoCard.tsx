@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { Loader2, Play, Volume2, VolumeX, Eye, Heart, User, Info, Maximize2 } from 'lucide-react'
+import { Loader2, Play, Volume2, VolumeX, Eye, Heart, User, Maximize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { generateAvatarUrl } from '@/utils/avatarUtils'
-import { useNavigate } from '@tanstack/react-router'
 import { recordVideoView, toggleVideoLike } from '@/api/sora'
+import { toast } from 'sonner'
+import { useConfigs } from '@/contexts/configs'
+import { useTranslation } from 'react-i18next'
 
 interface DiscoverVideoCardProps {
   videoId: string // 视频ID
@@ -13,7 +15,6 @@ interface DiscoverVideoCardProps {
   likes: number
   userUuid: string // 用户 UUID（用于fallback）
   userImageUrl?: string // 用户真实头像 URL
-  shareId?: string // 分享ID
   isLiked?: boolean // 是否已点赞
   onLikeChange?: (videoId: string, isLiked: boolean, newLikes: number) => void // 点赞变化回调
   onFullscreen?: (videoId: string) => void // 全屏回调
@@ -28,14 +29,14 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
   likes: initialLikes,
   userUuid,
   userImageUrl,
-  shareId,
   isLiked: initialIsLiked = false,
   onLikeChange,
   onFullscreen,
   className,
 }) => {
-  const navigate = useNavigate()
   const videoRef = useRef<HTMLVideoElement>(null)
+  const { setShowLoginDialog } = useConfigs()
+  const { t } = useTranslation('discover')
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -159,20 +160,19 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
         }
       } catch (error) {
         console.error('切换点赞失败:', error)
+        const message = error instanceof Error ? error.message : ''
+        if (message.includes('401') || message.includes('请先登录')) {
+          toast.error(t('like.loginRequired'))
+          setShowLoginDialog(true)
+        } else {
+          toast.error(t('like.failed'))
+        }
       } finally {
         setIsTogglingLike(false)
       }
     },
     [videoId, isTogglingLike, onLikeChange]
   )
-
-  // 查看详情（跳转到分享页面）
-  const handleViewDetails = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (shareId) {
-      navigate({ to: '/share', search: { id: shareId } })
-    }
-  }, [shareId, navigate])
 
   // 全屏播放
   const handleFullscreen = useCallback((e: React.MouseEvent) => {
@@ -323,19 +323,9 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
             </button>
           </div>
 
-          {/* 右侧 - 详情按钮和全屏按钮 */}
-          <div className='flex items-center gap-2'>
-            {/* 详情按钮 */}
-            <button
-              onClick={handleViewDetails}
-              className='w-7 h-7 flex items-center justify-center hover:scale-110 transition-transform'
-              title='查看详情'
-            >
-              <Info className='w-4 h-4 text-white drop-shadow-lg' />
-            </button>
-
-            {/* 全屏按钮 - 仅移动端显示 */}
-            {isMobile && onFullscreen && (
+          {/* 右侧 - 仅保留全屏按钮 */}
+          <div className='flex items-center'>
+            {onFullscreen && (
               <button
                 onClick={handleFullscreen}
                 className='w-7 h-7 flex items-center justify-center hover:scale-110 transition-transform'
