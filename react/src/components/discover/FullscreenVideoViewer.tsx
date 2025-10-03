@@ -33,6 +33,7 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const isMobileDevice = typeof navigator !== 'undefined' && /iPad|iPhone|iPod|Android/i.test(navigator.userAgent)
   const [isMuted, setIsMuted] = useState(true) // 默认静音，保证移动端自动播放
+  const [isPortrait, setIsPortrait] = useState(window.innerHeight > window.innerWidth) // 检测是否竖屏
   const [touchStart, setTouchStart] = useState<number | null>(null)
   const [touchEnd, setTouchEnd] = useState<number | null>(null)
   const [showHint, setShowHint] = useState(false)
@@ -448,7 +449,7 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
   }, [currentIndex, videos.length])
 
   // 3秒后隐藏提示
-  // 监听网络状态变化
+  // 监听网络状态变化和屏幕方向变化
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true)
@@ -460,12 +461,20 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
       console.log('❌ 网络已断开')
     }
 
+    const handleOrientationChange = () => {
+      setIsPortrait(window.innerHeight > window.innerWidth)
+    }
+
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
+    window.addEventListener('resize', handleOrientationChange)
+    window.addEventListener('orientationchange', handleOrientationChange)
 
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('resize', handleOrientationChange)
+      window.removeEventListener('orientationchange', handleOrientationChange)
     }
   }, [])
 
@@ -678,20 +687,22 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
         })}
       </div>
 
-      {/* 滚动指示器 */}
-      <div className='absolute right-4 top-1/2 transform -translate-y-1/2 z-50 flex flex-col gap-1'>
-        {videos.map((_, index) => (
-          <div
-            key={index}
-            className={cn(
-              'w-1 h-8 rounded-full transition-all',
-              index === currentIndex
-                ? 'bg-white'
-                : 'bg-white/30'
-            )}
-          />
-        ))}
-      </div>
+      {/* 滚动指示器 - 仅在横屏模式下显示 */}
+      {!isPortrait && (
+        <div className='absolute right-2 top-1/2 transform -translate-y-1/2 z-50 flex flex-col gap-1.5'>
+          {videos.map((_, index) => (
+            <div
+              key={index}
+              className={cn(
+                'rounded-full transition-all duration-300',
+                index === currentIndex
+                  ? 'w-1.5 h-10 bg-white shadow-lg'
+                  : 'w-1 h-6 bg-white/20 hover:bg-white/40'
+              )}
+            />
+          ))}
+        </div>
+      )}
 
       {/* 添加隐藏滚动条的样式 */}
       <style>{`
