@@ -347,7 +347,6 @@ function DiscoverPage() {
                         likes={video.likes}
                         userUuid={video.userUuid}
                         userImageUrl={video.userImageUrl}
-                        shareId={video.shareId}
                         isLiked={likedVideoIds.has(parseInt(video.id))}
                         onLikeChange={handleLikeChange}
                         onFullscreen={handleFullscreen}

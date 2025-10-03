@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Loader2, Heart, Eye, User, Compass, VolumeX, Volume2, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -46,7 +46,6 @@ function SharePage() {
 
   const viewIncrementedRef = useRef(false)
   const hasPreloadedRef = useRef(false)
-  const seenVideoIdsRef = useRef<Set<number>>(new Set()) // 记录已看过的视频ID，用于去重
   const useFallbackRef = useRef(false) // 是否使用降级方案（discover接口）
   const containerRef = useRef<HTMLDivElement>(null)
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map())
@@ -54,12 +53,14 @@ function SharePage() {
   const lastSwipeTime = useRef<number>(0)
   const hasInitialScroll = useRef(false)
   const transitionTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const videosRef = useRef<VideoData[]>([]) // 使用 ref 缓存视频数据
+  const isLoadingMoreRef = useRef(false)
+  const hasMoreRef = useRef(true)
 
   const isMobileDevice = typeof navigator !== 'undefined' && /iPad|iPhone|iPod|Android/i.test(navigator.userAgent)
 
   const minSwipeDistance = 50
   const minSwipeInterval = 600
-  const BATCH_SIZE = 3 // 每次预加载3个随机视频
 
   const currentVideo = videos[currentIndex]
 
@@ -101,6 +102,12 @@ function SharePage() {
 
         const result = await toggleVideoLike(videoId)
         if (result.success) {
+          // 同时更新 ref 和 state
+          videosRef.current = videosRef.current.map((v, idx) =>
+            idx === currentIndex
+              ? { ...v, isLiked: result.is_liked, likes: result.likes }
+              : v
+          )
           setVideos(prev =>
             prev.map((v, idx) =>
               idx === currentIndex
@@ -214,7 +221,12 @@ function SharePage() {
     if (!video) return false
 
     try {
-      updateVideoState(index, 'loading')
+      // Only surface the loading state when the browser still needs to fetch data.
+      if (video.readyState < 2) {
+        updateVideoState(index, 'loading')
+      } else {
+        updateVideoState(index, 'ready')
+      }
 
       const previousPromise = playPromiseRefs.current.get(index)
       if (previousPromise) {
@@ -286,7 +298,7 @@ function SharePage() {
     }
   }, [])
 
-  // 加载更多随机视频（带降级方案）
+  // 加载下一个随机视频（按需加载，每次只加载一个）
   const loadMoreVideos = useCallback(async () => {
     if (isLoadingMore || !hasMore) {
       console.log('⏸️ [Share] 跳过加载更多:', { isLoadingMore, hasMore })
@@ -294,82 +306,23 @@ function SharePage() {
     }
 
     setIsLoadingMore(true)
+    isLoadingMoreRef.current = true
     try {
-      const newVideos: VideoData[] = []
-      const excludeIds = Array.from(seenVideoIdsRef.current)
-
       // 如果使用降级方案
       if (useFallbackRef.current) {
         console.log('📋 [Share] 使用降级方案 (discover接口) 加载视频')
-
-        let currentLength = 0
-        setVideos(prev => {
-          currentLength = prev.length
-          return prev
-        })
+        const currentLength = videosRef.current.length
 
         const response = await getDiscoverVideos({
-          limit: BATCH_SIZE,
+          limit: 1, // 每次只加载一个
           offset: currentLength,
           sort_by: 'time',
         })
 
         if (response.tasks.length > 0) {
-          const videoIds = response.tasks.map(t => parseInt(t.id.toString()))
-          const likesResult = await getUserLikes(videoIds)
-          const likedSet = new Set(likesResult.liked_video_ids)
+          const task = response.tasks[0]
+          const videoId = parseInt(task.id.toString())
 
-          const discoveredVideos = response.tasks.map(task =>
-            taskToVideo(task, likedSet.has(parseInt(task.id.toString())))
-          )
-
-          setVideos(prev => [...prev, ...discoveredVideos])
-          setHasMore(currentLength + response.tasks.length < response.total)
-          console.log(`📋 [Share] 降级方案加载成功: ${discoveredVideos.length} 个视频`)
-        } else {
-          setHasMore(false)
-        }
-        return
-      }
-
-      // 尝试使用新的随机推荐接口
-      console.log('📋 [Share] 开始加载随机视频, 已排除:', excludeIds.length, '个视频')
-
-      // 批量加载多个随机视频
-      for (let i = 0; i < BATCH_SIZE; i++) {
-        try {
-          const randomTask = await getShareShowVideo({ exclude_ids: excludeIds })
-
-          if (!randomTask) {
-            // 如果是第一次调用就返回null，可能是接口未实现
-            if (i === 0 && excludeIds.length === (videos.length === 1 ? 1 : 0)) {
-              console.warn('⚠️ [Share] share_show接口未实现，切换到降级方案')
-              useFallbackRef.current = true
-              // 重新调用自己，使用降级方案
-              setIsLoadingMore(false)
-              loadMoreVideos()
-              return
-            }
-
-            console.log('⚠️ [Share] 没有更多可用视频')
-            setHasMore(false)
-            break
-          }
-
-          const videoId = parseInt(randomTask.id.toString())
-
-          // 如果已经存在，跳过（双重保险）
-          if (seenVideoIdsRef.current.has(videoId)) {
-            console.log('⚠️ [Share] 跳过重复视频:', videoId)
-            i-- // 重试
-            continue
-          }
-
-          // 记录已看过的视频
-          seenVideoIdsRef.current.add(videoId)
-          excludeIds.push(videoId)
-
-          // 获取用户点赞状态
           let isLiked = false
           try {
             const likesResult = await getUserLikes([videoId])
@@ -378,30 +331,83 @@ function SharePage() {
             console.error('获取点赞状态失败:', error)
           }
 
-          const videoData = taskToVideo(randomTask, isLiked)
-          newVideos.push(videoData)
-
-          console.log(`✅ [Share] 加载随机视频 ${i + 1}/${BATCH_SIZE}:`, videoId)
-        } catch (error) {
-          console.error(`❌ [Share] 加载第 ${i + 1} 个视频失败:`, error)
-          // 如果单个视频加载失败，继续尝试下一个
-          continue
+          const videoData = taskToVideo(task, isLiked)
+          videosRef.current.push(videoData)
+          setVideos([...videosRef.current])
+          const more = currentLength + 1 < response.total
+          setHasMore(more)
+          hasMoreRef.current = more
+          console.log(`✅ [Share] 降级方案加载成功: 视频 ${videoId}`)
+        } else {
+          setHasMore(false)
+          hasMoreRef.current = false
         }
+        return
       }
 
-      if (newVideos.length > 0) {
-        setVideos(prev => [...prev, ...newVideos])
-        console.log(`📋 [Share] 成功加载 ${newVideos.length} 个随机视频`)
-      } else {
-        console.log('⚠️ [Share] 未能加载任何视频')
+      // 使用随机推荐接口，每次只加载一个视频
+      console.log('📋 [Share] 加载下一个随机视频')
+
+      try {
+        const randomTask = await getShareShowVideo({})
+
+        if (!randomTask) {
+          // 如果是第一次调用就返回null，可能是接口未实现
+          if (videosRef.current.length <= 1) {
+            console.warn('⚠️ [Share] share_show接口未实现，切换到降级方案')
+            useFallbackRef.current = true
+            setIsLoadingMore(false)
+            isLoadingMoreRef.current = false
+            loadMoreVideos()
+            return
+          }
+
+          console.log('⚠️ [Share] 没有更多可用视频')
+          setHasMore(false)
+          hasMoreRef.current = false
+          return
+        }
+
+        const videoId = parseInt(randomTask.id.toString())
+
+        // 获取用户点赞状态
+        let isLiked = false
+        try {
+          const likesResult = await getUserLikes([videoId])
+          isLiked = likesResult.liked_video_ids.includes(videoId)
+        } catch (error) {
+          console.error('获取点赞状态失败:', error)
+        }
+
+        const videoData = taskToVideo(randomTask, isLiked)
+        videosRef.current.push(videoData)
+        setVideos([...videosRef.current])
+        console.log(`✅ [Share] 加载随机视频: ${videoId}`)
+      } catch (error) {
+        console.error('❌ [Share] 加载视频失败:', error)
         setHasMore(false)
+        hasMoreRef.current = false
       }
     } catch (error) {
       console.error('加载更多视频失败:', error)
     } finally {
       setIsLoadingMore(false)
+      isLoadingMoreRef.current = false
     }
-  }, [isLoadingMore, hasMore, taskToVideo, videos.length])
+  }, [isLoadingMore, hasMore, taskToVideo])
+
+  useEffect(() => {
+    isLoadingMoreRef.current = isLoadingMore
+  }, [isLoadingMore])
+
+  useEffect(() => {
+    hasMoreRef.current = hasMore
+  }, [hasMore])
+
+  const loadMoreVideosRef = useRef(loadMoreVideos)
+  useEffect(() => {
+    loadMoreVideosRef.current = loadMoreVideos
+  }, [loadMoreVideos])
 
   // 加载初始分享视频
   useEffect(() => {
@@ -438,19 +444,15 @@ function SharePage() {
           isLiked: isLiked,
         }
 
+        videosRef.current = [initialVideo]
         setVideos([initialVideo])
-
-        // 如果初始视频有数字ID，记录到已看过列表中
-        if (videoData.id) {
-          seenVideoIdsRef.current.add(videoData.id)
-          console.log('📝 [Share] 记录初始视频ID:', videoData.id)
-        }
 
         // 增加访问量（只调用一次）
         if (!viewIncrementedRef.current) {
           viewIncrementedRef.current = true
           try {
             const result = await incrementShareView(shareId)
+            videosRef.current[0] = { ...videosRef.current[0], views: result.views }
             setVideos(prev => prev.map((v, idx) =>
               idx === 0 ? { ...v, views: result.views } : v
             ))
@@ -473,45 +475,30 @@ function SharePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareId, t])
 
-  // 初始加载完成后，预加载更多视频（只执行一次）
+  // 初始加载完成后，预加载下一个视频（只执行一次）
   useEffect(() => {
     if (!isLoading && videos.length === 1 && !hasPreloadedRef.current) {
-      console.log('📥 [Share] 预加载更多视频')
+      console.log('📥 [Share] 预加载下一个视频')
       hasPreloadedRef.current = true
       const timer = setTimeout(() => {
-        loadMoreVideos()
-      }, 1000)
+        loadMoreVideosRef.current?.()
+      }, 500) // 缩短预加载时间
       return () => clearTimeout(timer)
     }
-  }, [isLoading, videos.length, loadMoreVideos])
+  }, [isLoading, videos.length])
 
   // 当前视频变化时处理
   useEffect(() => {
+    // 防止在加载中重复触发
+    if (isLoadingMoreRef.current) return
+
     const handleVideoChange = async () => {
       const currentVideoElement = videoRefs.current.get(currentIndex)
       if (!currentVideoElement) return
 
       console.log(`🔄 [Share] 切换到视频 ${currentIndex}`)
 
-      // 暂停所有其他视频
-      const pausePromises: Promise<void>[] = []
-      videoRefs.current.forEach((_, index) => {
-        if (index !== currentIndex) {
-          pausePromises.push(pauseVideo(index))
-        }
-      })
-      await Promise.all(pausePromises)
-
-      // 播放当前视频
-      currentVideoElement.currentTime = 0
-      currentVideoElement.muted = isMuted
-      const playSuccess = await playVideo(currentIndex)
-
-      if (playSuccess) {
-        console.log(`✅ [Share] 视频 ${currentIndex} 播放成功`)
-      }
-
-      // 滚动到当前视频
+      // ⭐ 步骤1: 先滚动到目标位置
       if (containerRef.current) {
         const videoHeight = window.innerHeight
         const targetTop = currentIndex * videoHeight
@@ -523,19 +510,44 @@ function SharePage() {
             top: targetTop,
             behavior: 'smooth',
           })
+          // 等待滚动动画完成
+          await new Promise(resolve => setTimeout(resolve, 300))
         }
       }
 
-      // 如果接近底部，加载更多
-      if (currentIndex >= videos.length - 2 && hasMore && !isLoadingMore) {
-        loadMoreVideos()
+      // ⭐ 步骤2: 暂停所有其他视频
+      const pausePromises: Promise<void>[] = []
+      videoRefs.current.forEach((_, index) => {
+        if (index !== currentIndex) {
+          pausePromises.push(pauseVideo(index))
+        }
+      })
+      await Promise.all(pausePromises)
+
+      // ⭐ 步骤3: 准备并播放当前视频
+      currentVideoElement.currentTime = 0
+      currentVideoElement.muted = isMuted
+      const playSuccess = await playVideo(currentIndex)
+
+      if (playSuccess) {
+        console.log(`✅ [Share] 视频 ${currentIndex} 播放成功`)
+      }
+
+      // 如果是最后一个视频，加载下一个
+      if (
+        currentIndex === videosRef.current.length - 1 &&
+        hasMoreRef.current &&
+        !isLoadingMoreRef.current
+      ) {
+        loadMoreVideosRef.current?.()
       }
 
       scheduleTransitionUnlock()
     }
 
     handleVideoChange()
-  }, [currentIndex, isMuted, playVideo, pauseVideo, videos.length, hasMore, isLoadingMore, loadMoreVideos, scheduleTransitionUnlock])
+    // 注意：移除 videos.length 依赖，防止加载新视频时重复触发
+  }, [currentIndex, isMuted, playVideo, pauseVideo, scheduleTransitionUnlock])
 
   // 智能预加载
   useEffect(() => {
@@ -664,7 +676,7 @@ function SharePage() {
       {/* 视频容器 - 支持滑动 */}
       <div
         ref={containerRef}
-        className='h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide'
+        className='h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide scroll-smooth'
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
@@ -675,13 +687,14 @@ function SharePage() {
 
           return (
             <div
-              key={video.id}
+              key={index}
               className='relative w-full h-screen snap-start snap-always flex items-center justify-center'
             >
               {shouldRender ? (
                 <>
                   {/* 视频 */}
                   <video
+                    key={index}
                     ref={(el) => {
                       if (el) {
                         videoRefs.current.set(index, el)
@@ -690,10 +703,17 @@ function SharePage() {
                       }
                     }}
                     className={cn(
-                      'w-full h-full transition-opacity duration-300',
+                      'w-full h-full',
                       isPortrait ? 'object-cover' : 'object-contain',
-                      isActive && !isTransitioning ? 'opacity-100' : 'opacity-50'
+                      // 只在当前和相邻视频上添加过渡效果
+                      isActive ? 'opacity-100' : 'opacity-0',
+                      shouldRender ? 'transition-opacity duration-300 ease-in-out' : ''
                     )}
+                    style={{
+                      willChange: isActive ? 'opacity' : 'auto',
+                      // 使用 transform 创建新的层叠上下文，避免重绘
+                      transform: 'translateZ(0)',
+                    }}
                     loop
                     playsInline
                     webkit-playsinline='true'

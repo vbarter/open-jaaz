@@ -23,5 +23,9 @@
     "title": "Amazing Video",
     "copied": "Link copied to clipboard",
     "failed": "Share failed"
+  },
+  "like": {
+    "loginRequired": "Please log in before liking",
+    "failed": "Failed to like, please try again later"
   }
 }
