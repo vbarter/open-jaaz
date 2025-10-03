@@ -312,7 +312,16 @@ async def generate_sora2_video(
         )
         logger.info(f"✅ 创建任务记录 #{record_id}")
 
-        # 2. 启动后台异步任务（不等待）
+        # 2. 向 tb_sora_task 表插入等待处理的任务
+        from services.sora_task_service import sora_task_service
+        task_id = await sora_task_service.create_task(
+            video_id=record_id,
+            user_uuid=user_uuid,
+            status="waiting"
+        )
+        logger.info(f"✅ 创建任务队列记录 - task_id: {task_id}, video_id: {record_id}, status: waiting")
+
+        # 3. 启动后台异步任务（不等待）
         task = asyncio.create_task(
             sora2_service.generate_video_async(
                 record_id=record_id,
@@ -326,7 +335,7 @@ async def generate_sora2_video(
         )
         logger.info(f"🚀 后台任务已启动 - Task #{record_id}")
 
-        # 3. 立即返回任务ID（不等待视频生成完成）
+        # 4. 立即返回任务ID（不等待视频生成完成）
         return Sora2GenResponse(
             task_id=str(record_id),
             status="processing",
