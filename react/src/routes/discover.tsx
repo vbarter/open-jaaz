@@ -378,6 +378,7 @@ function DiscoverPage() {
         <FullscreenVideoViewer
           videos={videos.map(v => ({
             id: v.id,
+            shareId: v.shareId,
             videoUrl: v.videoUrl,
             prompt: v.prompt,
             views: v.views,
