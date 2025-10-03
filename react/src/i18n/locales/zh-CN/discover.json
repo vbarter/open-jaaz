@@ -22,7 +22,8 @@
   "share": {
     "title": "精彩视频分享",
     "copied": "链接已复制到剪贴板",
-    "failed": "分享失败"
+    "failed": "分享失败",
+    "loginRequired": "请先登录后再尝试分享"
   },
   "like": {
     "loginRequired": "请先登录后再尝试点赞",

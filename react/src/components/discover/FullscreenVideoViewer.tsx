@@ -2,11 +2,14 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { X, Volume2, VolumeX, Eye, Heart, User, Share2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { generateAvatarUrl } from '@/utils/avatarUtils'
-import { recordVideoView, toggleVideoLike } from '@/api/sora'
+import { createShare, recordVideoView, toggleVideoLike } from '@/api/sora'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+import { useConfigs } from '@/contexts/configs'
 
 interface VideoData {
   id: string
+  shareId?: string
   videoUrl: string
   prompt: string
   views: number
@@ -30,6 +33,7 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
   onLikeChange,
 }) => {
   const { t } = useTranslation('discover')
+  const { setShowLoginDialog } = useConfigs()
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const isMobileDevice = typeof navigator !== 'undefined' && /iPad|iPhone|iPod|Android/i.test(navigator.userAgent)
   const [isMuted, setIsMuted] = useState(true) // 默认静音，保证移动端自动播放
@@ -50,6 +54,8 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
   const lastSwipeTime = useRef<number>(0) // 最后一次滑动时间
   const consecutiveErrors = useRef<number>(0) // 连续错误计数
   const maxConsecutiveErrors = 3 // 最大连续错误次数
+  const shareCacheRef = useRef<Map<string, string>>(new Map()) // 缓存已创建的分享ID
+  const isCreatingShareRef = useRef(false)
 
   const currentVideo = videos[currentIndex]
 
@@ -171,10 +177,49 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
   const handleShare = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation()
 
-    const shareUrl = window.location.origin + '/share?id=' + currentVideo.id
-    const shareText = currentVideo.prompt.slice(0, 100)
+    const video = currentVideo
+    if (!video) return
 
-    // 优先使用 Web Share API
+    let shareIdentifier = video.shareId || shareCacheRef.current.get(video.id)
+
+    if (!shareIdentifier && !isCreatingShareRef.current) {
+      const numericId = parseInt(video.id)
+      if (Number.isNaN(numericId)) {
+        console.error('无法创建分享链接：视频ID无效', video.id)
+        toast.error(t('share.failed'))
+        return
+      }
+
+      try {
+        isCreatingShareRef.current = true
+        const result = await createShare(numericId)
+        shareIdentifier = result.share_id
+        shareCacheRef.current.set(video.id, shareIdentifier)
+      } catch (error) {
+        console.error('创建分享失败:', error)
+        const message = error instanceof Error ? error.message : ''
+        if (message.includes('401') || message.includes('请先登录')) {
+          toast.error(t('share.loginRequired'))
+          setShowLoginDialog(true)
+        } else {
+          toast.error(t('share.failed'))
+        }
+        return
+      } finally {
+        isCreatingShareRef.current = false
+      }
+    }
+
+    shareIdentifier = shareIdentifier || shareCacheRef.current.get(video.id)
+
+    if (!shareIdentifier) {
+      toast.error(t('share.failed'))
+      return
+    }
+
+    const shareUrl = `${window.location.origin}/share?id=${shareIdentifier}`
+    const shareText = video.prompt.slice(0, 100)
+
     if (navigator.share) {
       try {
         await navigator.share({
@@ -186,18 +231,19 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
           console.error('分享失败:', error)
+          toast.error(t('share.failed'))
         }
       }
     } else {
-      // Fallback: 复制链接
       try {
         await navigator.clipboard.writeText(shareUrl)
-        alert('链接已复制到剪贴板')
+        toast.success(t('share.copied'))
       } catch (error) {
         console.error('复制链接失败:', error)
+        toast.error(t('share.failed'))
       }
     }
-  }, [currentVideo])
+  }, [currentVideo, setShowLoginDialog, t])
 
   // 更新视频状态
   const updateVideoState = useCallback((index: number, state: 'loading' | 'ready' | 'error') => {
