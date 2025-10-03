@@ -85,44 +85,10 @@ function SharePage() {
     }
   }, [currentIndex])
 
-  // 点赞切换
-  const handleLikeToggle = useCallback(
-    async (e: React.MouseEvent) => {
-      e.stopPropagation()
-      if (!currentVideo) return
-
-      try {
-        // 尝试解析为数字ID，如果失败则忽略（分享页面可能没有数字ID）
-        const videoId = parseInt(currentVideo.id)
-        if (isNaN(videoId)) {
-          console.warn('无法点赞：视频ID无效')
-          toast.error('该视频暂不支持点赞功能')
-          return
-        }
-
-        const result = await toggleVideoLike(videoId)
-        if (result.success) {
-          // 同时更新 ref 和 state
-          videosRef.current = videosRef.current.map((v, idx) =>
-            idx === currentIndex
-              ? { ...v, isLiked: result.is_liked, likes: result.likes }
-              : v
-          )
-          setVideos(prev =>
-            prev.map((v, idx) =>
-              idx === currentIndex
-                ? { ...v, isLiked: result.is_liked, likes: result.likes }
-                : v
-            )
-          )
-        }
-      } catch (error) {
-        console.error('切换点赞失败:', error)
-        toast.error('点赞失败，请稍后重试')
-      }
-    },
-    [currentVideo, currentIndex]
-  )
+  // 分享页面禁用点赞
+  const handleLikeToggle = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+  }, [])
 
   // 分享功能
   const handleShare = useCallback(async (e: React.MouseEvent) => {
@@ -827,8 +793,17 @@ function SharePage() {
                   )}
                 </>
               ) : (
-                <div className='w-full h-full bg-transparent flex items-center justify-center'>
-                  <div className='text-white text-sm drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]'>加载中...</div>
+                <div className='w-full h-full relative flex items-center justify-center bg-black/40 overflow-hidden'>
+                  <div
+                    className='absolute inset-0 opacity-70'
+                    style={{
+                      backgroundImage: "url('/static/magicart.svg')",
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'center',
+                      backgroundSize: '60%',
+                    }}
+                  />
+                  <div className='relative text-white text-sm drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]'>加载中...</div>
                 </div>
               )}
             </div>
