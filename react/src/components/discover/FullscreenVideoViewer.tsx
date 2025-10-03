@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Volume2, VolumeX, Eye, Heart, User } from 'lucide-react'
+import { X, Volume2, VolumeX, Eye, Heart, User, Share2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { generateAvatarUrl } from '@/utils/avatarUtils'
 import { recordVideoView, toggleVideoLike } from '@/api/sora'
@@ -167,6 +167,38 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
     [currentVideo, onLikeChange]
   )
 
+  // 分享功能
+  const handleShare = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation()
+
+    const shareUrl = window.location.origin + '/share?id=' + currentVideo.id
+    const shareText = currentVideo.prompt.slice(0, 100)
+
+    // 优先使用 Web Share API
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: '精彩视频分享',
+          text: shareText,
+          url: shareUrl,
+        })
+        console.log('✅ 分享成功')
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('分享失败:', error)
+        }
+      }
+    } else {
+      // Fallback: 复制链接
+      try {
+        await navigator.clipboard.writeText(shareUrl)
+        alert('链接已复制到剪贴板')
+      } catch (error) {
+        console.error('复制链接失败:', error)
+      }
+    }
+  }, [currentVideo])
+
   // 更新视频状态
   const updateVideoState = useCallback((index: number, state: 'loading' | 'ready' | 'error') => {
     setVideoStates(prev => {
@@ -312,7 +344,9 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
       const currentVideoElement = videoRefs.current.get(currentIndex)
       if (!currentVideoElement) return
 
-      // 暂停所有其他视频
+      console.log(`🔄 [视频切换] 开始切换到视频 ${currentIndex}`)
+
+      // ⭐ 步骤1: 先暂停所有其他视频（确保旧视频完全停止）
       const pausePromises: Promise<void>[] = []
       videoRefs.current.forEach((_, index) => {
         if (index !== currentIndex) {
@@ -320,12 +354,21 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
         }
       })
       await Promise.all(pausePromises)
+      console.log(`✅ [视频切换] 已暂停所有其他视频`)
 
-      // 同步静音状态
+      // ⭐ 步骤2: 确保当前视频处于初始状态
+      currentVideoElement.currentTime = 0
       currentVideoElement.muted = isMuted
 
-      // 播放当前视频(启用自动跳过)
+      // ⭐ 步骤3: 播放当前视频(启用自动跳过)
+      console.log(`▶️ [视频切换] 开始播放视频 ${currentIndex}`)
       const playSuccess = await playVideo(currentIndex, true)
+
+      if (playSuccess) {
+        console.log(`✅ [视频切换] 视频 ${currentIndex} 播放成功`)
+      } else {
+        console.log(`❌ [视频切换] 视频 ${currentIndex} 播放失败`)
+      }
 
       // 如果播放失败,自动跳过到下一个
       if (!playSuccess && consecutiveErrors.current < maxConsecutiveErrors) {
@@ -495,25 +538,25 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
 
   return (
     <div className='fixed inset-0 z-50 bg-black'>
-      {/* 顶部控制栏 */}
-      <div className='absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-4 bg-gradient-to-b from-black/70 to-transparent'>
-        {/* 关闭按钮 */}
+      {/* 顶部控制栏 - 无背景 */}
+      <div className='absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-4'>
+        {/* 关闭按钮 - 无背景 */}
         <button
           onClick={handleClose}
-          className='w-10 h-10 flex items-center justify-center rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-colors'
+          className='w-10 h-10 flex items-center justify-center rounded-full hover:scale-110 transition-transform active:scale-95'
         >
-          <X className='w-6 h-6 text-white' />
+          <X className='w-7 h-7 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]' />
         </button>
 
-        {/* 静音按钮 */}
+        {/* 静音按钮 - 无背景 */}
         <button
           onClick={toggleMute}
-          className='w-10 h-10 flex items-center justify-center rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-colors'
+          className='w-10 h-10 flex items-center justify-center rounded-full hover:scale-110 transition-transform active:scale-95'
         >
           {isMuted ? (
-            <VolumeX className='w-5 h-5 text-white' />
+            <VolumeX className='w-6 h-6 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]' />
           ) : (
-            <Volume2 className='w-5 h-5 text-white' />
+            <Volume2 className='w-6 h-6 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]' />
           )}
         </button>
       </div>
@@ -567,7 +610,8 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
                       }
                     }}
                     className={cn(
-                      'w-full h-full object-contain transition-opacity duration-300',
+                      'w-full h-full transition-opacity duration-300',
+                      isPortrait ? 'object-cover' : 'object-contain',
                       isActive && !isTransitioning ? 'opacity-100' : 'opacity-50'
                     )}
                     loop
@@ -581,45 +625,67 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
                     <source src={video.videoUrl} type='video/mp4' />
                   </video>
 
-                  {/* 用户信息和交互 */}
-                  <div className='absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent'>
-                    {/* 用户头像 */}
-                    <div className='flex items-center gap-3 mb-3'>
+                  {/* 抖音风格布局 */}
+                  {/* 左下角 - 头像和提示词（向上移动） */}
+                  <div className='absolute bottom-16 left-0 right-20 p-4 pointer-events-none'>
+                    {/* 创作者头像 */}
+                    <div className='mb-3'>
                       <img
                         src={getAvatarUrl(video)}
                         alt='User avatar'
-                        className='w-10 h-10 rounded-full object-cover border-2 border-white/20'
+                        className='w-12 h-12 rounded-full object-cover border-2 border-white/90 shadow-lg pointer-events-auto'
                         onError={(e) => {
                           e.currentTarget.style.display = 'none'
+                          const fallback = e.currentTarget.nextElementSibling
+                          if (fallback instanceof HTMLElement) {
+                            fallback.classList.remove('hidden')
+                          }
                         }}
                       />
-                    </div>
-
-                    {/* 提示词 */}
-                    <p className='text-white text-sm mb-3 line-clamp-2'>{video.prompt}</p>
-
-                    {/* 交互按钮 */}
-                    <div className='flex items-center gap-4'>
-                      {/* 浏览量 */}
-                      <div className='flex items-center gap-1 text-white'>
-                        <Eye className='w-4 h-4' />
-                        <span className='text-sm font-medium'>{video.views}</span>
+                      <div className='hidden w-12 h-12 rounded-full bg-gray-800/80 backdrop-blur-sm flex items-center justify-center border-2 border-white/90 shadow-lg'>
+                        <User className='w-6 h-6 text-white' />
                       </div>
-
-                      {/* 点赞按钮 */}
-                      <button
-                        onClick={handleLikeToggle}
-                        className='flex items-center gap-1 text-white hover:scale-110 transition-transform'
-                      >
-                        <Heart
-                          className={cn(
-                            'w-4 h-4',
-                            video.isLiked && 'fill-red-500 text-red-500'
-                          )}
-                        />
-                        <span className='text-sm font-medium'>{video.likes}</span>
-                      </button>
                     </div>
+
+                    {/* 提示词 - 无背景 */}
+                    <p className='text-white text-sm line-clamp-3 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]'>
+                      {video.prompt}
+                    </p>
+                  </div>
+
+                  {/* 右下角 - 垂直操作栏（抖音风格） */}
+                  <div className='absolute bottom-0 right-0 p-4 flex flex-col items-center gap-8'>
+                    {/* 点赞按钮 - 无背景 */}
+                    <button
+                      onClick={handleLikeToggle}
+                      className='flex flex-col items-center gap-1 hover:scale-110 transition-transform active:scale-95'
+                    >
+                      <Heart
+                        className={cn(
+                          'w-8 h-8 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]',
+                          video.isLiked ? 'fill-red-500 text-red-500' : 'text-white'
+                        )}
+                      />
+                      <span className='text-white text-xs font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]'>
+                        {video.likes}
+                      </span>
+                    </button>
+
+                    {/* 浏览量 - 无背景 */}
+                    <div className='flex flex-col items-center gap-1'>
+                      <Eye className='w-8 h-8 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]' />
+                      <span className='text-white text-xs font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]'>
+                        {video.views}
+                      </span>
+                    </div>
+
+                    {/* 分享按钮 - 无背景，与头像底部对齐 */}
+                    <button
+                      onClick={handleShare}
+                      className='flex flex-col items-center gap-1 hover:scale-110 transition-transform active:scale-95 mb-16'
+                    >
+                      <Share2 className='w-8 h-8 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]' />
+                    </button>
                   </div>
 
                   {/* 加载状态 */}
@@ -677,9 +743,9 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
                   )}
                 </>
               ) : (
-                // 占位符
-                <div className='w-full h-full bg-gray-900 flex items-center justify-center'>
-                  <div className='text-white text-sm'>加载中...</div>
+                // 占位符 - 透明背景
+                <div className='w-full h-full bg-transparent flex items-center justify-center'>
+                  <div className='text-white text-sm drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]'>加载中...</div>
                 </div>
               )}
             </div>

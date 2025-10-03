@@ -162,6 +162,8 @@ export interface CreateShareResponse {
 }
 
 export interface ShareVideoDetail {
+  id?: number // 视频ID（可选，用于点赞等操作）
+  share_id: string // 分享ID（主要标识符）
   prompt: string
   video_url: string
   views: number
@@ -306,6 +308,54 @@ export const getDiscoverVideos = async (params?: {
     return data as Sora2TaskListResponse
   } catch (error) {
     console.error('[API Sora2] 获取发现页面视频列表出错:', error)
+    throw error
+  }
+}
+
+/**
+ * 获取分享页面随机推荐视频（随机获取成功的视频）
+ */
+export const getShareShowVideo = async (params?: {
+  exclude_ids?: number[] // 排除已看过的视频ID
+}): Promise<Sora2TaskDetail | null> => {
+  try {
+    const queryParams = new URLSearchParams()
+    if (params?.exclude_ids && params.exclude_ids.length > 0) {
+      queryParams.append('exclude_ids', params.exclude_ids.join(','))
+    }
+
+    const url = `/api/sora2/share_show${queryParams.toString() ? `?${queryParams}` : ''}`
+    const response = await fetch(url, {
+      method: 'GET',
+    })
+
+    // 如果接口未实现（404），返回null触发降级
+    if (response.status === 404) {
+      console.warn('[API Sora2] /api/sora2/share_show 接口未实现，请实现后端接口')
+      return null
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[API Sora2] 获取分享推荐视频失败 - 错误响应:', errorText)
+      throw new Error(`获取分享推荐视频失败: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    // 如果没有更多视频，返回null
+    if (!data || !data.id) {
+      return null
+    }
+
+    return data as Sora2TaskDetail
+  } catch (error) {
+    // 如果是JSON解析错误（说明返回的是HTML），说明接口未实现
+    if (error instanceof SyntaxError && error.message.includes('JSON')) {
+      console.warn('[API Sora2] /api/sora2/share_show 接口未实现，返回的不是JSON格式')
+      return null
+    }
+    console.error('[API Sora2] 获取分享推荐视频出错:', error)
     throw error
   }
 }

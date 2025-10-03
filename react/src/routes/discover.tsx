@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import TopMenu from '@/components/TopMenu'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Loader2, Sparkles, Clock, Heart, Eye } from 'lucide-react'
+import { Loader2, Sparkles, Clock, Heart, Eye, ArrowDown } from 'lucide-react'
 import { getDiscoverVideos, getUserLikes, Sora2TaskDetail } from '@/api/sora'
 import { DiscoverVideoCard } from '@/components/discover/DiscoverVideoCard'
 import { FullscreenVideoViewer } from '@/components/discover/FullscreenVideoViewer'
@@ -54,11 +54,14 @@ function DiscoverPage() {
   const [sortBy, setSortBy] = useState<'time' | 'likes' | 'views'>('time')
   const [likedVideoIds, setLikedVideoIds] = useState<Set<number>>(new Set())
   const [fullscreenVideoId, setFullscreenVideoId] = useState<string | null>(null)
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const observerRef = useRef<IntersectionObserver | null>(null)
-  const loadMoreTriggerRef = useRef<HTMLDivElement>(null)
+  const pullStartY = useRef<number>(0)
+  const pullDistance = useRef<number>(0)
 
-  const LIMIT = 60 // 一次加载60个视频（10行，每行6个）
+  const INITIAL_LIMIT = 10 // 初始加载10个视频
+  const PAGE_SIZE = 5 // 每次分页加载5个视频
+  const PULL_THRESHOLD = 80 // 下拉刷新触发距离
 
   // 加载用户点赞状态
   const loadUserLikes = useCallback(async (videoIds: number[]) => {
@@ -108,33 +111,50 @@ function DiscoverPage() {
           setIsLoading(true)
         }
 
+        // 根据是否追加，使用不同的limit
+        const limit = append ? PAGE_SIZE : INITIAL_LIMIT
+
         const response = await getDiscoverVideos({
-          limit: LIMIT,
+          limit: limit,
           offset: offset,
           sort_by: sortBy,
         })
 
         console.log('📋 [Discover] API Response:', {
+          append,
+          offset,
+          limit,
           total: response.total,
           tasksCount: response.tasks.length,
-          firstTask: response.tasks[0],
           sortBy: sortBy,
         })
 
         const newVideos = response.tasks.map(taskToVideo)
-        console.log('📋 [Discover] Mapped Videos:', {
-          count: newVideos.length,
-          firstVideo: newVideos[0]
-        })
 
         if (append) {
-          setVideos((prev) => [...prev, ...newVideos])
+          setVideos((prev) => {
+            const updated = [...prev, ...newVideos]
+            console.log('➕ [Discover] 追加视频:', {
+              before: prev.length,
+              added: newVideos.length,
+              after: updated.length,
+            })
+            return updated
+          })
         } else {
           setVideos(newVideos)
+          console.log('🔄 [Discover] 重置视频列表:', newVideos.length)
         }
 
         // 检查是否还有更多数据
-        setHasMore(offset + LIMIT < response.total)
+        const hasMoreData = offset + limit < response.total
+        setHasMore(hasMoreData)
+        console.log('📊 [Discover] 更新状态:', {
+          offset,
+          limit,
+          total: response.total,
+          hasMore: hasMoreData,
+        })
 
         // 加载用户点赞状态
         await loadUserLikes(newVideos.map(v => parseInt(v.id)))
@@ -145,7 +165,7 @@ function DiscoverPage() {
         setIsLoadingMore(false)
       }
     },
-    [sortBy]
+    [sortBy, loadUserLikes, t]
   )
 
   // 排序变化时重新加载
@@ -168,44 +188,102 @@ function DiscoverPage() {
     setFullscreenVideoId(null)
   }, [])
 
-  // 滚动加载更多 - 使用 IntersectionObserver
-  useEffect(() => {
-    if (!loadMoreTriggerRef.current) return
+  // 下拉刷新处理
+  const handlePullRefresh = useCallback(async () => {
+    if (isPullRefreshing || isLoading) return
 
-    // 创建 IntersectionObserver
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries
-        // 当触发元素进入视口且有更多数据且不在加载中时，加载更多
-        if (entry.isIntersecting && hasMore && !isLoadingMore) {
-          console.log('📍 [Discover] 触发加载更多')
-          loadVideos(videos.length, true)
-        }
-      },
-      {
-        root: null, // 使用视口作为根元素
-        rootMargin: '400px', // 提前400px触发加载
-        threshold: 0,
-      }
-    )
+    setIsPullRefreshing(true)
+    console.log('🔄 [Discover] 下拉刷新中...')
 
-    // 开始观察
-    observerRef.current.observe(loadMoreTriggerRef.current)
-
-    // 清理
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect()
-      }
+    try {
+      // 重新加载第一页
+      await loadVideos(0, false)
+    } finally {
+      setIsPullRefreshing(false)
     }
-  }, [videos.length, hasMore, isLoadingMore, loadVideos])
+  }, [isPullRefreshing, isLoading, loadVideos])
+
+  // 触摸事件处理（移动端下拉刷新）
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')
+    if (scrollElement && scrollElement.scrollTop === 0) {
+      pullStartY.current = e.touches[0].clientY
+    }
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')
+    if (!scrollElement || scrollElement.scrollTop > 0) return
+
+    const currentY = e.touches[0].clientY
+    const distance = currentY - pullStartY.current
+
+    if (distance > 0 && distance < 120) {
+      pullDistance.current = distance
+    }
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    if (pullDistance.current >= PULL_THRESHOLD) {
+      handlePullRefresh()
+    }
+    pullStartY.current = 0
+    pullDistance.current = 0
+  }, [PULL_THRESHOLD, handlePullRefresh])
+
+  // 滚动加载更多 - 使用滚动事件监听
+  const handleScroll = useCallback(() => {
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')
+    if (!scrollElement || isLoadingMore || !hasMore) return
+
+    const { scrollTop, scrollHeight, clientHeight } = scrollElement
+    const distanceToBottom = scrollHeight - scrollTop - clientHeight
+
+    // 距离底部小于 300px 时触发加载
+    if (distanceToBottom < 300) {
+      console.log('📍 [Discover] 滚动到底部，触发加载更多', {
+        distanceToBottom,
+        currentVideos: videos.length,
+        hasMore,
+      })
+      loadVideos(videos.length, true)
+    }
+  }, [isLoadingMore, hasMore, videos.length, loadVideos])
+
+  // 绑定滚动事件
+  useEffect(() => {
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')
+    if (!scrollElement) return
+
+    console.log('🔧 [Discover] 绑定滚动事件监听')
+    scrollElement.addEventListener('scroll', handleScroll)
+
+    return () => {
+      console.log('🧹 [Discover] 移除滚动事件监听')
+      scrollElement.removeEventListener('scroll', handleScroll)
+    }
+  }, [handleScroll])
 
   return (
     <div className='flex flex-col h-screen relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20'>
       <TopMenu />
 
-      <ScrollArea className='h-full relative z-10' ref={scrollAreaRef}>
+      <ScrollArea
+        className='h-full relative z-10'
+        ref={scrollAreaRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <div className='relative flex flex-col items-center pt-8 px-4 sm:px-6 pb-8'>
+          {/* 下拉刷新指示器 */}
+          {isPullRefreshing && (
+            <div className='absolute top-2 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full shadow-lg'>
+              <Loader2 className='w-4 h-4 animate-spin text-purple-500' />
+              <span className='text-sm text-gray-700 dark:text-gray-300'>{t('refreshing') || '刷新中...'}</span>
+            </div>
+          )}
+
           {/* 标题区域 */}
           <div className='w-full max-w-[1400px] mx-auto mb-8'>
             <div className='flex items-center justify-center'>
@@ -257,8 +335,8 @@ function DiscoverPage() {
               </div>
             ) : (
               <>
-                {/* 网格布局 - 一行6个 */}
-                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5 sm:gap-2'>
+                {/* 网格布局 - 一行5个 */}
+                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3'>
                   {videos.map((video) => (
                     <div key={video.id} className='w-full aspect-[9/16] overflow-hidden bg-black rounded-lg'>
                       <DiscoverVideoCard
@@ -278,8 +356,8 @@ function DiscoverPage() {
                   ))}
                 </div>
 
-                {/* 加载更多触发器 */}
-                <div ref={loadMoreTriggerRef} className='w-full py-8'>
+                {/* 加载状态指示器 */}
+                <div className='w-full py-8'>
                   {isLoadingMore && (
                     <div className='flex flex-col items-center justify-center text-gray-400'>
                       <Loader2 className='w-8 h-8 mb-2 animate-spin' />

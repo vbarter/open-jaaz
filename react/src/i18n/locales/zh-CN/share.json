@@ -1,0 +1,10 @@
+{
+  "loading": "加载中...",
+  "invalidLink": "无效的分享链接",
+  "loadFailed": "加载失败",
+  "notFound": "分享不存在",
+  "notFoundDesc": "此分享链接可能已过期",
+  "exploreMore": "发现更多",
+  "shareTitle": "精彩视频分享",
+  "linkCopied": "链接已复制到剪贴板"
+}

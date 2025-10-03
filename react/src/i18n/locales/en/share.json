@@ -1,0 +1,10 @@
+{
+  "loading": "Loading...",
+  "invalidLink": "Invalid share link",
+  "loadFailed": "Loading failed",
+  "notFound": "Share does not exist",
+  "notFoundDesc": "This share link may have expired",
+  "exploreMore": "Explore More",
+  "shareTitle": "Amazing Video",
+  "linkCopied": "Link copied to clipboard"
+}
