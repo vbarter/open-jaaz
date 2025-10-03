@@ -492,6 +492,51 @@ class Sora2Service:
             logger.info(f"🗑️ Deleted Sora2 record #{record_id}")
             return True
 
+    async def submit_task_to_queue(
+        self,
+        user_uuid: str,
+        prompt: str,
+        model: str = "sora2",
+        images: List[str] = None
+    ) -> Dict[str, Any]:
+        """
+        提交视频生成任务到队列（用于分布式处理）
+
+        Args:
+            user_uuid: 用户 UUID
+            prompt: 视频生成提示词
+            model: 视频生成模型（默认 sora2）
+            images: 引用图片列表（可选）
+
+        Returns:
+            Dict: 包含 video_id 和 task_id 的字典
+        """
+        # 导入任务服务
+        from services.sora_task_service import sora_task_service
+
+        # 1. 创建 Sora2 记录
+        video_id = await self.create_record(
+            user_uuid=user_uuid,
+            prompt=prompt,
+            model=model,
+            images=images,
+            status="waiting"  # 初始状态为 waiting
+        )
+
+        # 2. 创建任务记录
+        task_id = await sora_task_service.create_task(
+            video_id=video_id,
+            user_uuid=user_uuid,
+            status="waiting"
+        )
+
+        logger.info(f"✅ Submitted task #{task_id} for video #{video_id}")
+
+        return {
+            "video_id": video_id,
+            "task_id": task_id
+        }
+
 
 # 单例实例
 sora2_service = Sora2Service()
