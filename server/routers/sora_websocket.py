@@ -35,7 +35,10 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket, user_uuid: str):
         """移除断开的连接"""
         if user_uuid in self.active_connections:
-            self.active_connections[user_uuid].remove(websocket)
+            try:
+                self.active_connections[user_uuid].remove(websocket)
+            except ValueError:
+                pass
             if not self.active_connections[user_uuid]:
                 del self.active_connections[user_uuid]
         logger.info(f"🔌 [Sora WS] 连接断开 - user: {user_uuid[:8]}...")
@@ -152,14 +155,27 @@ async def websocket_sora2_tasks(
         )
         total = await sora2_service.get_user_record_count(user_uuid=user_uuid)
 
-        await websocket.send_json({
-            "type": "tasks_update",
-            "data": {
-                "tasks": tasks,
-                "total": total,
-                "timestamp": asyncio.get_event_loop().time()
-            }
-        })
+        try:
+            await websocket.send_json({
+                "type": "tasks_update",
+                "data": {
+                    "tasks": tasks,
+                    "total": total,
+                    "timestamp": asyncio.get_event_loop().time()
+                }
+            })
+        except WebSocketDisconnect:
+            logger.info(f"🔌 [Sora WS] 初始推送时连接中断 - {user_uuid[:8]}...")
+            ws_manager.disconnect(websocket, user_uuid)
+            return
+
+        # 如果初始发送失败导致连接被移除，提前结束协程
+        if websocket not in ws_manager.active_connections.get(user_uuid, []):
+            logger.info(f"🔌 [Sora WS] 初始推送后连接已断开 - {user_uuid[:8]}...")
+            active_for_user = ws_manager.active_connections.get(user_uuid)
+            if active_for_user and websocket in active_for_user:
+                ws_manager.disconnect(websocket, user_uuid)
+            return
 
         logger.info(f"📤 [Sora WS] 发送初始任务列表: {len(tasks)} 个任务")
 
@@ -217,6 +233,10 @@ async def websocket_sora2_tasks(
                 pass
             ws_manager.disconnect(websocket, user_uuid)
 
+    except WebSocketDisconnect:
+        logger.info(f"🔌 [Sora WS] 连接中断 - {user_uuid[:8]}...")
+        if user_uuid:
+            ws_manager.disconnect(websocket, user_uuid)
     except Exception as e:
         logger.error(f"❌ [Sora WS] WebSocket错误: {e}", exc_info=True)
         if user_uuid:
