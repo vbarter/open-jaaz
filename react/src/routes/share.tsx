@@ -793,17 +793,8 @@ function SharePage() {
                   )}
                 </>
               ) : (
-                <div className='w-full h-full relative flex items-center justify-center bg-black/40 overflow-hidden'>
-                  <div
-                    className='absolute inset-0 opacity-70'
-                    style={{
-                      backgroundImage: "url('/static/magicart.svg')",
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'center',
-                      backgroundSize: '60%',
-                    }}
-                  />
-                  <div className='relative text-white text-sm drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]'>加载中...</div>
+                <div className='w-full h-full flex items-center justify-center bg-black/40'>
+                  <div className='text-white text-sm drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]'>加载中...</div>
                 </div>
               )}
             </div>
