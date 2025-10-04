@@ -154,6 +154,10 @@ async def websocket_sora2_tasks(
             offset=0
         )
         total = await sora2_service.get_user_record_count(user_uuid=user_uuid)
+        running_count = await sora2_service.get_user_record_count(
+            user_uuid=user_uuid,
+            status="running"
+        )
 
         try:
             await websocket.send_json({
@@ -161,6 +165,7 @@ async def websocket_sora2_tasks(
                 "data": {
                     "tasks": tasks,
                     "total": total,
+                    "running_count": running_count,
                     "timestamp": asyncio.get_event_loop().time()
                 }
             })
@@ -193,13 +198,18 @@ async def websocket_sora2_tasks(
                         offset=0
                     )
                     total = await sora2_service.get_user_record_count(user_uuid=user_uuid)
+                    running_count = await sora2_service.get_user_record_count(
+                        user_uuid=user_uuid,
+                        status="running"
+                    )
 
                     # 推送给用户
                     await ws_manager.send_to_user(user_uuid, {
                         "type": "tasks_update",
-                        "data": {
+                "data": {
                             "tasks": tasks,
                             "total": total,
+                            "running_count": running_count,
                             "timestamp": asyncio.get_event_loop().time()
                         }
                     })

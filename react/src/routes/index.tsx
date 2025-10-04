@@ -59,10 +59,8 @@ function Home() {
 
   return (
     <div className='flex flex-col h-screen relative overflow-hidden bg-soft-blue-radial'>
-
+      <TopMenu />
       <ScrollArea className='h-full relative z-10'>
-        <TopMenu />
-
         <div className='relative flex flex-col items-center justify-center h-fit min-h-[calc(100vh-400px)] sm:min-h-[calc(100vh-460px)] pt-[40px] sm:pt-[60px] px-4 sm:px-6 select-none'>
           {/* 主内容区域 - 添加玻璃形态效果 */}
           <motion.div

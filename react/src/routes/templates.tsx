@@ -44,12 +44,11 @@ function TemplatesPage() {
 
   return (
     <div className='flex flex-col h-screen relative overflow-hidden bg-soft-blue-radial'>
+      <TopMenu />
       <ScrollArea className='h-full relative z-10'>
-        <TopMenu />
-
         <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8 pt-8">
+        <div className="mb-8">
           <div className="text-center mb-12">
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 text-gray-800 dark:text-white drop-shadow-sm">
               {t('title')}
