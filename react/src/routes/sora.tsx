@@ -654,7 +654,7 @@ function SoraPage() {
     <div className='flex flex-col h-screen relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20'>
       <TopMenu />
 
-      <ScrollArea className='h-full relative z-10'>
+      <ScrollArea className='flex-1 relative z-10'>
         <div className='relative flex flex-col items-center pt-8 px-4 sm:px-6 pb-40'>
           {/* 标题区域 */}
           <div className='w-full max-w-6xl mx-auto mb-8'>
