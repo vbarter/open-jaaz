@@ -40,7 +40,7 @@ export const ExploreVideoCard: React.FC<ExploreVideoCardProps> = ({
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted, setIsMuted] = useState(true) // 默认静音
+  const [isMuted, setIsMuted] = useState(false) // 默认开启声音
   const [showPrompt, setShowPrompt] = useState(false)
 
   // 本地状态管理
@@ -68,13 +68,11 @@ export const ExploreVideoCard: React.FC<ExploreVideoCardProps> = ({
     if (video) {
       setIsLoading(false)
       setHasError(false)
-      // 移动设备默认静音以允许自动播放
-      if (isMobile) {
-        video.muted = true
-        setIsMuted(true)
-      }
+      // 默认开启声音
+      video.muted = false
+      setIsMuted(false)
     }
-  }, [isMobile])
+  }, [])
 
   // 处理视频可以播放
   const handleCanPlay = useCallback(() => {
@@ -100,6 +98,12 @@ export const ExploreVideoCard: React.FC<ExploreVideoCardProps> = ({
           video.pause()
           setIsPlaying(false)
         } else {
+          // 播放前，通知其他视频暂停
+          const event = new CustomEvent('global-video-play', {
+            detail: { videoId, componentType: 'ExploreVideoCard' }
+          })
+          window.dispatchEvent(event)
+
           await video.play()
           setIsPlaying(true)
 
@@ -201,6 +205,26 @@ export const ExploreVideoCard: React.FC<ExploreVideoCardProps> = ({
       video.removeEventListener('ended', handleEnded)
     }
   }, [])
+
+  // 监听全局视频播放事件 - 实现单视频播放
+  useEffect(() => {
+    const handleGlobalVideoPlay = (event: Event) => {
+      const customEvent = event as CustomEvent<{ videoId: string; componentType: string }>
+      const { videoId: playingVideoId } = customEvent.detail
+
+      // 如果播放的不是当前视频，暂停当前视频
+      if (playingVideoId !== videoId) {
+        const video = videoRef.current
+        if (video && !video.paused) {
+          video.pause()
+          setIsPlaying(false)
+        }
+      }
+    }
+
+    window.addEventListener('global-video-play', handleGlobalVideoPlay)
+    return () => window.removeEventListener('global-video-play', handleGlobalVideoPlay)
+  }, [videoId])
 
   return (
     <div
