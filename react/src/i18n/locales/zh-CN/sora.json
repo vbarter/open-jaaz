@@ -40,7 +40,9 @@
     "shareFailed": "创建分享链接失败",
     "videoCompleted": "视频生成完成！",
     "videoFailed": "视频生成失败",
-    "retryHint": "请重试"
+    "retryHint": "请重试",
+    "refreshSuccess": "刷新成功",
+    "refreshFailed": "刷新失败"
   },
   "status": {
     "processing": "生成中",
@@ -56,5 +58,6 @@
   "deleteTask": "删除任务",
   "shareVideo": "分享",
   "generationFailed": "生成失败",
-  "viewMoreVideos": "查看更多精彩视频"
+  "viewMoreVideos": "查看更多精彩视频",
+  "refreshing": "刷新中..."
 }
