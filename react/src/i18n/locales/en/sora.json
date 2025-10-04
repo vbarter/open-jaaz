@@ -59,5 +59,10 @@
   "shareVideo": "Share",
   "generationFailed": "Generation failed",
   "viewMoreVideos": "Explore More Videos",
-  "refreshing": "Refreshing..."
+  "refreshing": "Refreshing...",
+  "promptModal": {
+    "title": "Video Prompt",
+    "copyButton": "Copy Prompt",
+    "copied": "Copied"
+  }
 }

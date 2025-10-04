@@ -59,5 +59,10 @@
   "shareVideo": "分享",
   "generationFailed": "生成失败",
   "viewMoreVideos": "查看更多精彩视频",
-  "refreshing": "刷新中..."
+  "refreshing": "刷新中...",
+  "promptModal": {
+    "title": "视频提示词",
+    "copyButton": "复制提示词",
+    "copied": "已复制"
+  }
 }
