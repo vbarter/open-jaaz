@@ -146,9 +146,9 @@ export function UserMenu() {
         <DropdownMenu onOpenChange={(open) => open && handleMenuOpen()}>
           <DropdownMenuTrigger asChild>
             <Button variant='ghost' className='relative p-1 h-auto rounded-full'>
-              <Avatar className='h-8 w-8'>
+              <Avatar className='h-5 w-5 sm:h-8 sm:w-8'>
                 <AvatarImage src={image_url} alt={username} />
-                <AvatarFallback className='text-sm'>{initials}</AvatarFallback>
+                <AvatarFallback className='text-xs sm:text-sm'>{initials}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>

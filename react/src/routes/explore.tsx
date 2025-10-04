@@ -5,8 +5,8 @@ import TopMenu from '@/components/TopMenu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Loader2, Sparkles, Clock, Heart, Eye, ArrowDown } from 'lucide-react'
 import { getDiscoverVideos, getUserLikes, Sora2TaskDetail } from '@/api/sora'
-import { DiscoverVideoCard } from '@/components/discover/DiscoverVideoCard'
-import { FullscreenVideoViewer } from '@/components/discover/FullscreenVideoViewer'
+import { ExploreVideoCard } from '@/components/explore/ExploreVideoCard'
+import { FullscreenVideoViewer } from '@/components/explore/FullscreenVideoViewer'
 import { generateAvatarUrl } from '@/utils/avatarUtils'
 import {
   Select,
@@ -16,11 +16,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-export const Route = createFileRoute('/discover')({
-  component: DiscoverPage,
+export const Route = createFileRoute('/explore')({
+  component: ExplorePage,
 })
 
-interface DiscoverVideo {
+interface ExploreVideo {
   id: string
   prompt: string
   videoUrl: string
@@ -33,7 +33,7 @@ interface DiscoverVideo {
 }
 
 // 任务详情 -> 前端视频对象
-const taskToVideo = (task: Sora2TaskDetail): DiscoverVideo => ({
+const taskToVideo = (task: Sora2TaskDetail): ExploreVideo => ({
   id: task.id.toString(),
   prompt: task.prompt,
   videoUrl: task.video_url,
@@ -45,9 +45,9 @@ const taskToVideo = (task: Sora2TaskDetail): DiscoverVideo => ({
   shareId: task.share_id, // 分享ID
 })
 
-function DiscoverPage() {
-  const { t } = useTranslation('discover')
-  const [videos, setVideos] = useState<DiscoverVideo[]>([])
+function ExplorePage() {
+  const { t } = useTranslation('explore')
+  const [videos, setVideos] = useState<ExploreVideo[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -339,7 +339,7 @@ function DiscoverPage() {
                 <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3'>
                   {videos.map((video) => (
                     <div key={video.id} className='w-full aspect-[9/16] overflow-hidden bg-black rounded-lg'>
-                      <DiscoverVideoCard
+                      <ExploreVideoCard
                         videoId={video.id}
                         videoUrl={video.videoUrl}
                         prompt={video.prompt}

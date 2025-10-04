@@ -34,6 +34,7 @@ export default function TopMenu({
   const navItems = [
     { path: '/templates', label: t('navigation.templates') },
     { path: '/sora', label: 'Sora2' },
+    { path: '/explore', label: t('navigation.explore') },
   ]
 
   // 获取当前激活的导航项
@@ -141,14 +142,14 @@ export default function TopMenu({
           className="flex items-center gap-2 sm:gap-3 cursor-pointer group min-w-0"
           onClick={() => navigate({ to: '/' })}
         >
-          <img src={LOGO_URL} alt="logo" className="size-6 sm:size-7 shrink-0" draggable={false} />
-          <div className="flex relative items-center text-base sm:text-lg md:text-2xl font-bold text-foreground min-w-0">
+          <img src={LOGO_URL} alt="logo" className="size-5 sm:size-7 shrink-0" draggable={false} />
+          <div className="flex relative items-center text-sm sm:text-lg md:text-2xl font-bold text-foreground min-w-0">
             <span className="flex items-center whitespace-nowrap">
               MagicArt
             </span>
           </div>
         </div>
-        <nav className="flex items-center gap-1 sm:gap-2 h-10">
+        <nav className="flex items-center gap-0.5 sm:gap-2 h-10 justify-center">
           {navItems.map((item) => (
             <div
               key={item.path}
@@ -159,7 +160,7 @@ export default function TopMenu({
               <button
                 onClick={() => handleNavigate(item.path)}
                 className={cn(
-                  "relative h-full px-3 sm:px-4 text-sm sm:text-base font-medium cursor-pointer",
+                  "relative h-full px-2 sm:px-4 text-xs sm:text-base font-medium cursor-pointer",
                   "flex items-center rounded-lg",
                   "transition-colors duration-200",
                   activeItem === item.path
@@ -218,7 +219,8 @@ export default function TopMenu({
       <div className="flex items-center gap-1 sm:gap-2">
         {right}
         {/* <AgentSettings /> */}
-        <LanguageSwitcher />
+        {/* 中英文切换按钮 - 移动端隐藏 */}
+        <LanguageSwitcher className="hidden sm:flex" />
         {/* 只有登录用户才显示邀请按钮 - 移动端隐藏 */}
         {authStatus.is_logged_in && <InviteButton className="hidden sm:flex" />}
         {authStatus.is_logged_in && <PointsBadge className="hidden sm:flex" />}

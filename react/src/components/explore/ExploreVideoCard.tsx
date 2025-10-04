@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { useConfigs } from '@/contexts/configs'
 import { useTranslation } from 'react-i18next'
 
-interface DiscoverVideoCardProps {
+interface ExploreVideoCardProps {
   videoId: string // 视频ID
   videoUrl: string
   prompt: string
@@ -21,7 +21,7 @@ interface DiscoverVideoCardProps {
   className?: string
 }
 
-export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
+export const ExploreVideoCard: React.FC<ExploreVideoCardProps> = ({
   videoId,
   videoUrl,
   prompt,
@@ -36,7 +36,7 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null)
   const { setShowLoginDialog } = useConfigs()
-  const { t } = useTranslation('discover')
+  const { t } = useTranslation('explore')
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -341,4 +341,4 @@ export const DiscoverVideoCard: React.FC<DiscoverVideoCardProps> = ({
   )
 }
 
-export default DiscoverVideoCard
+export default ExploreVideoCard

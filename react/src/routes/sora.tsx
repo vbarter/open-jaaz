@@ -763,11 +763,11 @@ function SoraPage() {
               {/* 广场视频按钮 */}
               <Button
                 variant='outline'
-                onClick={() => navigate({ to: '/discover' })}
+                onClick={() => navigate({ to: '/explore' })}
                 className='group bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 transition-all'
               >
                 <Video className='w-4 h-4 mr-2 text-purple-600 dark:text-purple-400' />
-                <span className='text-gray-900 dark:text-gray-100'>{t('discoverButton')}</span>
+                <span className='text-gray-900 dark:text-gray-100'>{t('exploreButton')}</span>
               </Button>
 
               {/* 反馈问题按钮 */}

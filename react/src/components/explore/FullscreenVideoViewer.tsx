@@ -32,7 +32,7 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
   onClose,
   onLikeChange,
 }) => {
-  const { t } = useTranslation('discover')
+  const { t } = useTranslation('explore')
   const { setShowLoginDialog } = useConfigs()
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const isMobileDevice = typeof navigator !== 'undefined' && /iPad|iPhone|iPod|Android/i.test(navigator.userAgent)

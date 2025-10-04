@@ -73,7 +73,8 @@
     "settings": "设置",
     "back": "返回",
     "templates": "模版",
-    "pricing": "订阅"
+    "pricing": "订阅",
+    "explore": "探索"
   },
   "dialog": {
     "confirmTitle": "确认操作",

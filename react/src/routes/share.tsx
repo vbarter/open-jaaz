@@ -603,7 +603,7 @@ function SharePage() {
           <p className='text-xl text-white mb-2'>{t('notFound')}</p>
           <p className='text-white/70 mb-6'>{t('notFoundDesc')}</p>
           <Button
-            onClick={() => navigate({ to: '/discover' })}
+            onClick={() => navigate({ to: '/explore' })}
             className='bg-white/20 hover:bg-white/30'
           >
             <Compass className='w-4 h-4 mr-2' />
@@ -626,7 +626,7 @@ function SharePage() {
       <div className='absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-4'>
         {/* Explore 按钮 */}
         <button
-          onClick={() => navigate({ to: '/discover' })}
+          onClick={() => navigate({ to: '/explore' })}
           className='px-4 py-2 flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all active:scale-95'
         >
           <Compass className='w-5 h-5 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]' />
