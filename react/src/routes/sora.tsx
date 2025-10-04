@@ -210,6 +210,11 @@ function SoraPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [_wsConnected, setWsConnected] = useState(false)
   const [runningTasksCount, setRunningTasksCount] = useState(0) // 运行中任务计数
+  const scrollAreaRef = useRef<HTMLDivElement>(null) // ScrollArea引用
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false) // 下拉刷新状态
+  const pullStartY = useRef<number>(0)
+  const pullDistance = useRef<number>(0)
+  const PULL_THRESHOLD = 80 // 下拉刷新触发距离
 
   // 检查是否达到运行上限（3个）
   const MAX_RUNNING_TASKS = 3
@@ -294,6 +299,79 @@ function SoraPage() {
   // 积分不足对话框状态
   const [pointsDialogOpen, setPointsDialogOpen] = useState(false)
   const [currentPoints, setCurrentPoints] = useState<number>(0)
+
+  // 手动刷新任务列表
+  const refreshTaskList = useCallback(async () => {
+    try {
+      console.log('🔄 [Sora] 手动刷新任务列表')
+      const result = await getSora2Tasks()
+      const loadedVideos = result.tasks.map(taskToVideo)
+
+      // 更新任务列表
+      setVideos(loadedVideos)
+
+      // 更新运行中任务计数
+      const runningCount = loadedVideos.filter(v => v.status === 'processing').length
+      setRunningTasksCount(runningCount)
+
+      console.log(`✅ [Sora] 任务列表刷新成功: ${loadedVideos.length} 个任务, ${runningCount} 个运行中`)
+
+      return true
+    } catch (error) {
+      console.error('❌ [Sora] 刷新任务列表失败:', error)
+      return false
+    }
+  }, [])
+
+  // 下拉刷新处理
+  const handlePullRefresh = useCallback(async () => {
+    if (isPullRefreshing || isLoadingTasks) return
+
+    setIsPullRefreshing(true)
+    console.log('🔄 [Sora] 下拉刷新中...')
+
+    try {
+      // 刷新任务列表
+      const success = await refreshTaskList()
+
+      if (success) {
+        toast.success(t('toast.refreshSuccess') || '刷新成功')
+      }
+    } catch (error) {
+      console.error('❌ [Sora] 下拉刷新失败:', error)
+      toast.error(t('toast.refreshFailed') || '刷新失败')
+    } finally {
+      setIsPullRefreshing(false)
+    }
+  }, [isPullRefreshing, isLoadingTasks, refreshTaskList, t])
+
+  // 触摸事件处理（移动端下拉刷新）
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')
+    if (scrollElement && scrollElement.scrollTop === 0) {
+      pullStartY.current = e.touches[0].clientY
+    }
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')
+    if (!scrollElement || scrollElement.scrollTop > 0) return
+
+    const currentY = e.touches[0].clientY
+    const distance = currentY - pullStartY.current
+
+    if (distance > 0 && distance < 120) {
+      pullDistance.current = distance
+    }
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    if (pullDistance.current >= PULL_THRESHOLD) {
+      handlePullRefresh()
+    }
+    pullStartY.current = 0
+    pullDistance.current = 0
+  }, [PULL_THRESHOLD, handlePullRefresh])
 
   // 监听视频放大事件
   useEffect(() => {
@@ -654,19 +732,31 @@ function SoraPage() {
     <div className='flex flex-col h-screen relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20'>
       <TopMenu />
 
-      <ScrollArea className='flex-1 relative z-10'>
+      <ScrollArea
+        className='h-full relative z-10'
+        ref={scrollAreaRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <div className='relative flex flex-col items-center pt-8 px-4 sm:px-6 pb-40'>
+          {/* 下拉刷新指示器 */}
+          {isPullRefreshing && (
+            <div className='absolute top-2 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full shadow-lg'>
+              <Loader2 className='w-4 h-4 animate-spin text-purple-500' />
+              <span className='text-sm text-gray-700 dark:text-gray-300'>{t('refreshing') || '刷新中...'}</span>
+            </div>
+          )}
           {/* 标题区域 */}
-          <div className='w-full max-w-6xl mx-auto mb-8'>
-            <div className='flex items-center justify-center gap-3 mb-4'>
+          <div className='w-full max-w-[1400px] mx-auto mb-8'>
+            <div className='flex items-center justify-center mb-4'>
               <h1 className='text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100'>
                 {t('title')}
               </h1>
             </div>
-            <p className='text-center text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-2'>
+            <p className='text-center text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-4'>
               {t('subtitle')}
             </p>
-
 
             {/* 操作按钮组 */}
             <div className='flex justify-center gap-3'>
@@ -696,7 +786,7 @@ function SoraPage() {
           </div>
 
           {/* 视频列表 */}
-          <div className='w-full max-w-6xl mx-auto'>
+          <div className='w-full max-w-[1400px] mx-auto'>
             {isLoadingTasks ? (
               <div className='flex flex-col items-center justify-center py-20 text-gray-400'>
                 <Loader2 className='w-16 h-16 mb-4 opacity-50 animate-spin' />
@@ -793,7 +883,7 @@ function SoraPage() {
                 )}
 
                 {/* 视频网格 */}
-                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5 sm:gap-2'>
+                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3'>
                   {videos.map((video) => (
                     <div key={video.id} className='relative group'>
                         {/* 统一的9:16容器 - 确保所有卡片尺寸一致 */}

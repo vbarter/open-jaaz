@@ -40,7 +40,9 @@
     "shareFailed": "Failed to create share link",
     "videoCompleted": "Video generation completed!",
     "videoFailed": "Video generation failed",
-    "retryHint": "Please try again"
+    "retryHint": "Please try again",
+    "refreshSuccess": "Refreshed successfully",
+    "refreshFailed": "Refresh failed"
   },
   "status": {
     "processing": "Processing",
@@ -56,5 +58,6 @@
   "deleteTask": "Delete task",
   "shareVideo": "Share",
   "generationFailed": "Generation failed",
-  "viewMoreVideos": "Explore More Videos"
+  "viewMoreVideos": "Explore More Videos",
+  "refreshing": "Refreshing..."
 }
