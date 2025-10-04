@@ -332,6 +332,15 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
         })
       }
 
+      // 播放前，通知其他视频暂停
+      const videoData = videos[index]
+      if (videoData) {
+        const event = new CustomEvent('global-video-play', {
+          detail: { videoId: videoData.id, componentType: 'FullscreenVideoViewer' }
+        })
+        window.dispatchEvent(event)
+      }
+
       // 开始播放
       const playPromise = video.play()
       playPromiseRefs.current.set(index, playPromise)

@@ -132,6 +132,13 @@ const VideoCardActions: React.FC<VideoCardActionsProps> = ({ videoUrl, videoId }
   // 页面内放大切换（9:16比例）
   const toggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation()
+
+    // 暂停当前视频(无论是否正在播放)
+    const video = videoRef.current
+    if (video) {
+      video.pause()
+    }
+
     setIsExpanded(!isExpanded)
 
     // 触发自定义事件通知父组件

@@ -111,6 +111,12 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
         video.pause()
         setIsPlaying(false)
       } else {
+        // 播放前，通知其他视频暂停
+        const event = new CustomEvent('global-video-play', {
+          detail: { videoId: videoId || 'unknown', componentType: 'EnhancedVideoPlayer' }
+        })
+        window.dispatchEvent(event)
+
         // iOS需要用户交互才能播放
         await video.play()
         setIsPlaying(true)
@@ -128,7 +134,7 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
       // 如果自动播放失败，显示播放按钮
       setIsPlaying(false)
     }
-  }, [canPlay, isPlaying, isMobile])
+  }, [canPlay, isPlaying, isMobile, videoId])
 
   // 静音切换
   const toggleMute = useCallback(() => {
@@ -247,6 +253,26 @@ export const EnhancedVideoPlayer: React.FC<EnhancedVideoPlayerProps> = ({
       video.removeEventListener('ended', handleEnded)
     }
   }, [])
+
+  // 监听全局视频播放事件 - 实现单视频播放
+  useEffect(() => {
+    const handleGlobalVideoPlay = (event: Event) => {
+      const customEvent = event as CustomEvent<{ videoId: string; componentType: string }>
+      const { videoId: playingVideoId } = customEvent.detail
+
+      // 如果播放的不是当前视频，暂停当前视频
+      if (playingVideoId !== (videoId || 'unknown')) {
+        const video = videoRef.current
+        if (video && !video.paused) {
+          video.pause()
+          setIsPlaying(false)
+        }
+      }
+    }
+
+    window.addEventListener('global-video-play', handleGlobalVideoPlay)
+    return () => window.removeEventListener('global-video-play', handleGlobalVideoPlay)
+  }, [videoId])
 
   // 监听全屏变化
   useEffect(() => {

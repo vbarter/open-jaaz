@@ -101,7 +101,6 @@ export const MobileFullscreenVideoViewer: React.FC<MobileFullscreenVideoViewerPr
           playsInline
           loop
           autoPlay
-          muted
           onClick={togglePlay}
         />
 
