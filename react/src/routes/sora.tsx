@@ -31,6 +31,9 @@ import {
   Maximize2,
   Download,
   Clock,
+  Plus,
+  SlidersHorizontal,
+  ArrowUp,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -206,9 +209,11 @@ function SoraPage() {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [_wsConnected, setWsConnected] = useState(false)
+  const [runningTasksCount, setRunningTasksCount] = useState(0) // 运行中任务计数
 
-  // 检查是否有视频正在生成中
-  const hasProcessingVideo = videos.some((video) => video.status === 'processing')
+  // 检查是否达到运行上限（3个）
+  const MAX_RUNNING_TASKS = 3
+  const hasReachedLimit = runningTasksCount >= MAX_RUNNING_TASKS
 
   // 删除确认对话框状态
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -364,8 +369,13 @@ function SoraPage() {
           // console.log('📨 [Sora WS] 收到消息:', message.type)
 
           if (message.type === 'tasks_update') {
-            const { tasks } = message.data
+            const { tasks, running_count } = message.data
             const loadedVideos = tasks.map(taskToVideo)
+
+            // 更新运行中任务计数
+            if (typeof running_count === 'number') {
+              setRunningTasksCount(running_count)
+            }
 
             // 检测状态变化（用于通知）
             setVideos((previousVideos) => {
@@ -512,6 +522,18 @@ function SoraPage() {
         return
       }
 
+      // 检查是否达到运行上限
+      if (result.status === 'running_limit_exceeded') {
+        toast.error(tCommon('messages.error'), {
+          description: result.message || '同时运行的任务已达上限，请等待当前任务完成后再试',
+        })
+
+        // 移除临时视频卡片
+        setVideos((prev) => prev.filter((v) => v.id !== tempId))
+        setIsGenerating(false)
+        return
+      }
+
       // 更新视频状态（使用真实的任务ID）
       setVideos((prev) =>
         prev.map((v) =>
@@ -641,9 +663,10 @@ function SoraPage() {
                 {t('title')}
               </h1>
             </div>
-            <p className='text-center text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-4'>
+            <p className='text-center text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-2'>
               {t('subtitle')}
             </p>
+
 
             {/* 操作按钮组 */}
             <div className='flex justify-center gap-3'>
@@ -875,52 +898,74 @@ function SoraPage() {
       {/* 固定在底部的输入框 - 只在非放大模式下显示 */}
       {!expandedVideoId && (
         <div className='fixed bottom-0 left-0 right-0 z-50 pb-6 px-4'>
-        <div className='max-w-4xl mx-auto'>
-          <div
-            className={`relative backdrop-blur-xl bg-white/80 dark:bg-gray-800/80 rounded-xl px-6 py-4 shadow-2xl border border-gray-200/50 dark:border-gray-700/50 ${
-              !authStatus.is_logged_in
-                ? 'cursor-pointer hover:border-gray-300 dark:hover:border-gray-600 transition-colors'
-                : ''
-            }`}
-            onClick={() => {
-              if (!authStatus.is_logged_in) {
-                setShowLoginDialog(true)
-              }
-            }}
-          >
-            <Textarea
-              ref={textareaRef}
-              value={prompt}
-              onChange={(e) => {
-                setPrompt(e.target.value)
-                // Auto-resize
-                e.target.style.height = 'auto'
-                e.target.style.height = e.target.scrollHeight + 'px'
+          <div className='max-w-4xl mx-auto'>
+            <div
+              className={`relative backdrop-blur-xl bg-gray-900/90 dark:bg-gray-800/90 rounded-2xl shadow-2xl border border-gray-700/50 dark:border-gray-600/50 ${
+                !authStatus.is_logged_in
+                  ? 'cursor-pointer hover:border-gray-600 dark:hover:border-gray-500 transition-colors'
+                  : ''
+              }`}
+              onClick={() => {
+                if (!authStatus.is_logged_in) {
+                  setShowLoginDialog(true)
+                }
               }}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                !authStatus.is_logged_in ? tCommon('auth.loginDescription') : t('placeholder')
-              }
-              className='w-full min-h-[56px] resize-none bg-transparent border-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 pr-16 overflow-hidden'
-              style={{ maxHeight: 'none' }}
-              disabled={!authStatus.is_logged_in || isGenerating || hasProcessingVideo}
-            />
-            <Button
-              onClick={handleGenerate}
-              disabled={
-                !authStatus.is_logged_in || isGenerating || hasProcessingVideo || !prompt.trim()
-              }
-              size='icon'
-              className='absolute bottom-4 right-4 rounded-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900 h-12 w-12 disabled:opacity-50 disabled:cursor-not-allowed'
             >
-              {isGenerating || hasProcessingVideo ? (
-                <Loader2 className='w-5 h-5 animate-spin text-gray-900 dark:text-gray-100' />
-              ) : (
-                <Send className='w-5 h-5' />
-              )}
-            </Button>
+              {/* 输入框容器 */}
+              <div className='relative px-4 py-3'>
+                {/* 输入框 */}
+                <Textarea
+                  ref={textareaRef}
+                  value={prompt}
+                  onChange={(e) => {
+                    setPrompt(e.target.value)
+                    // Auto-resize with screen height limit
+                    e.target.style.height = 'auto'
+                    const maxHeight = window.innerHeight * 0.4 // 最大高度为屏幕高度的40%
+                    const scrollHeight = e.target.scrollHeight
+                    e.target.style.height = Math.min(scrollHeight, maxHeight) + 'px'
+
+                    // 动态控制overflow - 只在达到最大高度时才允许滚动
+                    if (scrollHeight > maxHeight) {
+                      e.target.style.overflowY = 'auto'
+                    } else {
+                      e.target.style.overflowY = 'hidden'
+                    }
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    !authStatus.is_logged_in
+                      ? tCommon('auth.loginDescription')
+                      : hasReachedLimit
+                      ? `正在生成: ${runningTasksCount}/${MAX_RUNNING_TASKS} 已达上限，请等待任务完成后再试`
+                      : runningTasksCount > 0
+                      ? `${t('placeholder')} (正在生成: ${runningTasksCount}/${MAX_RUNNING_TASKS})`
+                      : t('placeholder')
+                  }
+                  className='w-full min-h-[40px] resize-none bg-transparent border-none text-gray-100 dark:text-gray-100 placeholder:text-gray-500 focus-visible:ring-0 focus-visible:ring-offset-0 pr-14 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'
+                  style={{ maxHeight: `${window.innerHeight * 0.4}px`, overflowY: 'hidden' }}
+                  disabled={!authStatus.is_logged_in || isGenerating || hasReachedLimit}
+                />
+
+                {/* 发送按钮 - 固定在右下角 */}
+                <Button
+                  onClick={handleGenerate}
+                  disabled={
+                    !authStatus.is_logged_in || isGenerating || hasReachedLimit || !prompt.trim()
+                  }
+                  size='icon'
+                  className='absolute bottom-4 right-5 h-10 w-10 rounded-xl bg-gray-200/90 hover:bg-gray-300/90 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all'
+                  title={hasReachedLimit ? '已达运行上限（3个），请等待任务完成' : ''}
+                >
+                  {isGenerating || hasReachedLimit ? (
+                    <Loader2 className='w-5 h-5 animate-spin' />
+                  ) : (
+                    <ArrowUp className='w-5 h-5' />
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
         </div>
       )}
 

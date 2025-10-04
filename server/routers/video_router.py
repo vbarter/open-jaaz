@@ -300,6 +300,23 @@ async def generate_sora2_video(
 
         logger.info(f"✅ 积分检查通过 - 当前积分: {current_points}")
 
+        # 检查用户当前运行中的任务数量（限制3个）
+        running_tasks_count = await sora2_service.get_user_record_count(
+            user_uuid=user_uuid,
+            status="running"
+        )
+
+        MAX_RUNNING_TASKS = 3
+        if running_tasks_count >= MAX_RUNNING_TASKS:
+            logger.warning(f"⚠️ 用户 {user_email} 已达到运行中任务上限: {running_tasks_count}/{MAX_RUNNING_TASKS}")
+            return Sora2GenResponse(
+                task_id="",
+                status="running_limit_exceeded",
+                message=f"同时运行的任务已达上限（{running_tasks_count}/{MAX_RUNNING_TASKS}），请等待当前任务完成后再试"
+            )
+
+        logger.info(f"✅ 运行中任务检查通过 - 当前: {running_tasks_count}/{MAX_RUNNING_TASKS}")
+
         # 1. 创建数据库记录（初始状态为 running）
         record_id = await sora2_service.create_record(
             user_uuid=user_uuid,
