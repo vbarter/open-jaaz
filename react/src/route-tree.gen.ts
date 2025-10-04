@@ -17,7 +17,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as KnowledgeRouteImport } from './routes/knowledge'
 import { Route as InviteRouteImport } from './routes/invite'
-import { Route as DiscoverRouteImport } from './routes/discover'
+import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as Agent_studioRouteImport } from './routes/agent_studio'
 import { Route as IndexRouteImport } from './routes/index'
@@ -65,9 +65,9 @@ const InviteRoute = InviteRouteImport.update({
   path: '/invite',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DiscoverRoute = DiscoverRouteImport.update({
-  id: '/discover',
-  path: '/discover',
+const ExploreRoute = ExploreRouteImport.update({
+  id: '/explore',
+  path: '/explore',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AssetsRoute = AssetsRouteImport.update({
@@ -105,7 +105,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agent_studio': typeof Agent_studioRoute
   '/assets': typeof AssetsRoute
-  '/discover': typeof DiscoverRoute
+  '/explore': typeof ExploreRoute
   '/invite': typeof InviteRoute
   '/knowledge': typeof KnowledgeRoute
   '/pricing': typeof PricingRoute
@@ -122,7 +122,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agent_studio': typeof Agent_studioRoute
   '/assets': typeof AssetsRoute
-  '/discover': typeof DiscoverRoute
+  '/explore': typeof ExploreRoute
   '/invite': typeof InviteRoute
   '/knowledge': typeof KnowledgeRoute
   '/pricing': typeof PricingRoute
@@ -140,7 +140,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/agent_studio': typeof Agent_studioRoute
   '/assets': typeof AssetsRoute
-  '/discover': typeof DiscoverRoute
+  '/explore': typeof ExploreRoute
   '/invite': typeof InviteRoute
   '/knowledge': typeof KnowledgeRoute
   '/pricing': typeof PricingRoute
@@ -159,7 +159,7 @@ export interface FileRouteTypes {
     | '/'
     | '/agent_studio'
     | '/assets'
-    | '/discover'
+    | '/explore'
     | '/invite'
     | '/knowledge'
     | '/pricing'
@@ -176,7 +176,7 @@ export interface FileRouteTypes {
     | '/'
     | '/agent_studio'
     | '/assets'
-    | '/discover'
+    | '/explore'
     | '/invite'
     | '/knowledge'
     | '/pricing'
@@ -193,7 +193,7 @@ export interface FileRouteTypes {
     | '/'
     | '/agent_studio'
     | '/assets'
-    | '/discover'
+    | '/explore'
     | '/invite'
     | '/knowledge'
     | '/pricing'
@@ -211,7 +211,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   Agent_studioRoute: typeof Agent_studioRoute
   AssetsRoute: typeof AssetsRoute
-  DiscoverRoute: typeof DiscoverRoute
+  ExploreRoute: typeof ExploreRoute
   InviteRoute: typeof InviteRoute
   KnowledgeRoute: typeof KnowledgeRoute
   PricingRoute: typeof PricingRoute
@@ -283,11 +283,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/discover': {
-      id: '/discover'
-      path: '/discover'
-      fullPath: '/discover'
-      preLoaderRoute: typeof DiscoverRouteImport
+    '/explore': {
+      id: '/explore'
+      path: '/explore'
+      fullPath: '/explore'
+      preLoaderRoute: typeof ExploreRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/assets': {
@@ -339,7 +339,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   Agent_studioRoute: Agent_studioRoute,
   AssetsRoute: AssetsRoute,
-  DiscoverRoute: DiscoverRoute,
+  ExploreRoute: ExploreRoute,
   InviteRoute: InviteRoute,
   KnowledgeRoute: KnowledgeRoute,
   PricingRoute: PricingRoute,

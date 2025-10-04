@@ -8,8 +8,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Languages } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
-const LanguageSwitcher = () => {
+const LanguageSwitcher = ({ className }: { className?: string }) => {
   const { changeLanguage, currentLanguage } = useLanguage()
   const { t } = useTranslation()
 
@@ -24,7 +25,10 @@ const LanguageSwitcher = () => {
         <Button
           size={'sm'}
           variant={'ghost'}
-          className="flex items-center font-medium px-2 py-1.5 text-sm rounded-lg hover:bg-white/20 hover:backdrop-blur-sm sm:px-3 sm:py-2 sm:text-base drop-shadow-sm"
+          className={cn(
+            "flex items-center font-medium px-2 py-1.5 text-sm rounded-lg hover:bg-white/20 hover:backdrop-blur-sm sm:px-3 sm:py-2 sm:text-base drop-shadow-sm",
+            className
+          )}
         >
           <Languages size={18} />
         </Button>

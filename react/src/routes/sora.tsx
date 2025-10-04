@@ -45,6 +45,7 @@ import {
   CreateShareResponse,
 } from '@/api/sora'
 import { EnhancedVideoPlayer } from '@/components/chat/EnhancedVideoPlayer'
+import { MobileFullscreenVideoViewer } from '@/components/sora/MobileFullscreenVideoViewer'
 import { useAuth } from '@/contexts/AuthContext'
 import { useConfigs } from '@/contexts/configs'
 import { refreshUserAvatar, logout } from '@/api/auth'
@@ -62,6 +63,8 @@ interface GeneratedVideo {
   remark?: string // 错误信息或备注
   views?: number // 访问量
   likes?: number // 点赞量
+  userUuid?: string // 用户UUID（用于头像）
+  userImageUrl?: string // 用户真实头像URL
 }
 
 // 状态映射：后端状态 -> 前端状态
@@ -83,6 +86,8 @@ const taskToVideo = (task: Sora2TaskDetail): GeneratedVideo => ({
   remark: task.remark,
   views: task.views ?? 0,
   likes: task.likes ?? 0,
+  userUuid: task.user_uuid,
+  userImageUrl: task.user_image_url,
 })
 
 // 视频卡片底部操作按钮组件
@@ -730,7 +735,8 @@ function SoraPage() {
 
   return (
     <div className='flex flex-col h-screen relative overflow-hidden bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20'>
-      <TopMenu />
+      {/* 只在非放大模式下显示顶部导航栏 */}
+      {!expandedVideoId && <TopMenu />}
 
       <ScrollArea
         className='h-full relative z-10'
@@ -763,11 +769,11 @@ function SoraPage() {
               {/* 广场视频按钮 */}
               <Button
                 variant='outline'
-                onClick={() => navigate({ to: '/discover' })}
+                onClick={() => navigate({ to: '/explore' })}
                 className='group bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 transition-all'
               >
                 <Video className='w-4 h-4 mr-2 text-purple-600 dark:text-purple-400' />
-                <span className='text-gray-900 dark:text-gray-100'>{t('discoverButton')}</span>
+                <span className='text-gray-900 dark:text-gray-100'>{t('exploreButton')}</span>
               </Button>
 
               {/* 反馈问题按钮 */}
@@ -799,87 +805,12 @@ function SoraPage() {
               </div>
             ) : (
               <>
-                {/* 沉浸式全屏视频查看器 */}
+                {/* 移动端优化的全屏视频查看器 */}
                 {expandedVideoId && videos.find(v => v.id === expandedVideoId) && (
-                  <div
-                    className='fixed inset-0 z-50 bg-black flex items-center justify-center'
-                    onClick={(e) => {
-                      // 点击背景区域关闭（不包括视频和信息面板）
-                      if (e.target === e.currentTarget) {
-                        setExpandedVideoId(null)
-                      }
-                    }}
-                  >
-                    {(() => {
-                      const currentIndex = videos.findIndex(v => v.id === expandedVideoId)
-                      const video = videos[currentIndex]
-
-                      return (
-                        <>
-
-                          {/* 主内容区域 */}
-                          <div className='flex items-center justify-center gap-8 h-full max-w-7xl mx-auto px-4'>
-                            {/* 视频容器 */}
-                            <div className='flex-shrink-0 h-[90vh] aspect-[9/16] relative bg-black rounded-lg overflow-hidden shadow-2xl'>
-                              <div className='absolute inset-0' data-video-id={video.id}>
-                                <EnhancedVideoPlayer
-                                  content=''
-                                  videoUrl={video.videoUrl}
-                                  videoId={video.id}
-                                  fillContainer={true}
-                                />
-                              </div>
-
-                              {/* 底部控制按钮 */}
-                              <VideoCardActions videoUrl={video.videoUrl} videoId={video.id} />
-                            </div>
-
-                            {/* 右侧信息面板 */}
-                            <div className='flex-shrink-0 w-80 h-[90vh] flex flex-col gap-6 text-white'>
-                              {/* 用户信息 */}
-                              <div className='flex flex-col gap-2'>
-                                <p className='font-semibold text-xl'>创作者</p>
-                                <div className='flex items-center gap-2 text-sm text-gray-400'>
-                                  <Clock className='w-4 h-4' />
-                                  <span>{new Date(video.createdAt).toLocaleDateString('zh-CN', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                  })}</span>
-                                </div>
-                              </div>
-
-                              {/* 分隔线 */}
-                              <div className='h-px bg-gray-700' />
-
-                              {/* 提示词 */}
-                              <div className='flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent'>
-                                <h3 className='text-sm font-semibold text-gray-400 mb-2'>视频提示词</h3>
-                                <p className='text-base leading-relaxed text-gray-200'>
-                                  {video.prompt}
-                                </p>
-                              </div>
-
-                              {/* 分隔线 */}
-                              <div className='h-px bg-gray-700' />
-
-                              {/* 互动数据 */}
-                              <div className='flex items-center gap-6'>
-                                <div className='flex items-center gap-2'>
-                                  <Heart className='w-5 h-5 text-red-400' />
-                                  <span className='text-lg font-semibold'>{video.likes ?? 0}</span>
-                                </div>
-                                <div className='flex items-center gap-2'>
-                                  <Eye className='w-5 h-5 text-blue-400' />
-                                  <span className='text-lg font-semibold'>{video.views ?? 0}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </>
-                      )
-                    })()}
-                  </div>
+                  <MobileFullscreenVideoViewer
+                    video={videos.find(v => v.id === expandedVideoId)!}
+                    onClose={() => setExpandedVideoId(null)}
+                  />
                 )}
 
                 {/* 视频网格 */}
