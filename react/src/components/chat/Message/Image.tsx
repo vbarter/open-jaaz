@@ -113,16 +113,13 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
   let id = canvasElementId
 
   // 调试日志
-  if (canvasElementId) {
-    console.log('🎯 MessageImage: 使用传递的canvasElementId:', canvasElementId)
-  }
 
   if (!id && content.image_url.url) {
     // 1. 首先尝试直接URL匹配
     const directMatch = filesArray.find((file) => content.image_url.url?.includes(file.url))
     if (directMatch) {
       id = directMatch.id
-      console.log('🎯 MessageImage: 通过URL完全匹配找到ID:', id)
+      // console.log('🎯 MessageImage: 通过URL完全匹配找到ID:', id)
     }
 
     // 2. 如果没找到，尝试从URL中提取文件名进行匹配
@@ -173,7 +170,7 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
         const directFileMatch = filesArray.find((file) => file.id === filename)
         if (directFileMatch) {
           id = filename
-          console.log('🎯 MessageImage: 通过文件名直接匹配找到ID:', id)
+          // console.log('🎯 MessageImage: 通过文件名直接匹配找到ID:', id)
         } else {
           // 如果文件名有扩展名，尝试去掉扩展名匹配
           const filenameWithoutExt = filename.replace(/\.[^/.]+$/, '')
@@ -181,7 +178,7 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
           const matchWithoutExt = filesArray.find((file) => file.id === filenameWithoutExt)
           if (matchWithoutExt) {
             id = filenameWithoutExt
-            console.log('🎯 MessageImage: 通过去扩展名匹配找到ID:', id)
+            // console.log('🎯 MessageImage: 通过去扩展名匹配找到ID:', id)
           } else {
             // 特殊处理：尝试查找以 im_ 开头的匹配项
             // 有时候URL中的文件名可能缺少 im_ 前缀，或者有额外的前缀
@@ -200,7 +197,7 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
               if (match) {
                 id = match.id
                 foundMatch = true
-                console.log('🎯 MessageImage: 通过可能ID匹配找到:', id, 'from:', possibleId)
+                // console.log('🎯 MessageImage: 通过可能ID匹配找到:', id, 'from:', possibleId)
                 break
               }
             }
@@ -220,13 +217,13 @@ const MessageImage = ({ content, canvasElementId, isUserMessage = false }: Messa
               if (partialMatch) {
                 id = partialMatch.id
               } else {
-                console.log('❌ MessageImage: 无法找到匹配的canvas元素', {
-                  canvasElementId,
-                  imageUrl: content.image_url.url,
-                  filename,
-                  filesCount: filesArray.length,
-                  possibleIds,
-                })
+                // console.log('❌ MessageImage: 无法找到匹配的canvas元素', {
+                //   canvasElementId,
+                //   imageUrl: content.image_url.url,
+                //   filename,
+                //   filesCount: filesArray.length,
+                //   possibleIds,
+                // })
               }
             }
           }
