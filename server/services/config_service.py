@@ -49,7 +49,7 @@ DEFAULT_PROVIDERS_CONFIG: AppConfig = {
     },
     'google': {
         'models': {
-            'gemini-2.5-flash-image': {'type': 'image'},
+            'gemini-3-pro-image-preview': {'type': 'image'},
             'gemini-2.5-pro-all': {'type': 'text'},
             'veo3-fast': {'type': 'video'},
         },

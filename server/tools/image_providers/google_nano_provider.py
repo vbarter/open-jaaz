@@ -70,12 +70,64 @@ class GoogleNanoImageProvider(ImageProviderBase):
                 size = size_map.get(aspect_ratio, "1024x1024")
 
                 print(f"prompt: {prompt}")
-                result = self.client.images.generate(
-                    model=model,
-                    prompt=prompt,
-                    n=kwargs.get("num_images", 1),
-                    size=size,
-                )
+                if model == "gemini-3-pro-image-preview":
+                    # Use chat completion for gemini-3-pro-image-preview
+                    messages = [
+                        {
+                            "role": "system",
+                            "content": [
+                                {
+                                    "text": "根据用户提示词，直接绘图",
+                                    "type": "text"
+                                }
+                            ]
+                        },
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "text": prompt,
+                                    "type": "text"
+                                }
+                            ]
+                        }
+                    ]
+                    
+                    completion = self.client.chat.completions.create(
+                        model=model,
+                        messages=messages,
+                        max_tokens=2000
+                    )
+                    
+                    # Mock a result object to match the expected structure or process directly
+                    # Since the structure is different, we'll handle it here and return
+                    if completion.choices and len(completion.choices) > 0:
+                        content = completion.choices[0].message.content
+                        # Extract image URL from markdown: ![image](url)
+                        import re
+                        match = re.search(r'!\[.*?\]\((.*?)\)', content)
+                        if match:
+                            image_url = match.group(1)
+                            image_id = generate_image_id()
+                            mime_type, width, height, extension = await get_image_info_and_save(
+                                image_url, os.path.join(FILES_DIR, f'{image_id}')
+                            )
+                            if mime_type is None:
+                                raise Exception('Failed to determine image MIME type')
+                            filename = f'{image_id}.{extension}'
+                            return mime_type, width, height, filename
+                        else:
+                            raise Exception("No image URL found in response")
+                    else:
+                        raise Exception("No choices in completion response")
+
+                else:
+                    result = self.client.images.generate(
+                        model=model,
+                        prompt=prompt,
+                        n=kwargs.get("num_images", 1),
+                        size=size,
+                    )
 
             # Process the result
             if not result.data or len(result.data) == 0:

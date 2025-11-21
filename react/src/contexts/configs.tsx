@@ -73,12 +73,12 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
 
     // 未登录用户：强制使用 Google 模型
     if (!isLoggedIn) {
-      // console.log('🔄 未登录用户，强制设置 Google gemini-2.5-flash-image 模型')
-      localStorage.setItem('current_selected_model', 'gemini-2.5-flash-image')
+      // console.log('🔄 未登录用户，强制设置 Google Nano Banana Pro 模型')
+      localStorage.setItem('current_selected_model', 'gemini-3-pro-image-preview')
       localStorage.removeItem('text_model')
 
       // 清空文本模型选择
-      setTextModel(null)
+      setTextModel(undefined)
     } else {
       // console.log('👤 登录用户，以 current_selected_model 为权威恢复用户选择...')
 
@@ -107,7 +107,7 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
           if (matchedTool) {
             // console.log('✅ 恢复用户选择的工具模型:', matchedTool.display_name || matchedTool.id)
             // 清空文本模型选择
-            setTextModel(null)
+            setTextModel(undefined)
             localStorage.removeItem('text_model')
 
             // 恢复工具模型选择 - 在后面的工具选择逻辑中会被设置
@@ -147,7 +147,7 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
       const googleImageTool = toolList.find(
         (t) =>
           t.provider === 'google' &&
-          (t.display_name === 'gemini-2.5-flash-image' ||
+          (t.display_name === 'Nano Banana Pro' ||
             t.id === 'generate_image_by_google_nano_banana')
       )
 

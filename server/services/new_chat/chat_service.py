@@ -695,6 +695,29 @@ async def _process_generation(
         img_matches = re.findall(img_pattern, content)
         if img_matches:
             media_url = img_matches[0]
+            
+            # 🔧 [FIX] 如果是云端URL，转换为本地代理URL
+            # 检查是否是 http 开头的 URL (包括腾讯云或其他云存储)
+            if media_url.startswith('http'):
+                try:
+                    # 尝试提取文件名 - 修复：先去掉query string，再提取文件名
+                    # 之前的逻辑 media_url.split('/')[-1].split('?')[0] 会因为query中包含/而出错
+                    base_url = media_url.split('?')[0]
+                    filename = base_url.split('/')[-1]
+                    
+                    if filename:
+                        # 使用本地代理URL
+                        local_url = f"http://127.0.0.1:8000/api/file/{filename}"
+                        logger.info(f"🔄 [URL_FIX] 转换云端URL为本地代理URL: {media_url} -> {local_url}")
+                        
+                        # 更新 media_url
+                        media_url = local_url
+                        
+                        # 同时更新 content 中的 URL，确保 markdown 显示正确
+                        if 'content' in ai_response:
+                            ai_response['content'] = ai_response['content'].replace(img_matches[0], local_url)
+                except Exception as e:
+                    logger.warning(f"⚠️ URL转换失败: {e}")
 
     # 使用MessageMediaManager创建或更新消息
     if existing_assistant_message and media_type and media_url:
@@ -865,10 +888,15 @@ async def auto_select_model_by_intent(intent: str, data: Dict[str, Any]) -> tupl
                 provider = saved_image_tool.get('provider', '')
                 model_name = saved_image_tool.get('display_name', '')
                 if model_name and provider:
+                    # 强制映射旧模型名称到新模型
+                    if model_name == 'gemini-2.5-flash-image':
+                        model_name = 'gemini-3-pro-image-preview'
+                        logger.info(f"🔄 [Model Selection] 自动映射旧模型: gemini-2.5-flash-image -> {model_name}")
+                    
                     logger.info(f"💾 [Model Selection] 使用用户保存的图像工具: {model_name} ({provider})")
                     return model_name, provider
 
-        default_model = 'gemini-2.5-flash-image'
+        default_model = 'gemini-3-pro-image-preview'
         default_provider = 'google'
         logger.info(f"⚠️ [Model Selection] 使用默认图像模型: {default_model} ({default_provider})")
         return default_model, default_provider
@@ -938,8 +966,8 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
     from openai import AsyncOpenAI
 
     intent_client = AsyncOpenAI(
-                api_key="sk-l3f6rcO4mZ3EZBLlUr6Gw7UHAszGOTQClJInVpUa6cgGezjp",
-                base_url="https://yunwu.zeabur.app/v1",
+                api_key="sk-ypD5gKeL5uHDYGuPpVqJ15OGXxmvbxVlNLDdVZbH1LyJde8t",
+                base_url="https://yunwu.ai/v1",
                 timeout=30.0,
                 max_retries=0
     )
@@ -967,7 +995,7 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
         
         try:
             response = await intent_client.chat.completions.create(
-                             model="gpt-5-2025-08-07",
+                             model="gpt-4.1-2025-04-14",
                              messages=[{"role": "user", "content": prompt}],
                              max_tokens=2000,
                              temperature=0.1)
@@ -1020,7 +1048,7 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
         
         try:
             response = await intent_client.chat.completions.create(
-                             model="gpt-5-2025-08-07",
+                             model="gpt-4.1-2025-04-14",
                              messages=[{"role": "user", "content": prompt}],
                              max_tokens=2000,
                              temperature=0.1)
