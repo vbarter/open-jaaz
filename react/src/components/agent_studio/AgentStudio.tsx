@@ -65,7 +65,7 @@ export default function AgentStudio() {
   }, [nodes, edges, saveGraph])
 
   const onNodeClick: NodeMouseHandler<Node> = useCallback((_, node) => {
-    console.log('onNodeClick', node)
+
     setSelectedNode(node)
   }, [])
 

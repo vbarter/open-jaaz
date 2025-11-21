@@ -63,8 +63,8 @@ const CanvasToolMenu = () => {
       try {
         excalidrawAPI.updateScene({
           elements: updatedElements,
-          files: currentFiles, // 重要：保持文件引用
         })
+        excalidrawAPI.addFiles(Object.values(currentFiles))
       } catch (updateError) {
         return
       }
@@ -98,7 +98,7 @@ const CanvasToolMenu = () => {
                           window.innerWidth / firstRowViewArea.width,
                           window.innerHeight / firstRowViewArea.height,
                           1 // 不要放大，最多1倍
-                        ),
+                        ) as any,
                       },
                     },
                   })
@@ -112,7 +112,7 @@ const CanvasToolMenu = () => {
 
           // 方案2：滚动到全部内容
           try {
-            console.log('📍 尝试滚动到全部内容')
+
             excalidrawAPI.scrollToContent(undefined, {
               fitToContent: true,
               animate: true,

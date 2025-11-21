@@ -53,11 +53,6 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
   // Load user saved models on initialization
   React.useEffect(() => {
     if (!isModelInitialized || !user) {
-      console.log('🔄 [ModelSelectorV3] 等待初始化或用户登录...', {
-        isModelInitialized,
-        isLoggedIn: !!user,
-        userEmail: user?.email,
-      })
       return
     }
 
@@ -147,7 +142,7 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
   // Group models by provider
   const groupModelsByProvider = (models: typeof allTools) => {
     // 检查下是否不停调用
-    // console.log('🔧 [ModelSelectorV3] 分组模型', models)
+
     const grouped: { [provider: string]: typeof allTools } = {}
     models?.forEach((model) => {
       if (!grouped[model.provider]) {
@@ -191,14 +186,8 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
   const saveModelsToBackend = React.useCallback(
     async (models: typeof selectedModels) => {
       if (!user) {
-        console.log('❌ [ModelSelectorV3] 未登录，跳过保存')
         return // Only save if user is logged in
       }
-
-      console.log('💾 [ModelSelectorV3] 立即保存模型到后端:', {
-        userEmail: user.email,
-        models: models,
-      })
 
       const modelsToSave = {
         text_model: models.text
@@ -212,16 +201,16 @@ const ModelSelectorV3: React.FC<ModelSelectorV3Props> = ({ onModelChange }) => {
           ? {
               provider: models.image.provider,
               id: models.image.id,
-              display_name: models.image.display_name,
-              type: 'image',
+              display_name: models.image.display_name || undefined,
+              type: models.image.type || 'image',
             }
           : undefined,
         selected_video_tool: models.video
           ? {
               provider: models.video.provider,
               id: models.video.id,
-              display_name: models.video.display_name,
-              type: 'video',
+              display_name: models.video.display_name || undefined,
+              type: models.video.type || 'video',
             }
           : undefined,
       }

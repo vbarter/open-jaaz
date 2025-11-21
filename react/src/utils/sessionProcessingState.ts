@@ -9,7 +9,7 @@ interface ProcessingState {
   sessionId: string
   isProcessing: boolean
   startTime: number
-  type?: 'text' | 'tool' | 'image'
+  type?: 'text' | 'tool' | 'image' | 'magic'
 }
 
 interface ProcessingStates {
@@ -35,7 +35,7 @@ export const setSessionProcessing = (sessionId: string, isProcessing: boolean, t
     }
 
     localStorage.setItem(PROCESSING_STATE_KEY, JSON.stringify(states))
-    console.log(`📝 [SessionState] ${sessionId} processing: ${isProcessing}`, type)
+
   } catch (error) {
     console.error('Failed to set session processing state:', error)
   }
@@ -53,13 +53,13 @@ export const getSessionProcessing = (sessionId: string): ProcessingState | null 
       // 检查状态是否过期（超过5分钟）
       const elapsed = Date.now() - state.startTime
       if (elapsed > 5 * 60 * 1000) {
-        console.log(`⏰ [SessionState] ${sessionId} processing state expired`)
+
         delete states[sessionId]
         localStorage.setItem(PROCESSING_STATE_KEY, JSON.stringify(states))
         return null
       }
 
-      console.log(`📖 [SessionState] ${sessionId} is processing:`, state)
+
       return state
     }
 
@@ -87,7 +87,7 @@ export const cleanupExpiredStates = () => {
       if (elapsed > 5 * 60 * 1000) {
         delete states[sessionId]
         hasChanges = true
-        console.log(`🧹 [SessionState] Cleaned expired state for ${sessionId}`)
+
       }
     })
 
@@ -111,5 +111,5 @@ export const clearSessionProcessing = (sessionId: string) => {
  */
 export const clearAllProcessingStates = () => {
   localStorage.removeItem(PROCESSING_STATE_KEY)
-  console.log('🧹 [SessionState] Cleared all processing states')
+
 }

@@ -47,7 +47,7 @@ export function setCookie(name: string, value: string, options: CookieOptions = 
 
   document.cookie = cookieString
   
-  console.log(`🍪 Cookie set: ${name}`)
+
 }
 
 /**
@@ -76,7 +76,7 @@ export function deleteCookie(name: string, options: Pick<CookieOptions, 'path' |
     ...options,
     expires: new Date(0) // 设置为过去时间
   })
-  console.log(`🗑️ Cookie deleted: ${name}`)
+
 }
 
 /**
@@ -122,7 +122,7 @@ export function setAuthCookie(name: string, value: string, expiresInDays: number
     return
   }
   
-  console.log(`🍪 Setting auth cookie: ${name}`)
+
   
   // 🔧 优化Cookie设置，提高跨窗口兼容性
   const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
@@ -161,7 +161,7 @@ export function getAuthCookie(name: string): string | null {
   const forceLogout = sessionStorage.getItem('force_logout')
   
   if (isLoggingOut === 'true' || forceLogout === 'true') {
-    console.log(`🚪 Logout in progress, skipping localStorage recovery for: ${name}`)
+
     return null
   }
   
@@ -174,7 +174,7 @@ export function getAuthCookie(name: string): string | null {
       const expiresTime = parseInt(backupExpires)
       
       if (Date.now() < expiresTime) {
-        console.log(`🔄 Restoring auth data from localStorage backup: ${name}`)
+
         
         // 恢复到cookie
         const daysUntilExpiry = Math.ceil((expiresTime - Date.now()) / (24 * 60 * 60 * 1000))
@@ -231,5 +231,5 @@ export function clearAuthCookies(): void {
     console.warn('Failed to clear localStorage backups:', error)
   }
   
-  console.log('🧹 All auth cookies and backups cleared')
+
 }

@@ -49,17 +49,11 @@ const ModelSelector: React.FC = () => {
         '[debug] 🔍 检查 cookie 中的 current_selected_model:',
         localStorage.getItem('current_selected_model')
       )
-
       if (tool) {
         setSelectedTools([tool])
         // 保存当前选择的模型到 cookie
         const modelName = tool.display_name || tool.id
         localStorage.setItem('current_selected_model', modelName)
-        console.log('[debug] ✅ 已将工具模型保存到 cookie:', modelName)
-        console.log(
-          '[debug] 🔍 验证 cookie 写入成功:',
-          localStorage.getItem('current_selected_model')
-        )
       } else {
         console.warn('[debug] ❌ 未找到匹配的工具模型')
       }
@@ -83,18 +77,13 @@ const ModelSelector: React.FC = () => {
     )
 
     // 多选模式下，选择第一个工具作为当前模型
-    console.log('[debug] 🔍 多选模式 - 选中的工具数量:', newSelected.length)
+
     if (newSelected.length > 0) {
       const firstTool = newSelected[0]
       const modelName = firstTool.display_name || firstTool.id
       localStorage.setItem('current_selected_model', modelName)
-      console.log('[debug] ✅ 多选模式，使用第一个工具模型:', modelName)
-      console.log(
-        '[debug] 🔍 验证 cookie 写入成功:',
-        localStorage.getItem('current_selected_model')
-      )
     } else {
-      console.log('[debug] ⚠️ 多选模式，没有选中任何工具，保持原有选择')
+
     }
   }
 

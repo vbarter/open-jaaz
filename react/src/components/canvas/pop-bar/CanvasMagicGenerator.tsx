@@ -26,7 +26,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
   const lastGenerateTimeRef = useRef<number>(0)
 
   const handleMagicGenerate = async () => {
-    console.log('[CanvasMagicGenerator] 开始Magic Generation流程...')
+
 
     // 防重复检查 - 防止短时间内重复点击
     const currentTime = Date.now()
@@ -57,10 +57,10 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
 
     try {
       // 获取选中的元素
-      console.log('[CanvasMagicGenerator] 获取选中的元素...')
+
       const appState = excalidrawAPI.getAppState()
       const selectedIds = appState.selectedElementIds
-      console.log('[CanvasMagicGenerator] 选中的元素ID:', selectedIds)
+
 
       if (Object.keys(selectedIds).length === 0) {
         console.warn('[CanvasMagicGenerator] 没有选中任何元素')
@@ -70,9 +70,9 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
       }
 
       const allFiles = excalidrawAPI.getFiles()
-      console.log('[CanvasMagicGenerator] ==========开始处理==========')
-      console.log('[CanvasMagicGenerator] 画布上的总文件数:', Object.keys(allFiles).length, '个')
-      console.log('[CanvasMagicGenerator] 选中的元素数量:', selectedElements.length)
+
+
+
 
       // 分析选中的图片元素，获取它们的文件ID
       const imageElements = selectedElements.filter((element) => element.type === 'image')
@@ -82,14 +82,6 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
         if (element.fileId) {
           selectedFileIds.add(element.fileId)
         }
-        console.log(`[CanvasMagicGenerator] 图片元素${index + 1}:`, {
-          id: element.id,
-          fileId: element.fileId,
-          width: element.width,
-          height: element.height,
-          hasFileId: !!element.fileId,
-          fileExists: element.fileId ? !!allFiles[element.fileId] : false,
-        })
       })
 
       // 只处理选中元素相关的文件
@@ -100,8 +92,8 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
         }
       })
 
-      console.log('[CanvasMagicGenerator] ✅ 优化后：选中元素关联的文件数:', Object.keys(files).length, '个')
-      console.log('[CanvasMagicGenerator] ✅ 减少的API请求数:', Object.keys(allFiles).length - Object.keys(files).length, '个')
+
+
 
       // 详细分析选中的files对象结构
       const fileIds = Object.keys(files)
@@ -113,21 +105,11 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
           file.dataURL.startsWith('/api/file/') ? 'api' :
           'other' : 'none'
 
-        console.log(`[CanvasMagicGenerator] 选中的文件${index + 1} (${fileId}):`, {
-          urlType,
-          dataURLPreview:
-            file && file.dataURL ? file.dataURL.substring(0, 80) + '...' : 'no dataURL',
-        })
+
       })
 
       // 检查是否包含图片元素（可能导致Canvas污染）
       const hasImages = selectedElements.some((element) => element.type === 'image')
-      console.log('[CanvasMagicGenerator] Canvas安全检测:', {
-        hasImages,
-        imageElementsCount: imageElements.length,
-        selectedFileCount: fileIds.length,
-        selectedFileIds: fileIds.slice(0, 3), // 只显示前3个文件ID
-      })
 
 
       // 预处理选中的图片（只有存在图片元素时才处理）
@@ -135,7 +117,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
 
       // 如果没有图片元素，跳过文件处理
       if (!hasImages) {
-        console.log('[CanvasMagicGenerator] 没有图片元素，跳过文件处理')
+
       } else {
         // 识别需要处理的图片（非base64格式的）
         const needProcessFileIds = fileIds.filter((fileId) => {
@@ -144,17 +126,17 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
 
           // 如果是base64格式（data:开头），不需要处理
           if (file.dataURL.startsWith('data:')) {
-            console.log(`[CanvasMagicGenerator] 文件 ${fileId} 已是base64格式，无需处理`)
+
             return false
           }
 
           // 其他格式（http/https或/api/file/）都需要处理
-          console.log(`[CanvasMagicGenerator] 文件 ${fileId} 需要处理: ${file.dataURL.substring(0, 50)}...`)
+
           return true
         })
 
         if (needProcessFileIds.length > 0) {
-          console.log(`[CanvasMagicGenerator] 检测到 ${needProcessFileIds.length} 个需要处理的图片`)
+
 
           // 处理所有需要获取数据的图片
           for (const fileId of needProcessFileIds) {
@@ -166,7 +148,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
 
               if (url.startsWith('http')) {
                 // 处理远程URL
-                console.log(`[CanvasMagicGenerator] 处理远程图片: ${url.substring(0, 50)}...`)
+
 
                 // 检查是否已缓存
                 const { extractFileIdentifier, checkLocalFile } = await import('@/utils/remoteImageProcessor')
@@ -174,7 +156,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
                 const localUrl = await checkLocalFile(filename, userInfo)
 
                 if (localUrl) {
-                  console.log(`[CanvasMagicGenerator] 远程图片已缓存，从本地获取: ${filename}`)
+
                   const response = await fetch(localUrl, { credentials: 'include' })
                   const blob = await response.blob()
                   const reader = new FileReader()
@@ -184,17 +166,17 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
                     reader.readAsDataURL(blob)
                   })
                 } else {
-                  console.log(`[CanvasMagicGenerator] 下载远程图片: ${filename}`)
+
                   const { processRemoteImage: processImg } = await import('@/utils/remoteImageProcessor')
                   processedDataURL = await processImg(url, userInfo)
                 }
               } else if (url.startsWith('/api/file/')) {
                 // 处理本地API路径
-                console.log(`[CanvasMagicGenerator] 处理本地API图片: ${url}`)
+
 
                 // 构建完整的URL
                 const fullUrl = `${window.location.origin}${url}`
-                console.log(`[CanvasMagicGenerator] 完整URL: ${fullUrl}`)
+
 
                 // 获取图片数据
                 const response = await fetch(fullUrl, { credentials: 'include' })
@@ -210,10 +192,10 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
                   reader.readAsDataURL(blob)
                 })
 
-                console.log(`[CanvasMagicGenerator] 本地API图片获取成功，大小: ${blob.size} bytes`)
+
               } else {
                 // 其他路径（可能是相对路径）
-                console.log(`[CanvasMagicGenerator] 处理其他类型路径: ${url}`)
+
 
                 // 尝试作为相对路径获取
                 const response = await fetch(url, { credentials: 'include' })
@@ -235,7 +217,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
                 ...file,
                 dataURL: processedDataURL as typeof file.dataURL,
               }
-              console.log(`[CanvasMagicGenerator] ✅ 图片处理成功: ${fileId}`)
+
 
             } catch (error) {
               console.error(`[CanvasMagicGenerator] ❌ 处理图片失败 ${fileId}:`, error)
@@ -245,9 +227,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
             }
           }
 
-          console.log(`[CanvasMagicGenerator] 所有图片处理完成，开始导出Canvas`)
-        } else {
-          console.log(`[CanvasMagicGenerator] 所有图片都是base64格式，无需额外处理`)
+
         }
       }
 
@@ -261,8 +241,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
 
       if (hasImages && fileIds.length > 0) {
         // 有图片时使用更安全的Blob导出方案
-        console.log('[CanvasMagicGenerator] 检测到图片元素，使用Blob导出方案...')
-        console.log('[CanvasMagicGenerator] 导出的文件数:', Object.keys(exportFiles).length)
+
 
         try {
           const blob = await exportToBlob({
@@ -276,7 +255,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
             quality: 0.8,
             exportPadding: 10,
           })
-          console.log('[CanvasMagicGenerator] Blob导出成功，大小:', blob.size, 'bytes')
+
 
           // 将Blob转换为base64
           base64 = await new Promise<string>((resolve, reject) => {
@@ -285,7 +264,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
             reader.onerror = reject
             reader.readAsDataURL(blob)
           })
-          console.log('[CanvasMagicGenerator] Blob转base64成功，长度:', base64.length)
+
 
           // 通过创建临时image获取尺寸
           const tempImg = new Image()
@@ -298,7 +277,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
           await imgLoad
           width = tempImg.width
           height = tempImg.height
-          console.log('[CanvasMagicGenerator] 图片尺寸:', width, 'x', height)
+
         } catch (blobError) {
           console.warn('[CanvasMagicGenerator] Blob导出失败，尝试SVG转PNG方案:', blobError)
 
@@ -312,7 +291,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
             files: exportFiles, // 只使用选中元素的files
             exportPadding: 10,
           })
-          console.log('[CanvasMagicGenerator] SVG导出成功，长度:', svgString.outerHTML.length)
+
 
           // SVG转PNG（通过Canvas）
           const svgWidth = parseInt(svgString.getAttribute('width') || '800')
@@ -347,11 +326,11 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
           base64 = tempCanvas.toDataURL('image/png', 0.8)
           width = svgWidth
           height = svgHeight
-          console.log('[CanvasMagicGenerator] SVG转PNG成功，尺寸:', width, 'x', height)
+
         }
       } else {
         // 没有图片时使用原来的Canvas导出方案
-        console.log('[CanvasMagicGenerator] 无图片元素，使用Canvas导出方案...')
+
 
         const canvas = await exportToCanvas({
           elements: selectedElements,
@@ -364,18 +343,12 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
           maxWidthOrHeight: 2048,
           quality: 1,
         })
-        console.log(
-          '[CanvasMagicGenerator] Canvas导出成功，尺寸:',
-          canvas.width,
-          'x',
-          canvas.height
-        )
 
         try {
           base64 = canvas.toDataURL('image/png', 0.8)
           width = canvas.width
           height = canvas.height
-          console.log('[CanvasMagicGenerator] Canvas toDataURL成功，长度:', base64.length)
+
         } catch (canvasError) {
           console.error('[CanvasMagicGenerator] Canvas被污染，fallback到Blob方案:', canvasError)
 
@@ -400,7 +373,7 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
           })
           width = canvas.width
           height = canvas.height
-          console.log('[CanvasMagicGenerator] Fallback Blob转换成功')
+
         }
       }
 
@@ -412,34 +385,20 @@ const CanvasMagicGenerator = ({ selectedImages, selectedElements }: CanvasMagicG
         height: height,
         timestamp: new Date().toISOString(),
       }
-      console.log(
-        '[CanvasMagicGenerator] 准备发送事件:',
-        eventData.fileId,
-        '尺寸:',
-        width,
-        'x',
-        height
-      )
+
 
       eventBus.emit('Canvas::MagicGenerate', eventData)
-      console.log('[CanvasMagicGenerator] 事件发送成功')
 
       // 清除选中状态
       excalidrawAPI?.updateScene({
         appState: { selectedElementIds: {} },
       })
-      console.log('[CanvasMagicGenerator] 清除选中状态完成')
     } catch (error) {
       console.error('[CanvasMagicGenerator] Magic Generation过程中发生错误:', error)
-      console.error(
-        '[CanvasMagicGenerator] 错误堆栈:',
-        error instanceof Error ? error.stack : '无堆栈信息'
-      )
       toast.error('Magic Generation失败: ' + (error instanceof Error ? error.message : '未知错误'))
     } finally {
       // 无论成功还是失败，都要重置生成状态
       setIsGenerating(false)
-      console.log('[CanvasMagicGenerator] 重置生成状态')
     }
   }
 

@@ -60,7 +60,7 @@ export async function checkLocalFile(filename: string, userInfo?: UserInfo): Pro
   try {
     const localUrl = `${BASE_API_URL}/api/file/${filename}`
 
-    console.log(`[RemoteImageProcessor] 检查本地文件: ${localUrl}`)
+
 
     // 使用GET请求检查文件是否存在，如果存在就能直接使用这个URL
     const response = await fetch(localUrl, {
@@ -69,14 +69,14 @@ export async function checkLocalFile(filename: string, userInfo?: UserInfo): Pro
     })
 
     if (response.ok) {
-      console.log(`[RemoteImageProcessor] 本地文件存在: ${filename}`)
+
       return localUrl
     }
 
-    console.log(`[RemoteImageProcessor] 本地文件不存在: ${filename} (状态码: ${response.status})`)
+
     return null
   } catch (error) {
-    console.log(`[RemoteImageProcessor] 本地文件检查失败: ${filename}`, error)
+
     return null
   }
 }
@@ -90,7 +90,7 @@ export async function downloadAndSaveRemoteImage(
   userInfo?: UserInfo
 ): Promise<string> {
   try {
-    console.log(`[RemoteImageProcessor] 开始下载远程图片: ${url}`)
+
 
     const response = await fetch(url, {
       mode: 'cors',
@@ -102,7 +102,7 @@ export async function downloadAndSaveRemoteImage(
     }
 
     const blob = await response.blob()
-    console.log(`[RemoteImageProcessor] 图片下载成功: ${blob.size} bytes, type: ${blob.type}`)
+
 
     // 如果用户已登录，尝试使用upload_image_fast API保存到服务器
     if (userInfo?.user_info?.email) {
@@ -118,7 +118,7 @@ export async function downloadAndSaveRemoteImage(
 
         if (saveResponse.ok) {
           const result = await saveResponse.json()
-          console.log(`[RemoteImageProcessor] 图片已保存到服务器: ${result.file_id}`)
+
 
           // 使用保存后的proxy_url获取base64
           const localResponse = await fetch(result.proxy_url, {

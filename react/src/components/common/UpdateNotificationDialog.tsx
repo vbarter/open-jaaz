@@ -28,7 +28,7 @@ const UpdateNotificationDialog = () => {
   useEffect(() => {
     // Listen for update downloaded event
     const handleUpdateDownloaded = (info: UpdateInfo) => {
-      console.log('Update downloaded:', info)
+
       setUpdateInfo(info)
       setShowUpdateDialog(true)
     }
@@ -58,9 +58,6 @@ const UpdateNotificationDialog = () => {
     if (process.env.NODE_ENV === 'development') {
       // @ts-expect-error - Adding test function to window for development
       window.testUpdateDialog = handleTestUpdateDialog
-      console.log(
-        '🔧 Development mode: Use window.testUpdateDialog() to test update dialog'
-      )
     }
   }, [])
 

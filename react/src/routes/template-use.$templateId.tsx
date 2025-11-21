@@ -83,7 +83,7 @@ function TemplateUsePage() {
   const { mutate: uploadImageMutation } = useMutation({
     mutationFn: (file: File) => uploadImageFast(file),
     onSuccess: (data: FastUploadResult) => {
-      console.log('⚡ 模板页面快速上传成功', data)
+
       setImages((prev) => [
         ...prev,
         {
@@ -173,13 +173,7 @@ function TemplateUsePage() {
       const sessionId = nanoid()
       const systemPrompt = localStorage.getItem('system_prompt') || DEFAULT_SYSTEM_PROMPT
 
-      console.log('🚀 开始模板生成流程', {
-        templateId,
-        characterName: textContent,
-        canvasId,
-        sessionId,
-        imagesCount: images.length,
-      })
+
 
       // 根据模版配置处理图片 - 只有需要上传文件的模版才处理图片
       let messageContent
@@ -188,12 +182,12 @@ function TemplateUsePage() {
         const imagePromises = images.map(async (image) => {
           // 如果有本地预览URL，直接使用（已经是base64格式）
           if (image.localPreviewUrl && image.localPreviewUrl.startsWith('data:')) {
-            console.log('⚡ 使用本地预览URL，避免网络请求:', image.file_id)
+
             return image.localPreviewUrl
           }
 
           // 如果没有本地预览，才从服务器获取
-          console.log('⚡ 从服务器获取图片:', image.file_id)
+
           const response = await fetch(`/api/file/${image.file_id}?redirect=true`)
           const blob = await response.blob()
           return new Promise<string>((resolve) => {
@@ -290,7 +284,6 @@ function TemplateUsePage() {
           templateId: parseInt(templateId),
           language: currentLanguage,
         }).catch((error) => {
-          console.error('❌ 魔法生成启动失败:', error)
           // 错误会通过websocket推送到canvas页面
         })
       }, 100)

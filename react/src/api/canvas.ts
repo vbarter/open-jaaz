@@ -16,7 +16,7 @@ export async function listCanvases(): Promise<ListCanvasesResponse[]> {
   if (!response.ok) {
     // 如果认证失败（401），返回空数组而不是抛出错误
     if (response.status === 401) {
-      console.log('🚨 listCanvases: User not authenticated, returning empty list')
+
       return []
     }
     throw new Error(`Failed to fetch canvases: ${response.status}`)

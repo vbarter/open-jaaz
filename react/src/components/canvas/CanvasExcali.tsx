@@ -122,7 +122,6 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
       excalidrawAPI.updateScene({
         appState: {
           viewBackgroundColor: '#121212',
-          gridColor: 'rgba(255, 255, 255, 0.1)',
         },
       })
     } else if (excalidrawAPI && theme === 'light') {
@@ -130,7 +129,6 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
       excalidrawAPI.updateScene({
         appState: {
           viewBackgroundColor: '#ffffff',
-          gridColor: 'rgba(0, 0, 0, 0.1)',
         },
       })
     }
@@ -158,9 +156,7 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
       const existingImages = imageLayoutManagerRef.current.getAllImages()
 
       existingImages.forEach((img, index) => {
-        console.log(
-          `  [${index}] 位置(${img.row},${img.col}) 坐标(${img.x},${img.y}) 尺寸(${img.width}x${img.height})`
-        )
+
       })
 
       // 检查新图片是否已存在
@@ -297,7 +293,7 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
         )
       }
 
-      console.log('👇 Not a video URL, returning null for:', link)
+
       // Return null for non-video embeds to use default rendering
       return null
     },
@@ -306,17 +302,17 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
 
   const handleImageGenerated = useCallback(
     (imageData: ISocket.SessionImageGeneratedEvent) => {
-      console.log('👇 CanvasExcali received image_generated:', imageData)
+
 
       // Only handle if it's for this canvas
       if (imageData.canvas_id !== canvasId) {
-        console.log('👇 Image not for this canvas, ignoring')
+
         return
       }
 
       // Check if this is actually a video generation event that got mislabeled
       if (imageData.file?.mimeType?.startsWith('video/')) {
-        console.log('👇 This appears to be a video, not an image. Ignoring in image handler.')
+
         return
       }
 
@@ -355,53 +351,52 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
   }, [excalidrawAPI, initialData])
 
   return (
-    <Excalidraw
-      theme={customTheme as Theme}
-      langCode={i18n.language}
-      className={excalidrawClassName}
-      excalidrawAPI={(api) => {
-        setExcalidrawAPI(api)
-      }}
-      onChange={handleChange}
-      initialData={() => {
-        const data = initialData
+    <div className={excalidrawClassName} style={{ width: '100%', height: '100%' }}>
+      <Excalidraw
+        theme={customTheme as Theme}
+        langCode={i18n.language}
+        excalidrawAPI={(api) => {
+          setExcalidrawAPI(api)
+        }}
+        onChange={handleChange}
+        initialData={() => {
+          const data = initialData
 
-        // 🎨 设置自定义背景色 - 与蓝色渐变主题呼应
-        // 颜色选项：
-        // '#fafbff' - 非常淡的蓝白色（推荐，与主题完美呼应）
-        // '#f8faff' - 稍蓝一点的版本（更明显的蓝色调）
-        // '#fbfcff' - 极淡版本（几乎白色但保持蓝色调）
-        // '#ffffff' - 经典纯白色（如需回到原始效果）
-        const customAppState = {
-          ...(data?.appState || {}),
-          collaborators: undefined!,
-          viewBackgroundColor: '#fafbff', // 当前使用：非常淡的蓝白色
-        }
+          // 🎨 设置自定义背景色 - 与蓝色渐变主题呼应
+          // 颜色选项：
+          // '#fafbff' - 非常淡的蓝白色（推荐，与主题完美呼应）
+          // '#f8faff' - 稍蓝一点的版本（更明显的蓝色调）
+          // '#fbfcff' - 极淡版本（几乎白色但保持蓝色调）
+          // '#ffffff' - 经典纯白色（如需回到原始效果）
+          const customAppState = {
+            ...(data?.appState || {}),
+            collaborators: undefined!,
+            viewBackgroundColor: '#fafbff', // 当前使用：非常淡的蓝白色
+          }
 
-        return (
-          {
+          return {
             ...data,
             appState: customAppState,
-          } || null
-        )
-      }}
-      renderEmbeddable={renderEmbeddable}
-      // Allow all URLs for embeddable content
-      validateEmbeddable={(url: string) => {
-        // Allow all URLs - return true for everything
-        return true
-      }}
-      // Ensure interactive mode is enabled
-      viewModeEnabled={false}
-      zenModeEnabled={false}
-      // Allow element manipulation
-      onPointerUpdate={(payload) => {
-        // Minimal logging - only log significant pointer events
-        if (payload.button === 'down' && Math.random() < 0.05) {
-          // console.log('👇 Pointer down on:', payload.pointer.x, payload.pointer.y)
-        }
-      }}
-    />
+          }
+        }}
+        renderEmbeddable={renderEmbeddable}
+        // Allow all URLs for embeddable content
+        validateEmbeddable={(url: string) => {
+          // Allow all URLs - return true for everything
+          return true
+        }}
+        // Ensure interactive mode is enabled
+        viewModeEnabled={false}
+        zenModeEnabled={false}
+        // Allow element manipulation
+        onPointerUpdate={(payload) => {
+          // Minimal logging - only log significant pointer events
+          if (payload.button === 'down' && Math.random() < 0.05) {
+            // console.log('👇 Pointer down on:', payload.pointer.x, payload.pointer.y)
+          }
+        }}
+      />
+    </div>
   )
 }
 

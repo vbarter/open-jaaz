@@ -53,7 +53,7 @@ export async function getSettings(): Promise<Record<string, unknown>> {
  * });
  *
  * if (result.status === 'success') {
- *   console.log('Settings saved successfully');
+ *   // Settings saved successfully
  * }
  */
 export async function updateSettings(
@@ -79,7 +79,7 @@ export async function updateSettings(
  * @description 仅获取代理相关的设置，不包含其他配置项
  * @example
  * const proxySettings = await getProxySettings();
- * console.log('Proxy setting:', proxySettings.proxy);
+ * // Proxy setting: proxySettings.proxy
  * // 可能的值：
  * // '' - 不使用代理
  * // 'system' - 使用系统代理
@@ -109,7 +109,7 @@ export async function getProxySettings(): Promise<Record<string, unknown>> {
  * });
  *
  * if (result.status === 'success') {
- *   console.log('Proxy settings updated');
+ *   // Proxy settings updated
  * }
  */
 export async function updateProxySettings(

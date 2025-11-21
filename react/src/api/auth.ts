@@ -168,7 +168,7 @@ export async function getAuthStatus(): Promise<AuthStatus> {
           }
         }
       } else {
-        console.log('❌ Backend auth API returned error:', response.status)
+
       }
     } catch (error) {
       console.error('❌ Failed to get user info from backend API:', error)
@@ -176,7 +176,7 @@ export async function getAuthStatus(): Promise<AuthStatus> {
 
     // Fallback：如果API调用失败，使用现有的前端cookie数据（如果有的话）
     if (token && userInfoStr) {
-      console.log('🔄 Fallback: Using existing frontend cookie data...')
+
       try {
         const userInfo = JSON.parse(userInfoStr)
         return {
@@ -194,7 +194,7 @@ export async function getAuthStatus(): Promise<AuthStatus> {
     const userEmail = getCookieValue('user_email')
 
     if (userUuid && userEmail) {
-      console.log('🔄 Last fallback: Creating user info from basic cookies...')
+
       const backendUserInfo = {
         id: userUuid,
         username: userEmail.split('@')[0],
@@ -225,7 +225,7 @@ export async function getAuthStatus(): Promise<AuthStatus> {
     const forceLogout = sessionStorage.getItem('force_logout')
 
     if (isLoggingOut === 'true' || forceLogout === 'true') {
-      console.log('🚪 Logout in progress, skipping localStorage migration')
+
     } else {
       const legacyToken = localStorage.getItem('jaaz_access_token')
       const legacyUserInfo = localStorage.getItem('jaaz_user_info')
@@ -247,33 +247,28 @@ export async function getAuthStatus(): Promise<AuthStatus> {
     }
   }
 
-  console.log('📋 Final auth data check:', {
-    hasToken: !!token,
-    hasUserInfo: !!userInfoStr,
-    userInfo: userInfoStr ? JSON.parse(userInfoStr) : null,
-  })
 
   if (!token || !userInfoStr) {
     const loggedOutStatus = {
       status: 'logged_out' as const,
       is_logged_in: false,
     }
-    console.log('❌ No valid auth data found, returning logged out status')
+
     return loggedOutStatus
   }
 
   // 🔥 简化Token检查：主要依赖cookie存在性，减少网络请求
   const remainingTime = getTokenRemainingTime(token)
-  console.log(`Token remaining time: ${Math.floor(remainingTime / 60)} minutes`)
+
 
   // 只有当token真正过期时才尝试刷新
   if (isTokenExpired(token)) {
-    console.log('⏰ Token is expired, attempting refresh')
+
 
     try {
       const newToken = await refreshToken(token)
       setAuthCookie(AUTH_COOKIES.ACCESS_TOKEN, newToken, 30) // 30天过期
-      console.log('✅ Expired token refreshed successfully')
+
 
       return {
         status: 'logged_in' as const,
@@ -281,7 +276,7 @@ export async function getAuthStatus(): Promise<AuthStatus> {
         user_info: JSON.parse(userInfoStr),
       }
     } catch (error) {
-      console.log('❌ Failed to refresh expired token:', error)
+
 
       // 清理过期的认证数据
       await clearAuthData()
@@ -309,20 +304,20 @@ export async function getAuthStatus(): Promise<AuthStatus> {
 
   // 🚨 检查用户信息是否包含level字段，如果没有则使用数据库默认值
   if (!userInfo.level) {
-    console.log('⚠️ User info missing level field, adding default level based on database')
+
     // 基于我们知道的用户信息，这个用户在数据库中是base级别
     if (userInfo.email === 'yzcaijunjie@gmail.com') {
       userInfo.level = 'base'
-      console.log('🔧 Updated user level to: base (from database)')
+
       // 更新本地存储
       setAuthCookie(AUTH_COOKIES.USER_INFO, JSON.stringify(userInfo), 30)
     } else {
       userInfo.level = 'free' // 默认级别
-      console.log('🔧 Set default user level to: free')
+
     }
   }
 
-  // console.log('📋 Final user info with level:', userInfo)
+
 
   // 返回登录状态
   return {
@@ -390,7 +385,7 @@ function deleteCookieManually(name: string): void {
   if (stillExists) {
     console.error(`❌ FAILED TO DELETE COOKIE: ${name}`)
   } else {
-    console.log(`✅ Successfully deleted cookie: ${name}`)
+
   }
 }
 
@@ -419,7 +414,7 @@ function nukeAllCookies(): void {
         document.cookie = cmd
       })
 
-      console.log(`💥 Nuked cookie: ${name}`)
+
     }
   })
 }
@@ -488,7 +483,7 @@ export async function clearAuthData(): Promise<void> {
     if (value) {
       console.error(`❌ Failed to clear localStorage key: ${key}`)
     } else {
-      console.log(`✅ Cleared localStorage key: ${key}`)
+
     }
   })
 
@@ -518,7 +513,7 @@ export async function clearAuthData(): Promise<void> {
 
   jaazKeys.forEach((key) => {
     localStorage.removeItem(key)
-    console.log(`🗑️ Removed additional key: ${key}`)
+
   })
 
   // 🧹 清理sessionStorage中的logout标志以外的所有认证相关数据
@@ -539,12 +534,12 @@ export async function clearAuthData(): Promise<void> {
 
   sessionKeys.forEach((key) => {
     sessionStorage.removeItem(key)
-    console.log(`🗑️ Removed sessionStorage key: ${key}`)
+
   })
 
   // 🔑 清理API密钥
   try {
-    console.log('🔑 Clearing API keys...')
+
     await clearJaazApiKey()
   } catch (error) {
     console.error('Failed to clear jaaz api key:', error)
@@ -595,7 +590,7 @@ export async function logout(): Promise<{ status: string; message: string }> {
       // 延迟清理force_logout标记，确保不会意外恢复登录状态
       setTimeout(() => {
         sessionStorage.removeItem('force_logout')
-        console.log('✅ Logout process completed, UI should be updated')
+
       }, 1000)
     }, 200) // 给AuthContext更多时间处理状态变化
 
@@ -636,7 +631,7 @@ export async function logout(): Promise<{ status: string; message: string }> {
         sessionStorage.removeItem('is_logging_out')
         setTimeout(() => {
           sessionStorage.removeItem('force_logout')
-          console.log('✅ Fallback logout completed')
+
         }, 1000)
       }, 200)
 
@@ -691,7 +686,7 @@ export function saveAuthData(token: string, userInfo: UserInfo) {
     const savedUserInfo = getAuthCookie(AUTH_COOKIES.USER_INFO)
 
     if (savedToken && savedUserInfo) {
-      console.log('✅ Auth data successfully saved to cookies')
+
     } else {
       console.error('❌ Failed to verify saved auth data in cookies')
     }
@@ -719,14 +714,14 @@ export async function authenticatedFetch(
 
   // 🎯 简化逻辑：只检查token是否已过期，不做预刷新
   if (isTokenExpired(token)) {
-    console.log('⏰ Token expired, attempting refresh before API call')
+
     try {
       const newToken = await refreshToken(token)
       setAuthCookie(AUTH_COOKIES.ACCESS_TOKEN, newToken, 30)
       token = newToken
-      console.log('✅ Token refreshed before API call')
+
     } catch (error) {
-      console.log('❌ Failed to refresh token before API call:', error)
+
       await clearAuthData()
       throw new Error('Authentication failed: Token expired and refresh failed')
     }
@@ -748,7 +743,7 @@ export async function authenticatedFetch(
 
   // 🚀 如果响应是401，尝试刷新token并重试一次
   if (response.status === 401 && token) {
-    console.log('Received 401, attempting token refresh and retry')
+
     try {
       const newToken = await refreshToken(token)
       setAuthCookie(AUTH_COOKIES.ACCESS_TOKEN, newToken, 30) // 保存到cookie
@@ -760,10 +755,10 @@ export async function authenticatedFetch(
         headers,
       })
 
-      console.log('Request retried successfully with new token')
+
       return retryResponse
     } catch (error) {
-      console.log('Token refresh failed after 401:', error)
+
       // 刷新失败，清理认证数据
       await clearAuthData()
       // 返回原始的401响应
@@ -794,8 +789,8 @@ export function checkUrlAuthParams(): {
 } {
   const urlParams = new URLSearchParams(window.location.search)
   const authSuccess = urlParams.get('auth_success') === 'true'
-  const deviceCode = urlParams.get('device_code')
-  const authError = urlParams.get('auth_error')
+  const deviceCode = urlParams.get('device_code') || undefined
+  const authError = urlParams.get('auth_error') || undefined
 
   // 清理URL参数
   if (authSuccess || authError) {
@@ -841,7 +836,7 @@ export function checkDirectAuthParams(): {
   const urlParams = new URLSearchParams(window.location.search)
   const authSuccess = urlParams.get('auth_success') === 'true'
   const encodedAuthData = urlParams.get('auth_data')
-  const authError = urlParams.get('auth_error')
+  const authError = urlParams.get('auth_error') || undefined
 
   let authData = undefined
 
@@ -894,7 +889,7 @@ export async function refreshUserAvatar(): Promise<{
     }
 
     const data = await response.json()
-    console.log('📸 [Avatar] Refresh response:', data)
+
     return data
   } catch (error) {
     console.error('❌ [Avatar] Failed to refresh avatar:', error)

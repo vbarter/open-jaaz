@@ -142,7 +142,7 @@ export class MessageStateManager {
   processEvent(event: DeltaMessageEvent): void {
     const eventType = event.type as MessageEventType
 
-    console.log(`[MessageStateManager] Processing event: ${eventType}`, event)
+
 
     switch (eventType) {
       case MessageEventType.INIT_MESSAGES:
@@ -209,7 +209,7 @@ export class MessageStateManager {
 
     // Check for duplicates
     if (this.messages.has(message.message_id)) {
-      console.log(`[MessageStateManager] Duplicate message ignored: ${message.message_id}`)
+
       return
     }
 

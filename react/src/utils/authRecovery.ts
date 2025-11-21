@@ -17,14 +17,14 @@ class AuthRecovery {
    * 尝试从多个来源恢复认证状态
    */
   public async attemptRecovery(): Promise<AuthRecoveryResult> {
-    console.log('🔄 Starting auth recovery process...')
+
 
     // 🚨 首先检查是否在logout过程中，如果是则拒绝恢复
     const isLoggingOut = sessionStorage.getItem('is_logging_out')
     const forceLogout = sessionStorage.getItem('force_logout')
     
     if (isLoggingOut === 'true' || forceLogout === 'true') {
-      console.log('🚪 Logout in progress, skipping auth recovery')
+
       return {
         success: false,
         source: 'none',
@@ -37,7 +37,7 @@ class AuthRecovery {
     const currentUserInfo = getAuthCookie(AUTH_COOKIES.USER_INFO)
 
     if (currentToken && currentUserInfo) {
-      console.log('✅ Auth state already available in cookies')
+
       return {
         success: true,
         source: 'cookie',
@@ -63,7 +63,7 @@ class AuthRecovery {
       return cookieResult
     }
 
-    console.log('❌ Auth recovery failed - no valid auth data found')
+
     return {
       success: false,
       source: 'none',
@@ -76,14 +76,14 @@ class AuthRecovery {
    */
   private recoverFromLocalStorage(): AuthRecoveryResult {
     try {
-      console.log('🔍 Attempting recovery from localStorage...')
+
       
       // 🚨 再次检查logout状态（防御性编程）
       const isLoggingOut = sessionStorage.getItem('is_logging_out')
       const forceLogout = sessionStorage.getItem('force_logout')
       
       if (isLoggingOut === 'true' || forceLogout === 'true') {
-        console.log('🚪 Logout in progress, skipping localStorage recovery')
+
         return { success: false }
       }
       
@@ -96,7 +96,7 @@ class AuthRecovery {
         const expiresTime = parseInt(backupExpires)
         
         if (Date.now() < expiresTime) {
-          console.log('✅ Valid backup found in localStorage')
+
           
           // 恢复到cookie
           const daysUntilExpiry = Math.ceil((expiresTime - Date.now()) / (24 * 60 * 60 * 1000))
@@ -109,7 +109,7 @@ class AuthRecovery {
             message: 'Auth state recovered from localStorage backup'
           }
         } else {
-          console.log('⏰ localStorage backup expired, cleaning up')
+
           localStorage.removeItem(`backup_${AUTH_COOKIES.ACCESS_TOKEN}`)
           localStorage.removeItem(`backup_${AUTH_COOKIES.USER_INFO}`)
           localStorage.removeItem(`backup_${AUTH_COOKIES.ACCESS_TOKEN}_expires`)
@@ -121,7 +121,7 @@ class AuthRecovery {
       const legacyUserInfo = localStorage.getItem('jaaz_user_info')
       
       if (legacyToken && legacyUserInfo) {
-        console.log('✅ Legacy auth data found in localStorage')
+
         
         // 迁移到新的cookie系统
         setAuthCookie(AUTH_COOKIES.ACCESS_TOKEN, legacyToken, 30)
@@ -150,14 +150,14 @@ class AuthRecovery {
    */
   private recoverFromSessionStorage(): AuthRecoveryResult {
     try {
-      console.log('🔍 Attempting recovery from sessionStorage...')
+
       
       // 🚨 检查logout状态
       const isLoggingOut = sessionStorage.getItem('is_logging_out')
       const forceLogout = sessionStorage.getItem('force_logout')
       
       if (isLoggingOut === 'true' || forceLogout === 'true') {
-        console.log('🚪 Logout in progress, skipping sessionStorage recovery')
+
         return { success: false }
       }
       
@@ -165,7 +165,7 @@ class AuthRecovery {
       const sessionUserInfo = sessionStorage.getItem('jaaz_user_info')
       
       if (sessionToken && sessionUserInfo) {
-        console.log('✅ Auth data found in sessionStorage')
+
         
         // 恢复到cookie（较短过期时间，因为sessionStorage数据可能不稳定）
         setAuthCookie(AUTH_COOKIES.ACCESS_TOKEN, sessionToken, 1) // 1天
@@ -190,14 +190,14 @@ class AuthRecovery {
    */
   private recoverFromAlternateCookies(): AuthRecoveryResult {
     try {
-      console.log('🔍 Attempting recovery from alternate cookies...')
+
       
       // 🚨 检查logout状态
       const isLoggingOut = sessionStorage.getItem('is_logging_out')
       const forceLogout = sessionStorage.getItem('force_logout')
       
       if (isLoggingOut === 'true' || forceLogout === 'true') {
-        console.log('🚪 Logout in progress, skipping alternate cookie recovery')
+
         return { success: false }
       }
       
@@ -212,7 +212,7 @@ class AuthRecovery {
       for (const cookieName of alternateCookieNames) {
         const cookieValue = this.getCookieValue(cookieName)
         if (cookieValue && cookieValue.length > 20) { // 简单的token长度检查
-          console.log(`✅ Found potential auth token in cookie: ${cookieName}`)
+
           
           // 尝试使用这个token
           setAuthCookie(AUTH_COOKIES.ACCESS_TOKEN, cookieValue, 30)
@@ -250,7 +250,7 @@ class AuthRecovery {
    * 强制刷新认证状态
    */
   public forceRefresh(): void {
-    console.log('🔄 Forcing auth state refresh...')
+
     
     // 触发认证状态变化事件
     window.dispatchEvent(new CustomEvent('auth-force-refresh', {
@@ -296,7 +296,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('DOMContentLoaded', async () => {
     const result = await authRecovery.attemptRecovery()
     if (result.success) {
-      console.log(`🎉 Auth recovery successful: ${result.message}`)
+
       // 触发认证状态检查
       authRecovery.forceRefresh()
     }

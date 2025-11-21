@@ -229,7 +229,7 @@ export const CanvasVideoElement: React.FC<{
                 onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
-                    console.log('🎯 CanvasVideoElement div clicked')
+
 
                     // 获取元素的绝对坐标和尺寸信息
                     const rect = e.currentTarget.getBoundingClientRect()
@@ -247,7 +247,7 @@ export const CanvasVideoElement: React.FC<{
                         },
                     }
 
-                    console.log('📍 Element position and size info:', elementInfo)
+
 
 
                 }}
@@ -258,7 +258,7 @@ export const CanvasVideoElement: React.FC<{
                     if (e.key === 'Delete' && onDelete) {
                         e.preventDefault()
                         e.stopPropagation()
-                        console.log('🗑️ Delete key pressed on video element')
+
                         onDelete()
                     }
 
@@ -330,8 +330,7 @@ export const CanvasVideoElement: React.FC<{
                     isPreview={false}
                     muted={true}
                     autoPlay={false}
-                    onClick={(e) => {
-                        console.log('🎬 VideoElement clicked')
+                    onClick={() => {
                         // Don't call onSelect again - already handled by parent div
                     }}
                 />

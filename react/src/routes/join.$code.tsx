@@ -36,7 +36,7 @@ function JoinLandingPage() {
   // 检查用户是否已登录，如果已登录则强制退出
   useEffect(() => {
     if (authStatus.is_logged_in && !isProcessingLogout) {
-      console.log('检测到已登录用户访问邀请链接，强制退出登录')
+
       setIsProcessingLogout(true)
 
       // 设置标记，表示这是静默强制退出，不需要提示
@@ -44,7 +44,7 @@ function JoinLandingPage() {
 
       logout()
         .then(() => {
-          console.log('强制退出成功，继续显示邀请页面')
+
           setIsProcessingLogout(false)
           // 清理静默退出标记
           setTimeout(() => {
