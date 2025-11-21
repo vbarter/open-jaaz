@@ -11,17 +11,17 @@ const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ sessionId, canvas
   const [isThinking, setIsThinking] = useState(false)
 
   useEffect(() => {
-    console.log('🎯 [ThinkingIndicator] Component mounted', { sessionId, canvasId })
+    // console.log('🎯 [ThinkingIndicator] Component mounted', { sessionId, canvasId })
 
     const handleThinkingStarted = (data: TEvents['Socket::Session::ThinkingStarted']) => {
-      console.log('🔥 [ThinkingIndicator] Thinking Started:', data)
+      // console.log('🔥 [ThinkingIndicator] Thinking Started:', data)
       if (data.session_id !== sessionId) return
       if (canvasId && data.canvas_id && data.canvas_id !== canvasId) return
       setIsThinking(true)
     }
 
     const handleThinkingUpdate = (data: TEvents['Socket::Session::ThinkingUpdate']) => {
-      console.log('🔥 [ThinkingIndicator] Thinking Update:', data)
+      // console.log('🔥 [ThinkingIndicator] Thinking Update:', data)
       if (data.session_id !== sessionId) return
       if (canvasId && data.canvas_id && data.canvas_id !== canvasId) return
       // 保持thinking状态
@@ -29,7 +29,7 @@ const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ sessionId, canvas
     }
 
     const handleThinkingComplete = (data: TEvents['Socket::Session::ThinkingComplete']) => {
-      console.log('🔥 [ThinkingIndicator] Thinking Complete:', data)
+      // console.log('🔥 [ThinkingIndicator] Thinking Complete:', data)
       if (data.session_id !== sessionId) return
       if (canvasId && data.canvas_id && data.canvas_id !== canvasId) return
       setIsThinking(false)
@@ -37,7 +37,7 @@ const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ sessionId, canvas
 
     // 处理 done 事件（生成完成）
     const handleDone = (data: any) => {
-      console.log('🔥 [ThinkingIndicator] Done event:', data)
+      // console.log('🔥 [ThinkingIndicator] Done event:', data)
       if (data.session_id !== sessionId) return
       if (canvasId && data.canvas_id && data.canvas_id !== canvasId) return
       setIsThinking(false)
@@ -45,7 +45,7 @@ const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ sessionId, canvas
 
     // 处理取消事件
     const handleCancelled = () => {
-      console.log('🔥 [ThinkingIndicator] Generation cancelled')
+      // console.log('🔥 [ThinkingIndicator] Generation cancelled')
       setIsThinking(false)
     }
 
@@ -70,18 +70,16 @@ const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({ sessionId, canvas
   }
 
   return (
-    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+    <div className='flex items-center gap-2 text-gray-600 dark:text-gray-400'>
       {/* 脉冲转圈动画 */}
-      <div className="relative w-5 h-5">
-        <div className="absolute inset-0 rounded-full border-2 border-gray-300 dark:border-gray-600"></div>
-        <div className="absolute inset-0 rounded-full border-2 border-t-blue-500 animate-spin"></div>
-        <div className="absolute inset-0 rounded-full bg-blue-500 opacity-20 animate-ping"></div>
+      <div className='relative w-5 h-5'>
+        <div className='absolute inset-0 rounded-full border-2 border-gray-300 dark:border-gray-600'></div>
+        <div className='absolute inset-0 rounded-full border-2 border-t-blue-500 animate-spin'></div>
+        <div className='absolute inset-0 rounded-full bg-blue-500 opacity-20 animate-ping'></div>
       </div>
 
       {/* 简单的文本 */}
-      <span className="text-sm font-medium animate-pulse">
-        Thinking...
-      </span>
+      <span className='text-sm font-medium animate-pulse'>Thinking...</span>
     </div>
   )
 }
