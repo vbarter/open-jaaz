@@ -14,7 +14,7 @@ class TokenManager {
    * 启动自动刷新机制 (已禁用 - 改为按需刷新)
    */
   startAutoRefresh(): void {
-    console.log('🔇 Auto-refresh disabled - using on-demand refresh only')
+
     this.stopAutoRefresh() // 清理现有的定时器
     // 不再启动定时刷新，改为按需刷新
   }
@@ -49,7 +49,7 @@ class TokenManager {
     // 在token过期前30分钟尝试刷新
     const refreshTime = Math.max(remainingTime - 30 * 60, 60) // 最少1分钟后刷新
     
-    console.log(`Scheduling token refresh in ${Math.floor(refreshTime / 60)} minutes`)
+
     
     this.refreshTimer = setTimeout(() => {
       this.performRefresh()
@@ -64,10 +64,10 @@ class TokenManager {
     if (!token) return
 
     try {
-      console.log('Auto-refreshing token...')
+
       const newToken = await this.getRefreshedToken(token)
       setAuthCookie(AUTH_COOKIES.ACCESS_TOKEN, newToken, 30) // 保存到cookie
-      console.log('Token auto-refreshed successfully')
+
       
       // 安排下次刷新
       this.scheduleNextRefresh()
@@ -149,6 +149,6 @@ export const tokenManager = new TokenManager()
 
 // TokenManager 初始化 (自动刷新已禁用)
 if (typeof window !== 'undefined') {
-  console.log('🔧 TokenManager: Initialized with on-demand refresh mode')
+
   // 不再自动启动刷新机制，改为按需刷新
 }

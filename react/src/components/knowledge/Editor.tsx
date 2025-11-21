@@ -25,6 +25,7 @@ import {
 
 import { toast } from 'sonner'
 import { useTheme } from '@/hooks/use-theme'
+import { useTranslation } from 'react-i18next'
 import { Textarea } from '../ui/textarea'
 import { Switch } from '../ui/switch'
 import { ImagePlusIcon, SaveIcon } from 'lucide-react'
@@ -64,6 +65,7 @@ function useDebounce<T extends (...args: any[]) => any>(
 export default function Editor({ knowledgeID }: { knowledgeID: string }) {
   const HEADER_HEIGHT = 50
   const { theme } = useTheme()
+  const { t } = useTranslation('knowledge')
   const [isTextSelected, setIsTextSelected] = useState(false)
   const [selectionPosition, setSelectionPosition] = useState<{
     top: number
@@ -96,7 +98,7 @@ export default function Editor({ knowledgeID }: { knowledgeID: string }) {
           mdxEditorRef.current?.setMarkdown(content)
           setIsLoading(false)
         } else {
-          toast.error(t('common:toast.fileReadError') + ' ' + curPath)
+          toast.error(t('common:toast.fileReadError'))
         }
       })
   }, [])
@@ -146,7 +148,7 @@ export default function Editor({ knowledgeID }: { knowledgeID: string }) {
 
   const handleImageUpload = async (file: File) => {
     const res = await uploadImage(file)
-    console.log('res', res)
+
     return res.url
   }
   return (
@@ -184,7 +186,7 @@ function getTitleAndContent(value: string) {
   if (firstNewlineIndex !== -1 && value.startsWith('# ')) {
     const title = value.substring(2, firstNewlineIndex).trim() // Extract title without '# '
     const content = value.substring(firstNewlineIndex + 1).trim() // Extract content after the first newline
-    console.log('content', content)
+
     return { title, content }
   }
   return { title: '', content: value }

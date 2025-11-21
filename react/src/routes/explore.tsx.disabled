@@ -70,7 +70,7 @@ function ExplorePage() {
     try {
       const result = await getUserLikes(videoIds)
       setLikedVideoIds(new Set(result.liked_video_ids))
-      console.log('✅ [Discover] 加载用户点赞状态:', result.liked_video_ids.length)
+
     } catch (error) {
       console.error('❌ [Discover] 加载用户点赞状态失败:', error)
     }
@@ -120,41 +120,25 @@ function ExplorePage() {
           sort_by: sortBy,
         })
 
-        console.log('📋 [Discover] API Response:', {
-          append,
-          offset,
-          limit,
-          total: response.total,
-          tasksCount: response.tasks.length,
-          sortBy: sortBy,
-        })
+
 
         const newVideos = response.tasks.map(taskToVideo)
 
         if (append) {
           setVideos((prev) => {
             const updated = [...prev, ...newVideos]
-            console.log('➕ [Discover] 追加视频:', {
-              before: prev.length,
-              added: newVideos.length,
-              after: updated.length,
-            })
+
             return updated
           })
         } else {
           setVideos(newVideos)
-          console.log('🔄 [Discover] 重置视频列表:', newVideos.length)
+
         }
 
         // 检查是否还有更多数据
         const hasMoreData = offset + limit < response.total
         setHasMore(hasMoreData)
-        console.log('📊 [Discover] 更新状态:', {
-          offset,
-          limit,
-          total: response.total,
-          hasMore: hasMoreData,
-        })
+
 
         // 加载用户点赞状态
         await loadUserLikes(newVideos.map(v => parseInt(v.id)))
@@ -193,7 +177,7 @@ function ExplorePage() {
     if (isPullRefreshing || isLoading) return
 
     setIsPullRefreshing(true)
-    console.log('🔄 [Discover] 下拉刷新中...')
+
 
     try {
       // 重新加载第一页
@@ -241,11 +225,7 @@ function ExplorePage() {
 
     // 距离底部小于 300px 时触发加载
     if (distanceToBottom < 300) {
-      console.log('📍 [Discover] 滚动到底部，触发加载更多', {
-        distanceToBottom,
-        currentVideos: videos.length,
-        hasMore,
-      })
+
       loadVideos(videos.length, true)
     }
   }, [isLoadingMore, hasMore, videos.length, loadVideos])
@@ -255,11 +235,11 @@ function ExplorePage() {
     const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]')
     if (!scrollElement) return
 
-    console.log('🔧 [Discover] 绑定滚动事件监听')
+
     scrollElement.addEventListener('scroll', handleScroll)
 
     return () => {
-      console.log('🧹 [Discover] 移除滚动事件监听')
+
       scrollElement.removeEventListener('scroll', handleScroll)
     }
   }, [handleScroll])

@@ -130,7 +130,7 @@ export default function Knowledge() {
         // If not found or missing content, fetch full data
         if (!kb || !kb.content) {
           try {
-            console.log(`Fetching full data for knowledge: ${id}`)
+
             kb = await getKnowledgeById(id)
           } catch (error) {
             console.error(`Failed to fetch knowledge ${id}:`, error)
@@ -146,9 +146,7 @@ export default function Knowledge() {
 
       // Save complete data to settings
       await saveEnabledKnowledgeDataToSettings(enabledKnowledgeData)
-      console.log(
-        `Saved ${enabledKnowledgeData.length} enabled knowledge items to settings`
-      )
+
       toast.success(t('common:toast.knowledgeSettingsSaved'))
     } catch (error) {
       console.error('Failed to save knowledge data to settings:', error)

@@ -61,13 +61,13 @@ function convertLegacyImageUrls(canvasData: any) {
         // 处理本地 API 格式的 URL
         if (originalUrl.startsWith('/api/file/') && !originalUrl.includes('?redirect=true')) {
           convertedUrl = `${originalUrl}?redirect=true`
-          console.log(`🔄 转换本地API URL: ${fileId} -> ${convertedUrl}`)
+
         }
         // 处理腾讯云COS直链URL
         else if (isTencentCosUrl(originalUrl) && isImageUrl(originalUrl)) {
           convertedUrl = addCompressionParams(originalUrl)
           if (convertedUrl !== originalUrl) {
-            console.log(`🗜️ 添加腾讯云压缩参数: ${fileId} -> ${convertedUrl}`)
+
           }
         }
         
@@ -168,7 +168,7 @@ function Canvas() {
             if (!searchSessionId || !currentSessionExists) {
               // 自动选择最新的session（第一个）
               const latestSession = processedSessions[0]
-              console.log('自动选择最新session:', latestSession.id, latestSession.title)
+
 
               // 导航到最新session
               navigate({
@@ -180,11 +180,11 @@ function Canvas() {
             }
           } else {
             // 如果没有任何sessions，检查是否有URL传递的sessionId
-            console.log('没有找到任何sessions，检查URL传递的sessionId:', searchSessionId)
+
 
             if (searchSessionId) {
               // 🔧 修复：如果URL中有sessionId，使用它创建新session（来自首页跳转）
-              console.log('使用URL传递的sessionId创建新session:', searchSessionId)
+
 
               const urlSession: Session = {
                 id: searchSessionId,
@@ -197,12 +197,12 @@ function Canvas() {
 
               // 立即将URL session添加到sessionList中
               setSessionList([urlSession])
-              console.log('已创建并添加URL session:', searchSessionId, urlSession.title)
+
 
               // 不需要再次导航，URL已经包含正确的sessionId
             } else {
               // 只有在没有URL sessionId时才创建新的默认session
-              console.log('没有URL sessionId，自动创建默认session')
+
 
               // 生成新的会话ID
               const defaultSessionId = nanoid()
@@ -220,7 +220,7 @@ function Canvas() {
 
               // 立即将默认session添加到sessionList中
               setSessionList([defaultSession])
-              console.log('已创建并添加默认session:', defaultSessionId, defaultSessionName)
+
 
               // 导航到默认session
               navigate({
@@ -266,18 +266,15 @@ function Canvas() {
 
     // 🔧 只有当Canvas ID真正改变时才清空数据
     if (previousCanvasIdRef.current !== id) {
-      console.log('🔄 检测到Canvas切换:', {
-        from: previousCanvasIdRef.current,
-        to: id,
-        isProcessing: isProcessingRef.current
-      })
+
+
 
       // 🔧 如果正在处理图生图，延迟清空以避免数据丢失
       if (isProcessingRef.current) {
-        console.log('⚠️ 图片处理中，延迟清空数据')
+
         const timeoutId = setTimeout(() => {
           if (previousCanvasIdRef.current !== id) {
-            console.log('🔄 延迟清空画布数据')
+
             setCanvas(null)
             setSessionList([])
             setProjectName('')
@@ -289,7 +286,7 @@ function Canvas() {
 
         return () => clearTimeout(timeoutId)
       } else {
-        console.log('🔄 立即清空画布数据')
+
         setCanvas(null)
         setSessionList([])
         setProjectName('')
@@ -307,7 +304,7 @@ function Canvas() {
     if (sessionList.length > 0) {
       const newTitle = getCurrentSessionTitle()
       setCurrentSessionTitle(newTitle)
-      console.log('当前session标题更新为:', newTitle)
+
     }
   }, [searchSessionId, sessionList])
 
@@ -331,12 +328,12 @@ function Canvas() {
   const handleProjectNameSave = async (nameToSave?: string) => {
     const finalName = nameToSave || projectName
     try {
-      console.log('正在保存Project名称:', finalName)
+
       await renameCanvas(id, finalName)
       // 同时更新其他相关的名称状态，保持一致性
       setOriginalCanvasName(finalName)
       setCanvasName(finalName) // 确保canvas名称也同步更新
-      console.log('Project名称保存成功:', finalName)
+
     } catch (error) {
       console.error('保存Project名称失败:', error)
       // 可以添加错误提示
@@ -377,7 +374,7 @@ function Canvas() {
   // 处理Session标题变更
   const handleSessionNameChange = async (sessionId: string, newTitle: string) => {
     const trimmedTitle = newTitle.trim() || `Session ${sessionId.slice(0, 8)}`
-    console.log('更新Session标题:', sessionId, trimmedTitle)
+
 
     // 检查标题是否真的发生了变化
     const currentSession = sessionList.find(s => s.id === sessionId)
@@ -396,9 +393,9 @@ function Canvas() {
       // 只有在标题真正改变时才调用后端API
       if (hasChanged) {
         await renameSession(sessionId, trimmedTitle)
-        console.log('Session标题保存成功:', sessionId, trimmedTitle)
+
       } else {
-        console.log('Session标题未改变，跳过API调用:', sessionId, trimmedTitle)
+
       }
     } catch (error) {
       console.error('保存Session标题失败:', error)

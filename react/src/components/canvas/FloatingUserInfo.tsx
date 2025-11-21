@@ -60,7 +60,7 @@ export function FloatingUserInfo() {
 
   // 🎯 用户菜单打开时主动刷新用户数据，确保信息是最新的
   const handleMenuOpen = useCallback(() => {
-    console.log('👤 FloatingUserInfo: 菜单打开，主动刷新用户数据...')
+
     // 同时刷新认证状态和用户信息
     refreshAuth().catch(error => {
       console.error('❌ FloatingUserInfo: 刷新认证状态失败:', error)
@@ -74,19 +74,19 @@ export function FloatingUserInfo() {
   const points = Math.max(0, Math.floor(parseFloat(balance) * 100))
 
   const handleLogout = async () => {
-    console.log('🚪 FloatingUserInfo: Starting logout...')
+
     try {
       // 🚀 调用优化后的logout函数
       // 它会：1.调用后端API 2.清理前端数据 3.通知其他标签页
       await logout()
 
       // 🏠 logout成功后，导航到首页
-      console.log('🏠 FloatingUserInfo: Navigating to homepage...')
+
       navigate({ to: '/' })
     } catch (error) {
       console.error('❌ FloatingUserInfo logout failed:', error)
       // 即使出错，也尝试导航到首页
-      console.log('🏠 FloatingUserInfo: Fallback - navigating to homepage...')
+
       navigate({ to: '/' })
     }
   }

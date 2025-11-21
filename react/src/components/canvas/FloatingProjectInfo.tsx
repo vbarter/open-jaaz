@@ -68,7 +68,7 @@ export function FloatingProjectInfo({
         onProjectNameChange(trimmedName)
         // 调用保存API，直接传递要保存的名称避免状态更新延迟
         await onProjectNameSave(trimmedName)
-        console.log('Project名称保存成功')
+
       } catch (error) {
         console.error('保存Project名称失败:', error)
         // 如果保存失败，恢复原来的名称
@@ -107,7 +107,7 @@ export function FloatingProjectInfo({
 
       // 🔧 在创建新项目前，清空当前画布状态
       if (excalidrawAPI) {
-        console.log('🧹 清空当前画布状态，准备创建新项目')
+
         // 清空画布内容
         excalidrawAPI.updateScene({
           elements: [],
@@ -126,7 +126,7 @@ export function FloatingProjectInfo({
         canvas_id: nanoid(),
         messages: [],
         session_id: nanoid(),
-        text_model: textModel,
+        text_model: textModel || null,
         tool_list: selectedTools,
         system_prompt: localStorage.getItem('system_prompt') || DEFAULT_SYSTEM_PROMPT,
       })

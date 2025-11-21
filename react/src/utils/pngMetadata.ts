@@ -76,7 +76,7 @@ function parsePNGMetadataChunks(buffer: Uint8Array): PngChunk[] {
 
     // 如果遇到图像数据chunk，说明metadata部分已经结束，可以停止解析
     if (type === 'IDAT') {
-      console.log('Reached IDAT chunk, stopping metadata parsing')
+
       break
     }
 
@@ -232,9 +232,7 @@ async function readPNGHeaderAndMetadata(filePath: string): Promise<Uint8Array> {
 
           if (type === 'IDAT') {
             foundIDAT = true
-            console.log(
-              `Found IDAT at offset ${parseOffset}, stopping progressive read`
-            )
+
             break
           }
 
@@ -273,18 +271,18 @@ async function readPNGHeaderAndMetadata(filePath: string): Promise<Uint8Array> {
  */
 export async function readPNGMetadata(filePath: string): Promise<PngMetadata> {
   try {
-    console.log('Starting PNG metadata extraction for:', filePath)
+
 
     // 渐进式读取PNG文件的头部和metadata部分
     const buffer = await readPNGHeaderAndMetadata(filePath)
 
-    console.log(`Read ${buffer.length} bytes for metadata extraction`)
+
 
     // 解析PNG chunks (只解析metadata相关的)
     const chunks = parsePNGMetadataChunks(buffer)
     const metadata: Record<string, any> = {}
 
-    console.log(`Found ${chunks.length} chunks before image data`)
+
 
     // 处理文本chunks
     for (const chunk of chunks) {
@@ -317,7 +315,7 @@ export async function readPNGMetadata(filePath: string): Promise<PngMetadata> {
       }
     }
 
-    console.log(`Extracted ${Object.keys(metadata).length} metadata entries`)
+
 
     return {
       success: true,

@@ -100,18 +100,9 @@ export async function compressImageFile(file: File): Promise<File> {
     return file
   }
 
-  console.log(
-    `Compressing large image: ${file.name} (${Math.round(fileSizeKB)}KB)`
-  )
-
   try {
     const compressedDataURL = await compressLargeImage(file)
     const compressedFile = dataURLToFile(compressedDataURL, file.name)
-
-    console.log(
-      `Image compressed: ${file.name} (${Math.round(fileSizeKB)}KB → ${Math.round(compressedFile.size / 1024)}KB)`
-    )
-
     return compressedFile
   } catch (error) {
     console.warn(
@@ -136,9 +127,7 @@ export async function processImageFiles(
       let url: string
       if (fileSizeKB > 2048) {
         // Large file - compress it
-        console.log(
-          `[Silent] Compressing large image: ${file.name} (${Math.round(fileSizeKB)}KB)`
-        )
+
         url = await compressLargeImage(file)
       } else {
         // Small file - use as is

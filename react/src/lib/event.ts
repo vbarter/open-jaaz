@@ -90,7 +90,7 @@ export type TEvents = {
 // 🔧 Debug 控制 - 通过环境变量精确控制日志输出
 const DEBUG_ENABLED = process.env.VITE_EVENTBUS_DEBUG === 'true' ||
   (process.env.NODE_ENV === 'development' && process.env.VITE_EVENTBUS_DEBUG !== 'false')
-const debugLog = DEBUG_ENABLED ? console.log : () => {}
+const debugLog = () => {}
 
 // 创建eventBus实例
 const eventBusInstance = mitt<TEvents>()

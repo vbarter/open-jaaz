@@ -147,7 +147,7 @@ function SharePage() {
     const timeSinceLastSwipe = now - lastSwipeTime.current
 
     if (timeSinceLastSwipe < minSwipeInterval) {
-      console.log('⏰ 滑动太快,已忽略')
+
       return
     }
 
@@ -267,7 +267,7 @@ function SharePage() {
   // 加载下一个随机视频（按需加载，每次只加载一个）
   const loadMoreVideos = useCallback(async () => {
     if (isLoadingMore || !hasMore) {
-      console.log('⏸️ [Share] 跳过加载更多:', { isLoadingMore, hasMore })
+
       return
     }
 
@@ -276,7 +276,7 @@ function SharePage() {
     try {
       // 如果使用降级方案
       if (useFallbackRef.current) {
-        console.log('📋 [Share] 使用降级方案 (discover接口) 加载视频')
+
         const currentLength = videosRef.current.length
 
         const response = await getDiscoverVideos({
@@ -303,7 +303,7 @@ function SharePage() {
           const more = currentLength + 1 < response.total
           setHasMore(more)
           hasMoreRef.current = more
-          console.log(`✅ [Share] 降级方案加载成功: 视频 ${videoId}`)
+
         } else {
           setHasMore(false)
           hasMoreRef.current = false
@@ -312,7 +312,7 @@ function SharePage() {
       }
 
       // 使用随机推荐接口，每次只加载一个视频
-      console.log('📋 [Share] 加载下一个随机视频')
+
 
       try {
         const randomTask = await getShareShowVideo({})
@@ -328,7 +328,7 @@ function SharePage() {
             return
           }
 
-          console.log('⚠️ [Share] 没有更多可用视频')
+
           setHasMore(false)
           hasMoreRef.current = false
           return
@@ -348,7 +348,7 @@ function SharePage() {
         const videoData = taskToVideo(randomTask, isLiked)
         videosRef.current.push(videoData)
         setVideos([...videosRef.current])
-        console.log(`✅ [Share] 加载随机视频: ${videoId}`)
+
       } catch (error) {
         console.error('❌ [Share] 加载视频失败:', error)
         setHasMore(false)
@@ -453,7 +453,7 @@ function SharePage() {
   // 初始加载完成后，预加载下一个视频（只执行一次）
   useEffect(() => {
     if (!isLoading && videos.length === 1 && !hasPreloadedRef.current) {
-      console.log('📥 [Share] 预加载下一个视频')
+
       hasPreloadedRef.current = true
       const timer = setTimeout(() => {
         loadMoreVideosRef.current?.()
@@ -471,7 +471,7 @@ function SharePage() {
       const currentVideoElement = videoRefs.current.get(currentIndex)
       if (!currentVideoElement) return
 
-      console.log(`🔄 [Share] 切换到视频 ${currentIndex}`)
+
 
       // ⭐ 步骤1: 先滚动到目标位置
       if (containerRef.current) {
@@ -505,7 +505,7 @@ function SharePage() {
       const playSuccess = await playVideo(currentIndex)
 
       if (playSuccess) {
-        console.log(`✅ [Share] 视频 ${currentIndex} 播放成功`)
+
       }
 
       // 如果是最后一个视频，加载下一个

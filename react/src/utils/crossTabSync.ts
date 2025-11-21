@@ -32,7 +32,7 @@ class CrossTabSync {
       try {
         this.channel = new BroadcastChannel('jaaz_auth_sync')
         this.channel.addEventListener('message', this.handleBroadcastMessage.bind(this))
-        console.log('🔄 BroadcastChannel initialized for cross-tab sync')
+
       } catch (error) {
         console.warn('Failed to initialize BroadcastChannel:', error)
       }
@@ -46,7 +46,7 @@ class CrossTabSync {
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', this.handleStorageChange.bind(this))
       this.isListening = true
-      console.log('📡 Storage event listener initialized')
+
     }
   }
 
@@ -61,7 +61,7 @@ class CrossTabSync {
         this.checkForChanges()
       }, 30000) // 🔧 减少检查频率：每30秒检查一次，避免过度频繁的状态检查
       
-      console.log('⏰ Periodic auth check started')
+
     }
   }
 
@@ -76,7 +76,7 @@ class CrossTabSync {
       return
     }
 
-    console.log('📢 Received cross-tab message:', type)
+
 
     switch (type) {
       case 'auth_status_changed':
@@ -96,7 +96,7 @@ class CrossTabSync {
    */
   private handleStorageChange(event: StorageEvent): void {
     if (event.key === 'jaaz_auth_trigger') {
-      console.log('📡 Auth trigger detected via storage event')
+
       this.handleAuthStatusChanged()
     }
   }
@@ -108,7 +108,7 @@ class CrossTabSync {
     const currentTokenHash = this.generateTokenHash()
     
     if (this.lastTokenHash !== null && this.lastTokenHash !== currentTokenHash) {
-      console.log('🔍 Token change detected via periodic check')
+
       this.handleAuthStatusChanged()
     }
     
@@ -151,7 +151,7 @@ class CrossTabSync {
   private handleTokenRefreshed(): void {
     // 更新token哈希，不需要重启tokenManager
     this.updateTokenHash()
-    console.log('🔄 Token refreshed notification handled')
+
   }
 
   /**
@@ -215,7 +215,7 @@ class CrossTabSync {
     if (this.channel) {
       try {
         this.channel.postMessage(message)
-        console.log('📤 Broadcast message sent:', message.type)
+
       } catch (error) {
         console.warn('Failed to send broadcast message:', error)
       }
@@ -254,7 +254,7 @@ class CrossTabSync {
       this.isListening = false
     }
     
-    console.log('🧹 CrossTabSync destroyed')
+
   }
 }
 

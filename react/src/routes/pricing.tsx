@@ -39,16 +39,16 @@ function PricingPage() {
   const setBillingPeriodFromLevel = useCallback((level: string | null) => {
     if (!level) return
 
-    console.log(`🔧 PRICING: 根据用户等级自动设置billing period，level: "${level}"`)
+
 
     if (level.endsWith('_yearly')) {
-      console.log('🔧 PRICING: 检测到yearly等级，自动切换到Yearly标签')
+
       setBillingPeriod('yearly')
     } else if (level.endsWith('_monthly')) {
-      console.log('🔧 PRICING: 检测到monthly等级，自动切换到Monthly标签')
+
       setBillingPeriod('monthly')
     } else if (level === 'free') {
-      console.log('🔧 PRICING: 检测到free等级，保持Monthly标签')
+
       setBillingPeriod('monthly')
     }
     // 其他情况保持当前设置不变
@@ -59,20 +59,19 @@ function PricingPage() {
     const currentUserLevel = authStatus.is_logged_in ? authStatus.user_info?.level : null
     if (currentUserLevel && !apiDataLoaded) {
       // 只在API数据还未加载时才使用AuthContext数据，避免重复设置
-      console.log('🔧 PRICING: 从AuthContext检测到用户等级变化，自动设置billing period')
+
       setBillingPeriodFromLevel(currentUserLevel)
     }
   }, [authStatus.user_info?.level, apiDataLoaded, setBillingPeriodFromLevel])
 
   // 🔄 页面加载时强制刷新认证状态，确保用户等级是最新的
   useEffect(() => {
-    console.log('🔄 PRICING: 页面加载，强制刷新用户认证状态以获取最新等级')
-    console.log('🔄 PRICING: 当前authStatus:', authStatus)
+
 
     // 🎯 调用专门的后端pricing接口获取用户level信息
     const fetchPricingInfo = async () => {
       try {
-        console.log('🔄 PRICING: 调用后端/api/pricing接口获取用户等级信息...')
+
         const response = await fetch('/api/pricing', {
           method: 'GET',
           credentials: 'include',
@@ -83,7 +82,7 @@ function PricingPage() {
 
         if (response.ok) {
           const pricingData = await response.json()
-          console.log('✅ PRICING: 后端返回的定价数据:', pricingData)
+
 
           // 🎯 将API返回的数据存储到state中
           setApiIsLoggedIn(pricingData.is_logged_in)
@@ -93,24 +92,19 @@ function PricingPage() {
           setBillingPeriodFromLevel(pricingData.current_level)
 
           if (pricingData.is_logged_in) {
-            console.log(`🎯 PRICING: 从后端获取到用户level: "${pricingData.current_level}"`)
-            console.log(`🎯 PRICING: 用户信息:`, pricingData.user_info)
-            console.log(`🎯 PRICING: 可用套餐:`, pricingData.available_plans)
-            console.log(`🎯 PRICING: 已设置apiCurrentLevel为: "${pricingData.current_level}"`)
+
           } else {
-            console.log('⚠️ PRICING: 用户未登录，显示默认套餐')
-            console.log(`⚠️ PRICING: 原因: ${pricingData.message}`)
-            console.log(`🎯 PRICING: 已设置apiCurrentLevel为: null`)
+
           }
         } else {
-          console.log(`❌ PRICING: 后端pricing接口调用失败，状态码: ${response.status}`)
+
           setApiIsLoggedIn(false)
           setApiCurrentLevel(null)
         }
 
         // 🎯 标记API数据已加载完成（无论成功或失败）
         setApiDataLoaded(true)
-        console.log('✅ PRICING: API数据加载完成，可以渲染套餐状态')
+
       } catch (error) {
         console.error('❌ PRICING: 调用后端pricing接口异常:', error)
         // 即使出错也要标记为已加载，避免无限loading
@@ -126,7 +120,7 @@ function PricingPage() {
     // 强制刷新认证状态
     refreshAuth()
       .then(() => {
-        console.log('🔄 PRICING: refreshAuth完成，更新后的authStatus:', authStatus)
+
       })
       .catch((error) => {
         console.error('❌ PRICING: refreshAuth失败:', error)
@@ -136,14 +130,14 @@ function PricingPage() {
   // 🎉 监听支付成功事件，实时更新用户等级
   useEffect(() => {
     const handlePaymentSuccess = () => {
-      console.log('🎉 检测到支付成功，刷新用户等级')
+
       setTimeout(() => {
         refreshAuth() // 延迟刷新，确保后端数据已更新
       }, 1000)
     }
 
     const handleAuthRefresh = () => {
-      console.log('🔄 检测到认证状态刷新')
+
       refreshAuth()
     }
 
@@ -171,9 +165,7 @@ function PricingPage() {
         const token = getAuthCookie(AUTH_COOKIES.ACCESS_TOKEN)
         if (token) {
           headers['Authorization'] = `Bearer ${token}`
-          console.log('🔑 Added Bearer token to request')
-        } else {
-          console.log('🍪 Using httpOnly cookies for authentication')
+
         }
 
         // 🆕 构建请求体，包含计划类型和计费周期
@@ -182,7 +174,7 @@ function PricingPage() {
           billing_period: billingPeriod,
         }
 
-        console.log('🎯 PRICING: 创建订单请求:', requestBody)
+
 
         const response = await fetch('/api/billing/create_order', {
           method: 'POST',
@@ -219,7 +211,7 @@ function PricingPage() {
       setIsLoading(true)
       setLoadingOperation('cancel') // 设置取消订阅操作
 
-      console.log('🚀 PRICING: 开始取消订阅...')
+
 
       // 🔧 构建请求头，包含多种认证方式
       const headers: Record<string, string> = {
@@ -230,9 +222,7 @@ function PricingPage() {
       const token = getAuthCookie(AUTH_COOKIES.ACCESS_TOKEN)
       if (token) {
         headers['Authorization'] = `Bearer ${token}`
-        console.log('🔑 Added Bearer token to cancel request')
-      } else {
-        console.log('🍪 Using httpOnly cookies for cancel authentication')
+
       }
 
       const response = await fetch('/api/billing/cancel_subscription', {
@@ -248,7 +238,7 @@ function PricingPage() {
       const data = await response.json()
 
       if (data.success) {
-        console.log('✅ PRICING: 订阅取消成功')
+
         toast.success(t('common:toast.subscriptionCancelled'), {
           duration: 4000,
         })
@@ -303,34 +293,12 @@ function PricingPage() {
   // 🔧 获取用户当前等级，支持实时更新 - 修复fallback逻辑
   const currentUserLevel = authStatus.is_logged_in ? authStatus.user_info?.level : null
 
-  console.log('==================================================')
-  console.log('🔍 PRICING: 用户认证状态详细分析')
-  console.log('==================================================')
-  console.log('📋 原始authStatus对象:', authStatus)
-  console.log('📋 详细认证状态:', {
-    is_logged_in: authStatus.is_logged_in,
-    user_info_exists: !!authStatus.user_info,
-    user_info_raw: authStatus.user_info,
-    user_level_raw: authStatus.user_info?.level,
-    user_level_type: typeof authStatus.user_info?.level,
-    user_email: authStatus.user_info?.email,
-    user_id: authStatus.user_info?.id,
-    final_computed_level: currentUserLevel,
-  })
 
-  console.log('🎯 PRICING: 等级获取结果:')
-  console.log(`   - 用户是否登录: ${authStatus.is_logged_in}`)
-  console.log(`   - 用户信息是否存在: ${!!authStatus.user_info}`)
-  console.log(
-    `   - 原始level值: "${authStatus.user_info?.level}" (${typeof authStatus.user_info?.level})`
-  )
-  console.log(`   - 最终使用的level: "${currentUserLevel}"`)
 
   // 🚨 如果用户已登录但level为undefined，强制刷新认证状态
   if (authStatus.is_logged_in && !authStatus.user_info?.level) {
-    console.log('⚠️ PRICING: 用户已登录但level为undefined，强制刷新认证状态')
+
     setTimeout(() => {
-      console.log('🔄 PRICING: 执行强制刷新...')
       refreshAuth()
     }, 100)
   }
@@ -339,9 +307,7 @@ function PricingPage() {
   const isCurrentPlan = (planLevel: string) => {
     // 🚨 如果API数据还没加载完成，不显示任何计划为当前计划，避免闪烁
     if (!apiDataLoaded) {
-      console.log(
-        `🎯 PRICING: 套餐判断 "${planLevel.toUpperCase()}": API数据未加载，返回false避免闪烁`
-      )
+
       return false
     }
 
@@ -364,14 +330,7 @@ function PricingPage() {
 
     const result = isLoggedIn && hasLevel && isMatch
 
-    console.log(`🎯 PRICING: 套餐判断 "${planLevel.toUpperCase()}" (${billingPeriod}):`)
-    console.log(`   - API数据已加载: ${apiDataLoaded}`)
-    console.log(`   - 数据源: ${apiCurrentLevel !== null ? 'API数据' : 'AuthContext数据'}`)
-    console.log(`   - 用户已登录: ${isLoggedIn}`)
-    console.log(`   - 有等级信息: ${hasLevel} (level="${userLevel}")`)
-    console.log(`   - 期望等级: ${planLevel === 'free' ? 'free' : `${planLevel}_${billingPeriod}`}`)
-    console.log(`   - 等级匹配: ${isMatch}`)
-    console.log(`   - 最终结果: ${result ? '✅ 当前计划' : '❌ 非当前计划'}`)
+
 
     return result
   }
@@ -420,9 +379,7 @@ function PricingPage() {
   ]
 
   // 🎯 套餐状态总结日志 - 反映实际渲染状态 (包括按钮文本)
-  console.log('==================================================')
-  console.log('🎯 PRICING: 套餐状态总结 (实际渲染状态)')
-  console.log('==================================================')
+
   plans.forEach((plan) => {
     // 模拟按钮文本计算逻辑
     const getButtonText = () => {
@@ -438,27 +395,15 @@ function PricingPage() {
     const buttonText = getButtonText()
     const renderState = apiDataLoaded ? '数据已加载' : '等待API数据'
 
-    console.log(
-      `${plan.id.toUpperCase()}: ${status} | ${border} | ${badge} | 按钮:"${buttonText}" | ${renderState}`
-    )
+
   })
 
   const currentPlan = plans.find((plan) => plan.isCurrent)
   const finalUserLevel = apiCurrentLevel !== null ? apiCurrentLevel : currentUserLevel
 
-  console.log(`📊 PRICING: 渲染状态总结:`)
-  console.log(`   - API数据已加载: ${apiDataLoaded}`)
-  console.log(
-    `   - 最终用户level: "${finalUserLevel}" (源: ${apiCurrentLevel !== null ? 'API' : 'AuthContext'})`
-  )
 
-  if (currentPlan) {
-    console.log(`🎉 PRICING: 当前选中的计划是: ${currentPlan.id.toUpperCase()}`)
-  } else {
-    const reason = !apiDataLoaded ? '等待API数据加载' : `用户level="${finalUserLevel}"`
-    console.log(`⚠️ PRICING: 没有找到当前计划，原因: ${reason}`)
-  }
-  console.log('==================================================')
+
+
 
   return (
     <div className='flex flex-col h-screen relative overflow-hidden bg-soft-blue-radial'>
@@ -634,7 +579,7 @@ function PricingPage() {
                         // 🎯 Free计划处理
                         if (plan.key === 'free') {
                           // Free计划如果是当前计划，不做任何操作；否则可以考虑降级逻辑
-                          return () => console.log('Free plan selected')
+
                         }
                         // 🎯 付费计划处理（原有逻辑）
                         if (plan.isCurrent) {

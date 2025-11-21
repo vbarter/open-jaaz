@@ -5,7 +5,7 @@ import { eventBus } from './event'
 // 🔧 Debug 控制 - 通过环境变量精确控制日志输出
 const DEBUG_ENABLED = import.meta.env.VITE_SOCKET_DEBUG === 'true' ||
   (import.meta.env.DEV && import.meta.env.VITE_SOCKET_DEBUG !== 'false')
-const debugLog = DEBUG_ENABLED ? console.log : () => {}
+const debugLog = () => {}
 
 export interface SocketConfig {
   serverUrl?: string
@@ -100,13 +100,13 @@ export class SocketIOManager {
       const isThinkingRelated = eventType.includes('thinking')
 
       if (isThinkingRelated) {
-        console.log('🚨🚨🚨 [THINKING EVENT RAW]', {
-          type: eventType,
-          session_id: data?.session_id,
-          canvas_id: data?.canvas_id,
-          message: data?.message,
-          full_data: data
-        })
+        // console.log('🚨🚨🚨 [THINKING EVENT RAW]', {
+        //   type: eventType,
+        //   session_id: data?.session_id,
+        //   canvas_id: data?.canvas_id,
+        //   message: data?.message,
+        //   full_data: data
+        // })
       }
 
       debugLog('🔥 [CRITICAL_DEBUG] 原始WebSocket session_update事件接收:', {
@@ -136,11 +136,11 @@ export class SocketIOManager {
     // 增强调试日志，特别关注 thinking 事件
     const isThinkingEvent = type && type.toString().includes('thinking')
     if (isThinkingEvent) {
-      console.log('🧠🧠🧠 [CRITICAL] Thinking event received!', {
-        type,
-        session_id,
-        data
-      })
+      // console.log('🧠🧠🧠 [CRITICAL] Thinking event received!', {
+      //   type,
+      //   session_id,
+      //   data
+      // })
     }
 
     debugLog('📡 [SOCKET_DEBUG] 收到session更新:', {

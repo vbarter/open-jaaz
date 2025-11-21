@@ -45,7 +45,7 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
   const [videoStates, setVideoStates] = useState<Map<number, 'loading' | 'ready' | 'error'>>(new Map())
   const videoStatesRef = useRef(videoStates)
   const [isOnline, setIsOnline] = useState(navigator.onLine) // 网络状态
-  const transitionTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const transitionTimeoutRef = useRef<any>(null)
   const hasInitialScroll = useRef(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -97,7 +97,7 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
 
     // 防抖: 如果距离上次滑动太近,则忽略
     if (timeSinceLastSwipe < minSwipeInterval) {
-      console.log('⏰ 滑动太快,已忽略')
+
       return
     }
 
@@ -227,7 +227,7 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
           text: shareText,
           url: shareUrl,
         })
-        console.log('✅ 分享成功')
+
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
           console.error('分享失败:', error)
@@ -366,7 +366,7 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
 
         // 如果启用自动跳过且连续错误未超限
         if (autoSkip && consecutiveErrors.current < maxConsecutiveErrors) {
-          console.log(`⚠️ 视频${index}播放失败,将自动跳过...`)
+
           return false
         }
       }
@@ -399,7 +399,7 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
       const currentVideoElement = videoRefs.current.get(currentIndex)
       if (!currentVideoElement) return
 
-      console.log(`🔄 [视频切换] 开始切换到视频 ${currentIndex}`)
+
 
       // ⭐ 步骤1: 先暂停所有其他视频（确保旧视频完全停止）
       const pausePromises: Promise<void>[] = []
@@ -409,25 +409,25 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
         }
       })
       await Promise.all(pausePromises)
-      console.log(`✅ [视频切换] 已暂停所有其他视频`)
+
 
       // ⭐ 步骤2: 确保当前视频处于初始状态
       currentVideoElement.currentTime = 0
       currentVideoElement.muted = isMuted
 
       // ⭐ 步骤3: 播放当前视频(启用自动跳过)
-      console.log(`▶️ [视频切换] 开始播放视频 ${currentIndex}`)
+
       const playSuccess = await playVideo(currentIndex, true)
 
       if (playSuccess) {
-        console.log(`✅ [视频切换] 视频 ${currentIndex} 播放成功`)
+
       } else {
-        console.log(`❌ [视频切换] 视频 ${currentIndex} 播放失败`)
+
       }
 
       // 如果播放失败,自动跳过到下一个
       if (!playSuccess && consecutiveErrors.current < maxConsecutiveErrors) {
-        console.log('🔄 当前视频播放失败,尝试跳过到下一个可播放视频...')
+
 
         // 短暂延迟后自动跳过
         setTimeout(() => {
@@ -435,10 +435,10 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
           const nextIndex = findNextPlayableVideo(currentIndex, lastDirection)
 
           if (nextIndex !== null) {
-            console.log(`✅ 找到下一个可播放视频: ${nextIndex}`)
+
             setCurrentIndex(nextIndex)
           } else {
-            console.log('❌ 没有找到可播放的视频')
+
             scheduleTransitionUnlock()
           }
         }, errorDisplayDuration) // 显示错误提示2秒后跳过
@@ -551,12 +551,12 @@ export const FullscreenVideoViewer: React.FC<FullscreenVideoViewerProps> = ({
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true)
-      console.log('✅ 网络已连接')
+
     }
 
     const handleOffline = () => {
       setIsOnline(false)
-      console.log('❌ 网络已断开')
+
     }
 
     const handleOrientationChange = () => {

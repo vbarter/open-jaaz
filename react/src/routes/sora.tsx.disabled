@@ -245,7 +245,7 @@ function SoraPage() {
       if (!isAuthLoading) {
         // 检查是否未登录
         if (!authStatus.is_logged_in) {
-          console.log('🔒 [Sora] 用户未登录，显示登录对话框')
+
           setShowLoginDialog(true)
           return
         }
@@ -315,7 +315,7 @@ function SoraPage() {
   // 手动刷新任务列表
   const refreshTaskList = useCallback(async () => {
     try {
-      console.log('🔄 [Sora] 手动刷新任务列表')
+
       const result = await getSora2Tasks()
       const loadedVideos = result.tasks.map(taskToVideo)
 
@@ -326,7 +326,7 @@ function SoraPage() {
       const runningCount = loadedVideos.filter(v => v.status === 'processing').length
       setRunningTasksCount(runningCount)
 
-      console.log(`✅ [Sora] 任务列表刷新成功: ${loadedVideos.length} 个任务, ${runningCount} 个运行中`)
+
 
       return true
     } catch (error) {
@@ -340,7 +340,7 @@ function SoraPage() {
     if (isPullRefreshing || isLoadingTasks) return
 
     setIsPullRefreshing(true)
-    console.log('🔄 [Sora] 下拉刷新中...')
+
 
     try {
       // 刷新任务列表
@@ -505,13 +505,13 @@ function SoraPage() {
       }
 
       ws.onclose = (event) => {
-        console.log(`🔌 [Sora WS] WebSocket连接关闭 - code: ${event.code}, reason: ${event.reason}`)
+
         setWsConnected(false)
 
         // 5秒后自动重连
-        console.log('⏰ [Sora WS] 将在5秒后尝试重连...')
+
         reconnectTimerRef.current = setTimeout(() => {
-          console.log('🔄 [Sora WS] 尝试重新连接...')
+
           connectWebSocket()
         }, 5000)
       }

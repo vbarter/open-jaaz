@@ -14,15 +14,6 @@ export function PointsDisplay({ className, children }: PointsDisplayProps) {
   // 将金额乘以 100 转换为积分，显示为整数，如果为负数则显示 0
   const points = Math.max(0, Math.floor(parseFloat(balance) * 100))
 
-  // 调试信息
-  useEffect(() => {
-    console.log('🎯 PointsDisplay 渲染:', {
-      balance,
-      points,
-      isLoading,
-      error: error?.message,
-    })
-  }, [balance, points, isLoading, error])
 
   return (
     <div className={cn('flex items-center relative', className)}>

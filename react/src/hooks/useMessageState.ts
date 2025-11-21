@@ -41,8 +41,8 @@ export function useMessageState(options: UseMessageStateOptions): UseMessageStat
   const [pending, setPending] = useState(false)
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
 
-  const managerRef = useRef<MessageStateManager>()
-  const scrollTimeoutRef = useRef<NodeJS.Timeout>()
+  const managerRef = useRef<MessageStateManager | null>(null)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Initialize manager
   useEffect(() => {
@@ -132,7 +132,7 @@ export function useMessageState(options: UseMessageStateOptions): UseMessageStat
 
     // Only process events for our session
     if (event.session_id && event.session_id !== sessionId) {
-      console.log(`[useMessageState] Ignoring event for different session: ${event.session_id}`)
+
       return
     }
 
@@ -174,7 +174,7 @@ export function useMessageState(options: UseMessageStateOptions): UseMessageStat
  */
 export function useMultiSessionMessageState() {
   const [activeSessions, setActiveSessions] = useState<Set<string>>(new Set())
-  const managerRef = useRef<MessageStateManager>()
+  const managerRef = useRef<MessageStateManager | null>(null)
 
   useEffect(() => {
     managerRef.current = getMessageStateManager()

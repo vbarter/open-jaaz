@@ -20,9 +20,9 @@ const RelayoutButton = ({ onClick, disabled }: RelayoutButtonProps) => {
     if (!disabled && onClick) {
       onClick()
     } else if (disabled) {
-      console.log('⚠️ 按钮被禁用，忽略点击')
+
     } else {
-      console.log('⚠️ 没有 onClick 回调')
+
     }
   }
 

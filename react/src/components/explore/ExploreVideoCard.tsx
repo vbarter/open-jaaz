@@ -114,7 +114,7 @@ export const ExploreVideoCard: React.FC<ExploreVideoCardProps> = ({
               const result = await recordVideoView(parseInt(videoId))
               if (result.success) {
                 setViews(result.views)
-                console.log(`✅ 浏览量更新: ${result.views}`)
+
               }
             } catch (error) {
               console.error('记录浏览失败:', error)
@@ -155,7 +155,7 @@ export const ExploreVideoCard: React.FC<ExploreVideoCardProps> = ({
         if (result.success) {
           setIsLiked(result.is_liked)
           setLikes(result.likes)
-          console.log(`✅ 点赞状态更新: ${result.is_liked}, 点赞数: ${result.likes}`)
+
 
           // 通知父组件
           if (onLikeChange) {

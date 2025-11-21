@@ -109,7 +109,7 @@ export const getSora2Tasks = async (params?: {
  * 获取 Sora2 单个任务详情
  */
 export const getSora2Task = async (taskId: number): Promise<Sora2TaskDetail> => {
-  console.log('[API Sora2] 获取任务详情:', taskId)
+
 
   try {
     const response = await fetch(`/api/sora2/tasks/${taskId}`)
@@ -121,7 +121,7 @@ export const getSora2Task = async (taskId: number): Promise<Sora2TaskDetail> => 
     }
 
     const data = await response.json()
-    console.log('[API Sora2] 任务详情获取成功:', data)
+
 
     return data as Sora2TaskDetail
   } catch (error) {
@@ -205,7 +205,7 @@ export const createShare = async (videoId: number): Promise<CreateShareResponse>
  * 获取分享视频详情（公开访问）
  */
 export const getShareVideo = async (shareId: string): Promise<ShareVideoDetail> => {
-  // console.log('[API Sora2] 获取分享视频:', shareId)
+
 
   try {
     const response = await fetch(`/api/sora2/share/${shareId}`)
@@ -217,7 +217,7 @@ export const getShareVideo = async (shareId: string): Promise<ShareVideoDetail> 
     }
 
     const data = await response.json()
-    // console.log('[API Sora2] 分享视频获取成功:', data)
+
     return data as ShareVideoDetail
   } catch (error) {
     console.error('[API Sora2] 获取分享视频出错:', error)
@@ -231,7 +231,7 @@ export const getShareVideo = async (shareId: string): Promise<ShareVideoDetail> 
 export const incrementShareView = async (
   shareId: string
 ): Promise<{ success: boolean; views: number }> => {
-  // console.log('[API Sora2] 增加访问量:', shareId)
+
 
   try {
     const response = await fetch(`/api/sora2/share/${shareId}/view`, {
@@ -245,7 +245,7 @@ export const incrementShareView = async (
     }
 
     const data = await response.json()
-    // console.log('[API Sora2] 访问量增加成功:', data)
+
     return data
   } catch (error) {
     console.error('[API Sora2] 增加访问量出错:', error)
@@ -259,7 +259,7 @@ export const incrementShareView = async (
 export const likeShareVideo = async (
   shareId: string
 ): Promise<{ success: boolean; likes: number }> => {
-  console.log('[API Sora2] 点赞分享:', shareId)
+
 
   try {
     const response = await fetch(`/api/sora2/share/${shareId}/like`, {
@@ -273,7 +273,7 @@ export const likeShareVideo = async (
     }
 
     const data = await response.json()
-    console.log('[API Sora2] 点赞成功:', data)
+
     return data
   } catch (error) {
     console.error('[API Sora2] 点赞出错:', error)

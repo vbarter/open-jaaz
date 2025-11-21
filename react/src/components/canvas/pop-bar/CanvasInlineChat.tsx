@@ -55,7 +55,7 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
       return
     }
 
-    console.log('[CanvasInlineChat] 开始Chat提交流程...')
+
 
     // 防重复检查
     const currentTime = Date.now()
@@ -85,10 +85,10 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
 
     try {
       // 获取选中的元素
-      console.log('[CanvasInlineChat] 获取选中的元素...')
+
       const appState = excalidrawAPI.getAppState()
       const selectedIds = appState.selectedElementIds
-      console.log('[CanvasInlineChat] 选中的元素ID:', selectedIds)
+
 
       if (Object.keys(selectedIds).length === 0) {
         console.warn('[CanvasInlineChat] 没有选中任何元素')
@@ -112,9 +112,9 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
         .map((element: any) => element.fileId)
         .filter((fileId): fileId is string => !!fileId)
 
-      console.log('[CanvasInlineChat] 选中的图片文件ID:', selectedFileIds)
-      console.log('[CanvasInlineChat] 画布上总文件数:', Object.keys(allFiles).length, '个')
-      console.log('[CanvasInlineChat] 选中的文件数:', selectedFileIds.length, '个')
+
+
+
 
       // 只处理选中元素的文件
       const selectedFiles: Record<string, any> = {}
@@ -133,7 +133,7 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
       })
 
       if (remoteFileIds.length > 0) {
-        console.log(`[CanvasInlineChat] 检测到 ${remoteFileIds.length} 个远程图片，开始处理...`)
+
 
         const filesToDownload: string[] = []
         for (const fileId of remoteFileIds) {
@@ -199,7 +199,7 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
       const hasImages = selectedElements.some((element) => element.type === 'image')
 
       if (hasImages && fileIds.length > 0) {
-        console.log('[CanvasInlineChat] 检测到图片元素，使用Blob导出方案...')
+
 
         try {
           const blob = await exportToBlob({
@@ -276,7 +276,7 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
           height = svgHeight
         }
       } else {
-        console.log('[CanvasInlineChat] 无图片元素，使用Canvas导出方案...')
+
 
         const canvas = await exportToCanvas({
           elements: selectedElements,
@@ -330,15 +330,8 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
         userText: trimmedText,
       }
 
-      console.log('[CanvasInlineChat] 准备发送Canvas::Chat事件:', {
-        fileId: eventData.fileId,
-        width,
-        height,
-        textLength: trimmedText.length
-      })
-
       eventBus.emit('Canvas::Chat', eventData)
-      console.log('[CanvasInlineChat] Canvas::Chat事件发送成功')
+
 
       // 清除选中状态和输入
       excalidrawAPI?.updateScene({
@@ -390,9 +383,9 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
       {!isExpanded ? (
         <motion.div
           key="button"
-          initial={instantClose ? false : { opacity: 0 }}
+          initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={instantClose ? false : { opacity: 0 }}
+          exit={{ opacity: 0 }}
           transition={{ duration: instantClose ? 0 : 0.15 }}
         >
           <Button
@@ -408,9 +401,9 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
       ) : (
         <motion.div
           key="input-panel"
-          initial={instantClose ? false : { opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={instantClose ? false : { opacity: 0, scale: 0.95 }}
+          exit={{ opacity: 0, scale: 0.95 }}
           transition={{
             duration: instantClose ? 0 : 0.2,
             ease: "easeOut"
