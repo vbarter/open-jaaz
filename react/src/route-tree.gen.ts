@@ -11,13 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TemplatesRouteImport } from './routes/templates'
-import { Route as SoraRouteImport } from './routes/sora'
 import { Route as ShareRouteImport } from './routes/share'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as KnowledgeRouteImport } from './routes/knowledge'
 import { Route as InviteRouteImport } from './routes/invite'
-import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as Agent_studioRouteImport } from './routes/agent_studio'
 import { Route as IndexRouteImport } from './routes/index'
@@ -33,11 +31,6 @@ const TermsRoute = TermsRouteImport.update({
 const TemplatesRoute = TemplatesRouteImport.update({
   id: '/templates',
   path: '/templates',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SoraRoute = SoraRouteImport.update({
-  id: '/sora',
-  path: '/sora',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShareRoute = ShareRouteImport.update({
@@ -63,11 +56,6 @@ const KnowledgeRoute = KnowledgeRouteImport.update({
 const InviteRoute = InviteRouteImport.update({
   id: '/invite',
   path: '/invite',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ExploreRoute = ExploreRouteImport.update({
-  id: '/explore',
-  path: '/explore',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AssetsRoute = AssetsRouteImport.update({
@@ -105,13 +93,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agent_studio': typeof Agent_studioRoute
   '/assets': typeof AssetsRoute
-  '/explore': typeof ExploreRoute
   '/invite': typeof InviteRoute
   '/knowledge': typeof KnowledgeRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/share': typeof ShareRoute
-  '/sora': typeof SoraRoute
   '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
   '/canvas/$id': typeof CanvasIdRoute
@@ -122,13 +108,11 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agent_studio': typeof Agent_studioRoute
   '/assets': typeof AssetsRoute
-  '/explore': typeof ExploreRoute
   '/invite': typeof InviteRoute
   '/knowledge': typeof KnowledgeRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/share': typeof ShareRoute
-  '/sora': typeof SoraRoute
   '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
   '/canvas/$id': typeof CanvasIdRoute
@@ -140,13 +124,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/agent_studio': typeof Agent_studioRoute
   '/assets': typeof AssetsRoute
-  '/explore': typeof ExploreRoute
   '/invite': typeof InviteRoute
   '/knowledge': typeof KnowledgeRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/share': typeof ShareRoute
-  '/sora': typeof SoraRoute
   '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
   '/canvas/$id': typeof CanvasIdRoute
@@ -159,13 +141,11 @@ export interface FileRouteTypes {
     | '/'
     | '/agent_studio'
     | '/assets'
-    | '/explore'
     | '/invite'
     | '/knowledge'
     | '/pricing'
     | '/privacy'
     | '/share'
-    | '/sora'
     | '/templates'
     | '/terms'
     | '/canvas/$id'
@@ -176,13 +156,11 @@ export interface FileRouteTypes {
     | '/'
     | '/agent_studio'
     | '/assets'
-    | '/explore'
     | '/invite'
     | '/knowledge'
     | '/pricing'
     | '/privacy'
     | '/share'
-    | '/sora'
     | '/templates'
     | '/terms'
     | '/canvas/$id'
@@ -193,13 +171,11 @@ export interface FileRouteTypes {
     | '/'
     | '/agent_studio'
     | '/assets'
-    | '/explore'
     | '/invite'
     | '/knowledge'
     | '/pricing'
     | '/privacy'
     | '/share'
-    | '/sora'
     | '/templates'
     | '/terms'
     | '/canvas/$id'
@@ -211,13 +187,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   Agent_studioRoute: typeof Agent_studioRoute
   AssetsRoute: typeof AssetsRoute
-  ExploreRoute: typeof ExploreRoute
   InviteRoute: typeof InviteRoute
   KnowledgeRoute: typeof KnowledgeRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   ShareRoute: typeof ShareRoute
-  SoraRoute: typeof SoraRoute
   TemplatesRoute: typeof TemplatesRoute
   TermsRoute: typeof TermsRoute
   CanvasIdRoute: typeof CanvasIdRoute
@@ -239,13 +213,6 @@ declare module '@tanstack/react-router' {
       path: '/templates'
       fullPath: '/templates'
       preLoaderRoute: typeof TemplatesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sora': {
-      id: '/sora'
-      path: '/sora'
-      fullPath: '/sora'
-      preLoaderRoute: typeof SoraRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/share': {
@@ -281,13 +248,6 @@ declare module '@tanstack/react-router' {
       path: '/invite'
       fullPath: '/invite'
       preLoaderRoute: typeof InviteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/explore': {
-      id: '/explore'
-      path: '/explore'
-      fullPath: '/explore'
-      preLoaderRoute: typeof ExploreRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/assets': {
@@ -339,13 +299,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   Agent_studioRoute: Agent_studioRoute,
   AssetsRoute: AssetsRoute,
-  ExploreRoute: ExploreRoute,
   InviteRoute: InviteRoute,
   KnowledgeRoute: KnowledgeRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   ShareRoute: ShareRoute,
-  SoraRoute: SoraRoute,
   TemplatesRoute: TemplatesRoute,
   TermsRoute: TermsRoute,
   CanvasIdRoute: CanvasIdRoute,

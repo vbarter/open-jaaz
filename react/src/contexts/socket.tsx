@@ -56,7 +56,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
           setConnected(true)
           setSocketId(socketManager.getSocketId())
           setConnecting(false)
-          console.log('🚀 Socket.IO initialized successfully')
+          // console.log('🚀 Socket.IO initialized successfully')
 
           const socket = socketManager.getSocket()
           if (socket) {
@@ -101,7 +101,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
           setError(err instanceof Error ? err.message : 'Unknown error')
           setConnected(false)
           setConnecting(false)
-          console.error('❌ Failed to initialize Socket.IO:', err)
+          // console.error('❌ Failed to initialize Socket.IO:', err)
         }
       }
     }
@@ -119,7 +119,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   }, [])
 
   useEffect(() => {
-    console.log('📢 Notification manager initialized')
+    // console.log('📢 Notification manager initialized')
   }, [])
 
   const value: SocketContextType = {

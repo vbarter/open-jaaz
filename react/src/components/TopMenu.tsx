@@ -33,8 +33,9 @@ export default function TopMenu({
   // 定义导航项
   const navItems = [
     { path: '/templates', label: t('navigation.templates') },
-    { path: '/sora', label: 'Sora2' },
-    { path: '/explore', label: t('navigation.explore') },
+    // 已暂时关闭 Sora2 和探索功能
+    // { path: '/sora', label: 'Sora2' },
+    // { path: '/explore', label: t('navigation.explore') },
   ]
 
   // 获取当前激活的导航项

@@ -255,7 +255,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             debugLog('⏰ 消息已过期，已清除')
           }
         } catch (error) {
-          console.error('❌ 解析初始消息失败', error)
+          // console.error('❌ 解析初始消息失败', error)
         }
       } else {
         // 如果已经显示过，把消息放回去（可能是其他实例需要）
@@ -1279,12 +1279,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const handleError = useCallback(
     (data: TEvents['Socket::Session::Error']) => {
-      console.log('🚨 [Chat] 收到Socket错误事件:', {
-        error_code: data.error_code,
-        session_id: data.session_id,
-        current_session_id: sessionId,
-        error: data.error,
-      })
+      // console.log('🚨 [Chat] 收到Socket错误事件:', {
+      //   error_code: data.error_code,
+      //   session_id: data.session_id,
+      //   current_session_id: sessionId,
+      //   error: data.error,
+      // })
 
       // 🔧 关键修复：只处理当前session的错误，过滤掉其他session的错误
       if (data.session_id && data.session_id !== sessionId) {
@@ -1305,7 +1305,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       // 特别处理积分不足错误
       if (data.error_code === 'insufficient_points') {
-        console.log('💰 [Chat] 处理积分不足错误')
+        // console.log('💰 [Chat] 处理积分不足错误')
         if (data.current_points !== undefined && data.required_points !== undefined) {
           debugLog('📊 显示详细积分不足提示', {
             current: data.current_points,
@@ -1331,7 +1331,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           })
         }
       } else {
-        console.log('⚠️ [Chat] 处理其他类型错误:', data.error)
+        // console.log('⚠️ [Chat] 处理其他类型错误:', data.error)
         // 其他错误使用原有的显示方式
         toast.error('Error: ' + data.error, {
           closeButton: true,
@@ -1486,7 +1486,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         forceScrollToBottom()
       }
     } catch (error) {
-      console.error('[debug] 初始化聊天失败:', error)
+      // console.error('[debug] 初始化聊天失败:', error)
       // 🔥 出错时也要清空状态，防止显示错误的消息
       setMessages([])
       setPending(false)

@@ -119,7 +119,7 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
           }
         }
       } else {
-        console.log('🎯 没有保存的模型选择，使用默认策略')
+        // console.log('🎯 没有保存的模型选择，使用默认策略')
         setDefaultModelStrategy()
       }
 
@@ -134,7 +134,7 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
         }
 
         if (defaultModel) {
-          console.log('📝 设置默认文本模型:', defaultModel.model)
+          // console.log('📝 设置默认文本模型:', defaultModel.model)
           setTextModel(defaultModel)
           localStorage.setItem('current_selected_model', defaultModel.model)
           localStorage.setItem('text_model', defaultModel.provider + ':' + defaultModel.model)
@@ -166,10 +166,10 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
     if (!isLoggedIn) {
       // 未登录用户：强制使用Google画图工具
       currentSelectedTools = getDefaultSelectedTools(toolList)
-      console.log(
-        '🎯 未登录用户，强制选择 Google 画图工具:',
-        currentSelectedTools.map((t) => t.display_name || t.id)
-      )
+      // console.log(
+      //   '🎯 未登录用户，强制选择 Google 画图工具:',
+      //   currentSelectedTools.map((t) => t.display_name || t.id)
+      // )
 
       // 同步localStorage设置：禁用除了Google画图工具之外的所有工具
       if (currentSelectedTools.length > 0) {
@@ -212,7 +212,7 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
             const disabledToolIds: string[] = JSON.parse(disabledToolsJson)
             return toolList.filter((t) => !disabledToolIds.includes(t.id))
           } catch (error) {
-            console.error('解析 disabled_tool_ids 失败:', error)
+            // console.error('解析 disabled_tool_ids 失败:', error)
             return getDefaultSelectedTools(toolList)
           }
         } else {
