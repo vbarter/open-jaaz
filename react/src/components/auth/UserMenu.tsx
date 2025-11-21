@@ -70,10 +70,10 @@ export function UserMenu() {
   const handleMenuOpen = useCallback(() => {
     // 同时刷新认证状态和用户信息
     refreshAuth().catch((error) => {
-      console.error('❌ UserMenu: 刷新认证状态失败:', error)
+      // console.error('❌ UserMenu: 刷新认证状态失败:', error)
     })
     refreshUserInfo().catch((error) => {
-      console.error('❌ UserMenu: 刷新用户信息失败:', error)
+      // console.error('❌ UserMenu: 刷新用户信息失败:', error)
     })
   }, [refreshAuth, refreshUserInfo])
 
@@ -84,7 +84,7 @@ export function UserMenu() {
   useEffect(() => {
     if (authStatus.is_logged_in && authStatus.user_info) {
       refreshAuth().catch((error) => {
-        console.error('❌ UserMenu: 初始刷新认证状态失败:', error)
+        // console.error('❌ UserMenu: 初始刷新认证状态失败:', error)
       })
     }
   }, []) // 只在组件加载时执行一次

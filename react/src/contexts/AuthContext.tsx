@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setAuthStatus(status)
     } catch (error) {
-      console.error('获取认证状态失败:', error)
+      // console.error('获取认证状态失败:', error)
       // 出错时停止自动刷新
       tokenManager.stopAutoRefresh()
     } finally {
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // 检查URL参数中的认证状态
     const handleUrlAuth = async () => {
-      console.log('🔄 AuthContext initializing...')
+      // console.log('🔄 AuthContext initializing...')
 
       // 1. 优先检查直接认证方式
       const directAuth = checkDirectAuthParams()
@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (directAuth.authSuccess && directAuth.authData) {
         try {
-          console.log('💾 Processing direct auth data...')
+          // console.log('💾 Processing direct auth data...')
           // 直接保存认证数据
           saveAuthData(directAuth.authData.token, directAuth.authData.user_info)
 
@@ -105,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await refreshAuth()
           return
         } catch (error) {
-          console.error('保存认证数据失败:', error)
+          // console.error('保存认证数据失败:', error)
           toast.error(t('common:toast.loginError'))
         }
       }
@@ -121,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (deviceAuth.authSuccess && deviceAuth.deviceCode) {
         try {
-          console.log('🔧 Processing device auth code...')
+          // console.log('🔧 Processing device auth code...')
           // 完成认证流程
           const result = await completeAuth(deviceAuth.deviceCode)
 
@@ -142,17 +142,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return
           }
         } catch (error) {
-          console.error('完成认证失败:', error)
+          // console.error('完成认证失败:', error)
           toast.error(t('common:toast.loginError'))
         }
       }
 
       // 3. 尝试从多种来源恢复认证状态
-      console.log('🔄 Attempting auth recovery...')
+      // console.log('🔄 Attempting auth recovery...')
       const recoveryResult = await authRecovery.attemptRecovery()
 
       if (recoveryResult.success) {
-        console.log(`✅ Auth recovered: ${recoveryResult.message}`)
+        // console.log(`✅ Auth recovered: ${recoveryResult.message}`)
       }
 
       // 4. 正常的认证状态检查（包括页面刷新时的状态恢复）
@@ -173,18 +173,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // 监听跨标签页认证状态变化
     const handleAuthStatusChanged = () => {
-      console.log('🔄 Cross-tab auth status change detected')
+      // console.log('🔄 Cross-tab auth status change detected')
       // 🔧 避免在加载中时重复刷新
       if (!isLoading) {
         refreshAuth()
       } else {
-        console.log('🔄 Skipping refresh: already loading')
+        // console.log('🔄 Skipping refresh: already loading')
       }
     }
 
     // 监听跨标签页登出
     const handleLogoutDetected = () => {
-      console.log('🚪 Cross-tab logout detected')
+      // console.log('🚪 Cross-tab logout detected')
       setAuthStatus({
         status: 'logged_out',
         is_logged_in: false,
@@ -196,13 +196,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!isSilentLogout) {
         toast.info(t('common:toast.crossTabLogout'))
       } else {
-        console.log('🤫 Silent logout detected, skipping toast notification')
+        // console.log('🤫 Silent logout detected, skipping toast notification')
       }
     }
 
     // 监听强制刷新事件
     const handleForceRefresh = () => {
-      console.log('🔄 Force refresh detected')
+      // console.log('🔄 Force refresh detected')
       refreshAuth()
     }
 

@@ -37,8 +37,8 @@ const MessageRegular: React.FC<MessageRegularProps> = ({
 
   // 尝试从消息中提取积分信息
   const extractPointsInfo = (text: string) => {
-    console.log('🔍 [DEBUG] 提取积分信息 - 原始文本:', text.slice(0, 200) + '...')
-    
+    // console.log('🔍 [DEBUG] 提取积分信息 - 原始文本:', text.slice(0, 200) + '...')
+
     // 更强大的中文格式匹配：当前积分：1，需要积分：2 或 当前积分: 1, 需要积分: 2
     const zhMatch1 = text.match(/当前积分[：:]\s*(\d+)[\s，,]*需要积分[：:]\s*(\d+)/)
     if (zhMatch1) {
@@ -46,7 +46,7 @@ const MessageRegular: React.FC<MessageRegularProps> = ({
         currentPoints: parseInt(zhMatch1[1]),
         requiredPoints: parseInt(zhMatch1[2])
       }
-      console.log('✅ [DEBUG] 中文格式1匹配成功:', result, '匹配文本:', zhMatch1[0])
+      // console.log('✅ [DEBUG] 中文格式1匹配成功:', result, '匹配文本:', zhMatch1[0])
       return result
     }
 
@@ -58,7 +58,7 @@ const MessageRegular: React.FC<MessageRegularProps> = ({
         currentPoints: parseInt(currentMatch[1]),
         requiredPoints: parseInt(requiredMatch[1])
       }
-      console.log('✅ [DEBUG] 中文格式2匹配成功:', result)
+      // console.log('✅ [DEBUG] 中文格式2匹配成功:', result)
       return result
     }
 
@@ -69,7 +69,7 @@ const MessageRegular: React.FC<MessageRegularProps> = ({
         currentPoints: parseInt(enMatch[1]),
         requiredPoints: parseInt(enMatch[2])
       }
-      console.log('✅ [DEBUG] 英文格式匹配成功:', result, '匹配文本:', enMatch[0])
+      // console.log('✅ [DEBUG] 英文格式匹配成功:', result, '匹配文本:', enMatch[0])
       return result
     }
 
@@ -81,7 +81,7 @@ const MessageRegular: React.FC<MessageRegularProps> = ({
         currentPoints: parseInt(currentEnMatch[1]),
         requiredPoints: parseInt(requiredEnMatch[1])
       }
-      console.log('✅ [DEBUG] 英文格式2匹配成功:', result)
+      // console.log('✅ [DEBUG] 英文格式2匹配成功:', result)
       return result
     }
 
@@ -90,28 +90,28 @@ const MessageRegular: React.FC<MessageRegularProps> = ({
       currentPoints: 1,  // 通常积分不足时至少有1分
       requiredPoints: 2  // 生成图片通常需要2分
     }
-    console.log('⚠️ [DEBUG] 使用默认积分值:', defaultResult)
+    // console.log('⚠️ [DEBUG] 使用默认积分值:', defaultResult)
     return defaultResult
   }
 
-  console.log('🔍 [DEBUG] MessageRegular 检测消息:', {
-    role: message.role,
-    isInsufficientPoints: isInsufficientPointsMessage,
-    text: markdownText.slice(0, 100)
-  })
+  // console.log('🔍 [DEBUG] MessageRegular 检测消息:', {
+  //   role: message.role,
+  //   isInsufficientPoints: isInsufficientPointsMessage,
+  //   text: markdownText.slice(0, 100)
+  // })
 
   // 如果是积分不足消息，调试数据传递
   if (isInsufficientPointsMessage) {
     const pointsData = extractPointsInfo(markdownText)
-    console.log('🎯 [DEBUG] 准备传递给InsufficientPointsCard的数据:', pointsData)
-    console.log('🎯 [DEBUG] props匹配检查:', {
-      expectedProps: ['currentPoints', 'requiredPoints'],
-      actualProps: Object.keys(pointsData),
-      currentPointsValue: pointsData.currentPoints,
-      requiredPointsValue: pointsData.requiredPoints,
-      currentPointsType: typeof pointsData.currentPoints,
-      requiredPointsType: typeof pointsData.requiredPoints
-    })
+    // console.log('🎯 [DEBUG] 准备传递给InsufficientPointsCard的数据:', pointsData)
+    // console.log('🎯 [DEBUG] props匹配检查:', {
+    //   expectedProps: ['currentPoints', 'requiredPoints'],
+    //   actualProps: Object.keys(pointsData),
+    //   currentPointsValue: pointsData.currentPoints,
+    //   requiredPointsValue: pointsData.requiredPoints,
+    //   currentPointsType: typeof pointsData.currentPoints,
+    //   requiredPointsType: typeof pointsData.requiredPoints
+    // })
   }
 
   return (

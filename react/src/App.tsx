@@ -116,12 +116,12 @@ function App() {
         const result = await window.electronAPI?.startComfyUIProcess()
 
         if (result?.success) {
-          console.log('ComfyUI auto-started successfully:', result.message)
+          // console.log('ComfyUI auto-started successfully:', result.message)
         } else {
-          console.log('Failed to auto-start ComfyUI:', result?.message)
+          // console.log('Failed to auto-start ComfyUI:', result?.message)
         }
       } catch (error) {
-        console.error('Error during ComfyUI auto-start:', error)
+        // console.error('Error during ComfyUI auto-start:', error)
       }
     }
 
