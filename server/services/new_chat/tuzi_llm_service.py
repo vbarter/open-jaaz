@@ -359,7 +359,7 @@ class TuziLLMService:
                 # user_prompt = f"{user_prompt} \n 请你仔细阅读这个网页，根据内容生成详细的绘图prompt, 输出语言采用{user_language}"
                 # logger.info(f"🔍 [DEBUG] 生成提示词: {user_prompt}")
                 prompt = await self._generate_prompt_by_url(user_prompt, user_language=user_language)
-                model_name = "gemini-2.5-flash-image"
+                model_name = "gemini-3-pro-image-preview"
                 if prompt.strip() == "":
                     raise Exception("相关url，生成提示词为空")
                 logger.info(f"🔍 [DEBUG] 生成提示词: {prompt} 使用模型: {model_name}")
@@ -482,7 +482,7 @@ class TuziLLMService:
     def _get_image_generation_model(self, user_model: str) -> str:
         """获取图片生成模型，如果用户选择的不是画图模型则使用默认模型"""
         # 已验证可用的图像编辑模型
-        supported_image_edit_models = ["gemini-2.5-flash-image", "gpt-4o", "seedream-4.0"]
+        supported_image_edit_models = ["gpt-4o", "seedream-4.0", "gemini-3-pro-image-preview"]
 
         # 不支持的模型（已知会报错）
         unsupported_models = ["gemini-2.5-pro-all"]
@@ -495,8 +495,8 @@ class TuziLLMService:
             logger.info(f"✅ 用户选择的模型 '{user_model}' 支持图片编辑")
             return user_model
         else:
-            logger.info(f"⚠️ 用户选择的模型 '{user_model}' 不支持图片编辑，使用默认模型 'gemini-2.5-flash-image'")
-            return "gemini-2.5-flash-image"
+            logger.info(f"⚠️ 用户选择的模型 '{user_model}' 不支持图片编辑，使用默认模型 'gemini-3-pro-image-preview'")
+            return "gemini-3-pro-image-preview"
         
     def _get_video_generation_model(self, user_model: str) -> str:
         """获取视频生成模型，如果用户选择的不是视频生成模型则使用默认模型"""
@@ -520,8 +520,8 @@ class TuziLLMService:
             # 注释掉错误的模型映射，直接使用用户选择的模型
             if model_name == "seedream-4.0" or model_name == "qwen-image-edit-plus":
                 model_name = "doubao-seedream-4-0-250828"
-            # elif model_name == "gemini-2.5-flash-image":
-            #     model_name = "nano-banana"
+            if model_name == "gemini-2.5-flash-image":
+                model_name = "gemini-3-pro-image-preview"
             logger.info(f"🔍 [DEBUG] _handle_image_generation 使用模型: '{model_name}' (无映射)")
             result = await self.gemini_generate_by_tuzi(user_prompt, model_name, aspect_ratio=aspect_ratio, quantity=quantity)
             # result = await self.gemini_edit_image_by_yunwu(prompt=user_prompt, model_name=model_name)
@@ -1254,15 +1254,74 @@ user input: {prompt}
                 logger.info(f"📐 [Image Generation] aspect_ratio: {aspect_ratio} -> size: {size}, quantity: {quantity}")
 
                 # 使用 asyncio.wait_for 添加额外的超时保护
-                result = await asyncio.wait_for(
-                    client.images.generate(
-                        model=image_model,
-                        prompt=prompt,
-                        size=size,  # type: ignore  # OpenAI SDK接受字符串形式的size
-                        n=min(quantity, 10)  # OpenAI最多支持10张
-                    ),
-                    timeout=timeout_seconds
-                )
+                if image_model == "gemini-3-pro-image-preview":
+                     # Use chat completion for gemini-3-pro-image-preview
+                    messages = [
+                        {
+                            "role": "system",
+                            "content": [
+                                {
+                                    "text": "根据用户提示词，直接绘图",
+                                    "type": "text"
+                                }
+                            ]
+                        },
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "text": prompt,
+                                    "type": "text"
+                                }
+                            ]
+                        }
+                    ]
+                    
+                    completion = await asyncio.wait_for(
+                        client.chat.completions.create(
+                            model=image_model,
+                            messages=messages,
+                            max_tokens=2000
+                        ),
+                        timeout=timeout_seconds
+                    )
+
+                    # Mock a result object to match the expected structure
+                    class MockImageData:
+                        def __init__(self, url):
+                            self.url = url
+                            self.b64_json = None
+                            self.revised_prompt = None
+
+                    class MockResult:
+                        def __init__(self, data):
+                            self.data = data
+
+                    if completion.choices and len(completion.choices) > 0:
+                        content = completion.choices[0].message.content
+                        # Extract image URL from markdown: ![image](url)
+                        import re
+                        match = re.search(r'!\[.*?\]\((.*?)\)', content)
+                        if match:
+                            image_url = match.group(1)
+                            result = MockResult([MockImageData(image_url)])
+                        else:
+                             # If no image URL found, treat as failure for now or handle text response
+                             logger.warning(f"⚠️ No image URL found in chat response: {content}")
+                             result = MockResult([]) 
+                    else:
+                        result = MockResult([])
+
+                else:
+                    result = await asyncio.wait_for(
+                        client.images.generate(
+                            model=image_model,
+                            prompt=prompt,
+                            size=size,  # type: ignore  # OpenAI SDK接受字符串形式的size
+                            n=min(quantity, 10)  # OpenAI最多支持10张
+                        ),
+                        timeout=timeout_seconds
+                    )
                 
                 if result.data:
                     for i, data in enumerate(result.data):

@@ -146,7 +146,7 @@ class ImageAnalyser:
   "prompt": "this is ...."
 }    
 """,
-        model: str = "gemini-2.5-flash-image", 
+        model: str = "gemini-2.5-pro-all", 
         max_tokens: int = 3000
     ) -> Optional[str]:
         """
@@ -234,7 +234,7 @@ class ImageAnalyser:
         self,
         images: Dict[str, str],
         prompt: str,
-        model: str = "gemini-2.5-flash-image",
+        model: str = "gemini-3-pro-image-preview",
         session_id: Optional[str] = None,
         aspect_ratio: str = "auto",
         quantity: int = 1
