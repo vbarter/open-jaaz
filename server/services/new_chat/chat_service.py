@@ -707,7 +707,7 @@ async def _process_generation(
                     
                     if filename:
                         # 使用本地代理URL
-                        local_url = f"http://127.0.0.1:8000/api/file/{filename}"
+                        local_url = f"{BASE_URL}/api/file/{filename}"
                         logger.info(f"🔄 [URL_FIX] 转换云端URL为本地代理URL: {media_url} -> {local_url}")
                         
                         # 更新 media_url
