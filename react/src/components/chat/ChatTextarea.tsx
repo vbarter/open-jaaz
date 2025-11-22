@@ -43,6 +43,7 @@ type ChatTextareaProps = {
   className?: string
   messages: Message[]
   sessionId?: string
+  initialValue?: string // 🆕 新增：初始提示词值
   onSendMessages: (
     data: Message[],
     configs: {
@@ -62,6 +63,7 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
   className,
   messages,
   sessionId,
+  initialValue = '', // 🆕 添加默认值为空字符串
   onSendMessages,
   onCancelChat,
   enableDynamicPlaceholder = true, // 🆕 默认启用动态placeholder，保持向后兼容
@@ -78,7 +80,7 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
     pauseAfterComplete: 2500,
     enabled: enableDynamicPlaceholder // 🆕 传入enabled参数控制是否启用
   })
-  const [prompt, setPrompt] = useState('')
+  const [prompt, setPrompt] = useState(initialValue) // 🆕 使用initialValue初始化prompt状态
   const textareaRef = useRef<TextAreaRef>(null)
   const [images, setImages] = useState<
     {
@@ -458,6 +460,15 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
       })
     }
   }, [images])
+
+  // 当initialValue变化时更新prompt
+  useEffect(() => {
+    if (initialValue) {
+      setPrompt(initialValue)
+      // 自动聚焦到输入框
+      textareaRef.current?.focus()
+    }
+  }, [initialValue])
 
   return (
     <motion.div

@@ -9,7 +9,7 @@ import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { motion } from 'motion/react'
 import { nanoid } from 'nanoid'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import TopMenu from '@/components/TopMenu'
@@ -23,6 +23,20 @@ function Home() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const { setInitCanvas } = useConfigs()
+
+  // 读取URL中的auto_prompt参数
+  const [initialPrompt, setInitialPrompt] = useState('')
+
+  useEffect(() => {
+    // 从URL中获取auto_prompt参数
+    const urlParams = new URLSearchParams(window.location.search)
+    const autoPrompt = urlParams.get('auto_prompt')
+
+    if (autoPrompt) {
+      // URL解码并设置初始提示词
+      setInitialPrompt(decodeURIComponent(autoPrompt))
+    }
+  }, [])
 
   const { mutate: createCanvasMutation, isPending } = useMutation({
     mutationFn: createCanvas,
@@ -87,6 +101,7 @@ function Home() {
                 <ChatTextarea
                   className='w-full border-0 bg-transparent'
                   messages={[]}
+                  initialValue={initialPrompt}
                   onSendMessages={(messages, configs) => {
                     createCanvasMutation({
                       name: t('home:newCanvas'),
