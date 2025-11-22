@@ -15,6 +15,7 @@ logger.info('Importing websocket_router')
 from routers.websocket_router import *  # DO NOT DELETE THIS LINE, OTHERWISE, WEBSOCKET WILL NOT WORK
 logger.info('Importing routers')
 from routers import config_router, image_router, root_router, workspace, canvas, ssl_test, chat_router, settings, tool_confirmation, templates_router, auth_router, billing_router, pages_router, invite_router, canvas_fix_router, user_model_router, video_router, sora_websocket, magicart_api
+from plugin import plugin_router
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI, Request, HTTPException
@@ -59,20 +60,36 @@ app = FastAPI(
 )
 
 # Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://www.magicart.cc",
-        "https://magicart.cc", 
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174"
-    ],  # 明确指定允许的来源
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # 明确指定允许的HTTP方法
-    allow_headers=["*"],  # 允许所有头部
-)
+# 从环境变量读取是否启用开发模式的CORS配置
+DEV_MODE = os.getenv("DEV_MODE", "true").lower() == "true"
+
+if DEV_MODE:
+    # 开发模式：允许所有来源（用于Chrome插件等跨域请求）
+    logger.info("CORS: 开发模式 - 允许所有来源")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # 允许所有来源
+        allow_credentials=False,  # 注意：allow_origins=["*"] 时必须设置为 False
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+    )
+else:
+    # 生产模式：只允许特定来源
+    logger.info("CORS: 生产模式 - 只允许特定来源")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "https://www.magicart.cc",
+            "https://magicart.cc",
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:5174"
+        ],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+    )
 
 # 添加文件大小检查中间件
 @app.middleware("http")
@@ -116,6 +133,7 @@ app.include_router(pages_router.router)
 app.include_router(invite_router.router)
 app.include_router(user_model_router.router)
 app.include_router(magicart_api.router)  # MagicArt 任务分发API
+app.include_router(plugin_router.router)  # Plugin API
 
 # Sitemap.xml endpoint
 @app.get("/sitemap.xml")
