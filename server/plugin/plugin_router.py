@@ -62,8 +62,8 @@ async def add_prompt(prompt_data: AddPromptRequest):
     try:
         logger.info(f"收到添加提示词请求: title={prompt_data.title}, creator={prompt_data.creator}")
 
-        # 调用service层处理业务逻辑
-        result = plugin_service.add_prompt(
+        # 调用service层处理业务逻辑（异步调用）
+        result = await plugin_service.add_prompt(
             creator=prompt_data.creator,
             source=prompt_data.source,
             origin_text=prompt_data.origin_text,
@@ -110,6 +110,149 @@ class LLMResponse(BaseModel):
     code: int
     message: str
     data: dict
+
+
+class ListPromptRequest(BaseModel):
+    """获取提示词列表请求模型"""
+    start: int = Field(default=0, ge=0, description="从第几个记录开始获取，从0开始")
+
+
+class ListPromptResponse(BaseModel):
+    """获取提示词列表响应模型"""
+    code: int
+    message: str
+    data: dict  # 包含 items, next, has_more, total
+
+
+@router.post("/api/plugin/list_prompt", response_model=ListPromptResponse)
+async def list_prompt(request: ListPromptRequest):
+    """
+    分页获取提示词列表接口
+
+    Args:
+        request: 包含分页参数的请求
+            - start: 从第几个记录开始获取（从0开始），默认为0
+
+    Returns:
+        ListPromptResponse: 标准响应格式
+            - code: 0表示成功，非0表示失败
+            - message: 操作消息
+            - data: 包含以下字段
+                - items: 提示词记录列表（最多5条）
+                - next: 下一页的起始位置，如果没有更多数据则为null
+                - has_more: 是否还有更多数据
+                - total: 当前返回的记录数
+
+    说明：
+        - 按创建时间倒序排列（最新的记录在最前面）
+        - 每页固定返回5条记录
+        - start=0 获取第0-4条记录（最新的5条）
+        - start=5 获取第5-9条记录（接下来的5条）
+        - 根据 start 和每页5条的规则自动计算查询位置
+    """
+    try:
+        logger.info(f"收到获取提示词列表请求: start={request.start}")
+
+        # 每页固定5条记录
+        page_size = 5
+
+        # 根据 start 参数计算查询位置
+        # start 就是 offset，表示跳过前面多少条记录
+        offset = request.start
+
+        # 调用service层处理业务逻辑
+        result = plugin_service.list_prompts_paginated(
+            next_offset=offset,
+            page_size=page_size
+        )
+
+        # 根据service返回的结果构造响应
+        if result['success']:
+            logger.info(
+                f"提示词列表获取成功: 返回{result['data']['total']}条记录, "
+                f"has_more={result['data']['has_more']}"
+            )
+            return ListPromptResponse(
+                code=0,
+                message=result['message'],
+                data=result['data']
+            )
+        else:
+            logger.error(f"提示词列表获取失败: {result['message']}")
+            return ListPromptResponse(
+                code=1,
+                message=result['message'],
+                data=result['data']
+            )
+
+    except Exception as e:
+        logger.error(f"获取提示词列表时发生异常: {str(e)}", exc_info=True)
+        return ListPromptResponse(
+            code=1,
+            message=f"Internal server error: {str(e)}",
+            data={
+                'items': [],
+                'next': None,
+                'has_more': False,
+                'total': 0
+            }
+        )
+
+
+class CountPromptResponse(BaseModel):
+    """统计提示词数量响应模型"""
+    code: int
+    message: str
+    data: dict  # 包含 count
+
+
+@router.post("/api/plugin/count_prompt", response_model=CountPromptResponse)
+async def count_prompt():
+    """
+    统计提示词总记录数接口
+
+    Returns:
+        CountPromptResponse: 标准响应格式
+            - code: 0表示成功，非0表示失败
+            - message: 操作消息
+            - data: 包含以下字段
+                - count: 总记录数
+
+    说明：
+        - 返回数据库中所有提示词的总数量
+        - 不需要任何请求参数
+        - 用于分页时显示总页数等信息
+    """
+    try:
+        logger.info("收到统计提示词数量请求")
+
+        # 调用service层处理业务逻辑
+        result = plugin_service.count_prompts()
+
+        # 根据service返回的结果构造响应
+        if result['success']:
+            count = result['data']['count']
+            logger.info(f"提示词统计成功: 总共 {count} 条记录")
+            return CountPromptResponse(
+                code=0,
+                message=result['message'],
+                data=result['data']
+            )
+        else:
+            logger.error(f"提示词统计失败: {result['message']}")
+            return CountPromptResponse(
+                code=1,
+                message=result['message'],
+                data=result['data']
+            )
+
+    except Exception as e:
+        logger.error(f"统计提示词数量时发生异常: {str(e)}", exc_info=True)
+        return CountPromptResponse(
+            code=1,
+            message=f"Internal server error: {str(e)}",
+            data={'count': 0}
+        )
 
 
 @router.post("/api/plugin/llm", response_model=LLMResponse)
