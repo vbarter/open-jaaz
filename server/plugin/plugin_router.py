@@ -8,6 +8,7 @@ Plugin Router
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
+from typing import Optional
 import logging
 import httpx
 import json
@@ -34,6 +35,7 @@ class AddPromptRequest(BaseModel):
     title: str = Field(..., description="标题")
     prompt: str = Field(..., description="模版提示词")
     owner: str = Field(..., description="发布人")
+    publish_time: Optional[str] = Field(None, description="推文发布时间")
 
 
 class AddPromptResponse(BaseModel):
@@ -71,7 +73,8 @@ async def add_prompt(prompt_data: AddPromptRequest):
             video_url=prompt_data.video_url,
             title=prompt_data.title,
             prompt=prompt_data.prompt,
-            owner=prompt_data.owner
+            owner=prompt_data.owner,
+            publish_time=prompt_data.publish_time
         )
 
         # 根据service返回的结果构造响应

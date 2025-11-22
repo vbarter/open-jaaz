@@ -161,7 +161,8 @@ class PluginService:
                          video_url: str,
                          title: str,
                          prompt: str,
-                         owner: str) -> Dict[str, Any]:
+                         owner: str,
+                         publish_time: Optional[str] = None) -> Dict[str, Any]:
         """
         添加提示词到Supabase数据库
 
@@ -174,6 +175,7 @@ class PluginService:
             title: 标题
             prompt: 模版提示词
             owner: 发布人
+            publish_time: 推文发布时间（可选）
 
         Returns:
             Dict: 包含操作结果的字典
@@ -207,6 +209,10 @@ class PluginService:
                 'prompt': prompt,
                 'owner': owner
             }
+
+            # 如果提供了发布时间，添加到数据中
+            if publish_time is not None:
+                prompt_data['publish_time'] = publish_time
 
             logger.info(f"准备插入提示词数据: title={title}, creator={creator}, owner={owner}")
 
