@@ -305,13 +305,13 @@ class PluginService:
             return []
 
     @classmethod
-    def list_prompts_paginated(cls, next_offset: int = 0, page_size: int = 5) -> Dict[str, Any]:
+    def list_prompts_paginated(cls, next_offset: int = 0, page_size: int = 10) -> Dict[str, Any]:
         """
         分页获取提示词列表
 
         Args:
             next_offset: 下一页的起始位置（从0开始）
-            page_size: 每页返回的记录数，默认5条
+            page_size: 每页返回的记录数，默认10条
 
         Returns:
             Dict: 包含分页信息的字典
@@ -448,6 +448,185 @@ class PluginService:
                 'message': f'Error: {str(e)}',
                 'data': {
                     'count': 0
+                }
+            }
+
+    @classmethod
+    def count_search_prompts(cls, query: str) -> Dict[str, Any]:
+        """
+        统计搜索结果的记录数
+
+        Args:
+            query: 搜索关键词
+
+        Returns:
+            Dict: 包含统计结果的字典
+                - success (bool): 操作是否成功
+                - message (str): 操作消息
+                - data (dict): 包含统计信息
+                    - count (int): 符合搜索条件的记录总数
+        """
+        try:
+            logger.info(f"开始统计搜索结果数量: query={query}")
+
+            # 如果查询为空，返回0
+            if not query or query.strip() == '':
+                logger.info("搜索查询为空，返回0")
+                return {
+                    'success': True,
+                    'message': 'Empty query',
+                    'data': {
+                        'count': 0
+                    }
+                }
+
+            def count_operation(client):
+                # 使用 Supabase 的 count 功能，配合 ilike 进行模糊搜索
+                result = client.table('tb_ma_template_prompt') \
+                    .select('*', count='exact') \
+                    .ilike('prompt', f'%{query}%') \
+                    .limit(0) \
+                    .execute()
+                return result
+
+            result = SupabaseService.execute_with_retry(count_operation)
+
+            if result:
+                # Supabase 的 count 在 result.count 中
+                count = result.count if hasattr(result, 'count') else 0
+
+                logger.info(f"搜索统计完成: 查询'{query}'共找到 {count} 条记录")
+
+                return {
+                    'success': True,
+                    'message': 'Count successful',
+                    'data': {
+                        'count': count
+                    }
+                }
+            else:
+                logger.error("搜索统计失败: 未返回结果")
+                return {
+                    'success': False,
+                    'message': 'Failed to count search results',
+                    'data': {
+                        'count': 0
+                    }
+                }
+
+        except Exception as e:
+            logger.error(f"统计搜索结果数量失败: {str(e)}", exc_info=True)
+            return {
+                'success': False,
+                'message': f'Error: {str(e)}',
+                'data': {
+                    'count': 0
+                }
+            }
+
+    @classmethod
+    def search_prompts(cls, query: str, next_offset: int = 0, page_size: int = 10) -> Dict[str, Any]:
+        """
+        分页搜索提示词
+
+        Args:
+            query: 搜索关键词
+            next_offset: 下一页的起始位置（从0开始）
+            page_size: 每页返回的记录数，默认10条
+
+        Returns:
+            Dict: 包含搜索结果的字典
+                - success (bool): 操作是否成功
+                - message (str): 操作消息
+                - data (dict): 包含分页信息的字典
+                    - items (list): 提示词记录列表（最多10条）
+                    - next (int): 下一页的起始位置，如果没有更多数据则为None
+                    - has_more (bool): 是否还有更多数据
+                    - total (int): 当前返回的记录数
+        """
+        try:
+            logger.info(f"搜索提示词: query={query}, next_offset={next_offset}, page_size={page_size}")
+
+            # 如果查询为空，返回空结果
+            if not query or query.strip() == '':
+                logger.info("搜索查询为空，返回空结果")
+                return {
+                    'success': True,
+                    'message': 'Empty query',
+                    'data': {
+                        'items': [],
+                        'next': None,
+                        'has_more': False,
+                        'total': 0
+                    }
+                }
+
+            # 多查询1条记录来判断是否还有下一页
+            fetch_limit = page_size + 1
+            offset = next_offset
+
+            def search_operation(client):
+                # 使用 ilike 进行模糊搜索（不区分大小写）
+                result = client.table('tb_ma_template_prompt') \
+                    .select('*') \
+                    .ilike('prompt', f'%{query}%') \
+                    .order('created_at', desc=True) \
+                    .range(offset, offset + fetch_limit - 1) \
+                    .execute()
+                return result
+
+            result = SupabaseService.execute_with_retry(search_operation)
+
+            if result and result.data:
+                records = result.data
+
+                # 判断是否还有更多数据
+                has_more = len(records) > page_size
+
+                # 只返回请求的页面大小的数据
+                items = records[:page_size]
+
+                # 计算下一页的起始位置
+                next_page_offset = offset + page_size if has_more else None
+
+                logger.info(
+                    f"搜索成功: 返回{len(items)}条记录, "
+                    f"has_more={has_more}, next={next_page_offset}"
+                )
+
+                return {
+                    'success': True,
+                    'message': 'Search successful',
+                    'data': {
+                        'items': items,
+                        'next': next_page_offset,
+                        'has_more': has_more,
+                        'total': len(items)
+                    }
+                }
+            else:
+                logger.info("搜索结果为空")
+                return {
+                    'success': True,
+                    'message': 'No results found',
+                    'data': {
+                        'items': [],
+                        'next': None,
+                        'has_more': False,
+                        'total': 0
+                    }
+                }
+
+        except Exception as e:
+            logger.error(f"搜索提示词失败: {str(e)}", exc_info=True)
+            return {
+                'success': False,
+                'message': f'Error: {str(e)}',
+                'data': {
+                    'items': [],
+                    'next': None,
+                    'has_more': False,
+                    'total': 0
                 }
             }
 
