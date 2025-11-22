@@ -30,4 +30,6 @@ python-socketio==5.13.0
 pymediainfo
 openai-agents
 socksio # For vpn from command line like export https_proxy=http://127.0.0.1:7897 http_proxy=http://127.0.0.1:7897 all_proxy=socks5://127.0.0.1:7897
-piexif # For EXIF metadata handling in JPEG files 
+piexif # For EXIF metadata handling in JPEG files
+supabase # Supabase Python client
+python-dotenv # For loading environment variables 

@@ -1,0 +1,641 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+Plugin Service
+处理插件相关的业务逻辑，包括与Supabase数据库的交互
+"""
+
+import logging
+from typing import Optional, Dict, Any, List
+from datetime import datetime
+import httpx
+import tempfile
+import uuid
+import os as os_module
+from pathlib import Path
+
+# 导入Supabase服务
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from superbase import SupabaseService
+from utils.cos_image_service import get_cos_image_service
+
+# 配置日志
+logger = logging.getLogger('plugin_service')
+
+
+class PluginService:
+    """插件服务类，处理插件相关的数据库操作"""
+
+    @classmethod
+    async def _download_and_upload_media_urls(cls, url_string: str, media_type: str = 'image') -> str:
+        """
+        下载媒体URL列表并上传到腾讯云
+
+        Args:
+            url_string: 用 '\001' 分隔的URL字符串
+            media_type: 媒体类型，'image' 或 'video'
+
+        Returns:
+            用 '\001' 分隔的新URL字符串（腾讯云URL）
+        """
+        if not url_string or url_string.strip() == '':
+            logger.info(f"空的{media_type} URL字符串，跳过处理")
+            return url_string
+
+        # 分割URL列表
+        separator = '\001'  # ASCII码1
+        urls = url_string.split(separator)
+        logger.info(f"开始处理{len(urls)}个{media_type} URL")
+
+        # 获取腾讯云服务
+        cos_service = get_cos_image_service()
+        if not cos_service.available:
+            logger.warning(f"腾讯云服务不可用，返回原始URL")
+            return url_string
+
+        new_urls = []
+
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+            for idx, url in enumerate(urls):
+                url = url.strip()
+                if not url:
+                    continue
+
+                try:
+                    logger.info(f"正在下载{media_type} [{idx + 1}/{len(urls)}]: {url}")
+
+                    # 下载媒体文件（自动跟随重定向）
+                    response = await client.get(url)
+                    response.raise_for_status()
+                    media_bytes = response.content
+
+                    # 确定文件扩展名
+                    content_type = response.headers.get('content-type', '')
+                    file_ext = cls._get_file_extension_from_url_or_content_type(url, content_type, media_type)
+
+                    # 生成唯一的文件名
+                    unique_filename = f"{media_type}_{uuid.uuid4().hex[:12]}{file_ext}"
+
+                    # 上传到腾讯云
+                    cos_url = await cos_service.upload_image_from_bytes(
+                        image_bytes=media_bytes,
+                        image_key=unique_filename,
+                        content_type=content_type or f'{media_type}/jpeg'
+                    )
+
+                    if cos_url:
+                        logger.info(f"✅ {media_type}上传成功: {unique_filename} -> {cos_url}")
+                        new_urls.append(cos_url)
+                    else:
+                        logger.error(f"❌ {media_type}上传失败: {url}，保留原URL")
+                        new_urls.append(url)
+
+                except httpx.HTTPError as e:
+                    logger.error(f"❌ 下载{media_type}失败: {url}, 错误: {e}，保留原URL")
+                    new_urls.append(url)
+                except Exception as e:
+                    logger.error(f"❌ 处理{media_type}失败: {url}, 错误: {e}，保留原URL")
+                    new_urls.append(url)
+
+        # 用分隔符拼接新的URL列表
+        result = separator.join(new_urls)
+        logger.info(f"完成{media_type} URL处理，原{len(urls)}个，新{len(new_urls)}个")
+        return result
+
+    @staticmethod
+    def _get_file_extension_from_url_or_content_type(url: str, content_type: str, media_type: str) -> str:
+        """
+        从URL或Content-Type中获取文件扩展名
+
+        Args:
+            url: 原始URL
+            content_type: HTTP响应的Content-Type头
+            media_type: 媒体类型 ('image' 或 'video')
+
+        Returns:
+            文件扩展名（包含点号），如 '.jpg', '.mp4'
+        """
+        # 首先尝试从URL中提取扩展名
+        url_path = url.split('?')[0]  # 去除查询参数
+        if '.' in url_path:
+            ext = '.' + url_path.rsplit('.', 1)[-1].lower()
+            # 验证扩展名是否合理
+            if media_type == 'image' and ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']:
+                return ext
+            elif media_type == 'video' and ext in ['.mp4', '.mov', '.avi', '.webm', '.mkv', '.flv']:
+                return ext
+
+        # 从Content-Type推断扩展名
+        content_type_map = {
+            # 图片类型
+            'image/jpeg': '.jpg',
+            'image/jpg': '.jpg',
+            'image/png': '.png',
+            'image/gif': '.gif',
+            'image/webp': '.webp',
+            'image/bmp': '.bmp',
+            # 视频类型
+            'video/mp4': '.mp4',
+            'video/quicktime': '.mov',
+            'video/x-msvideo': '.avi',
+            'video/webm': '.webm',
+            'video/x-matroska': '.mkv',
+            'video/x-flv': '.flv',
+        }
+
+        if content_type in content_type_map:
+            return content_type_map[content_type]
+
+        # 默认扩展名
+        return '.jpg' if media_type == 'image' else '.mp4'
+
+    @classmethod
+    async def add_prompt(cls,
+                         creator: str,
+                         source: str,
+                         origin_text: str,
+                         image_url: str,
+                         video_url: str,
+                         title: str,
+                         prompt: str,
+                         owner: str,
+                         publish_time: Optional[str] = None) -> Dict[str, Any]:
+        """
+        添加提示词到Supabase数据库
+
+        Args:
+            creator: 提示词创建人
+            source: 来源
+            origin_text: 原文内容
+            image_url: 图片URL（用'\001'分隔的URL列表）
+            video_url: 视频URL（用'\001'分隔的URL列表）
+            title: 标题
+            prompt: 模版提示词
+            owner: 发布人
+            publish_time: 推文发布时间（可选）
+
+        Returns:
+            Dict: 包含操作结果的字典
+                - success (bool): 操作是否成功
+                - message (str): 操作消息
+                - data (dict): 插入的数据（如果成功）
+        """
+        try:
+            logger.info(f"准备处理提示词: title={title}, creator={creator}, owner={owner}")
+
+            # 处理图片URL - 下载并上传到腾讯云
+            processed_image_url = await cls._download_and_upload_media_urls(
+                url_string=image_url,
+                media_type='image'
+            )
+
+            # 处理视频URL - 下载并上传到腾讯云
+            processed_video_url = await cls._download_and_upload_media_urls(
+                url_string=video_url,
+                media_type='video'
+            )
+
+            # 准备插入数据（使用处理后的腾讯云URL）
+            prompt_data = {
+                'creator': creator,
+                'source': source,
+                'origin_text': origin_text,
+                'image_url': processed_image_url,
+                'video_url': processed_video_url,
+                'title': title,
+                'prompt': prompt,
+                'owner': owner
+            }
+
+            # 如果提供了发布时间，添加到数据中
+            if publish_time is not None:
+                prompt_data['publish_time'] = publish_time
+
+            logger.info(f"准备插入提示词数据: title={title}, creator={creator}, owner={owner}")
+
+            # 定义插入操作
+            def insert_operation(client):
+                result = client.table('tb_ma_template_prompt').insert(prompt_data).execute()
+                return result
+
+            # 执行插入操作（带重试机制）
+            result = SupabaseService.execute_with_retry(insert_operation)
+
+            if result and result.data:
+                inserted_record = result.data[0] if isinstance(result.data, list) else result.data
+                logger.info(f"提示词插入成功: id={inserted_record.get('id')}, title={title}")
+
+                return {
+                    'success': True,
+                    'message': 'add successfully',
+                    'data': inserted_record
+                }
+            else:
+                logger.error(f"提示词插入失败: 未返回数据")
+                return {
+                    'success': False,
+                    'message': 'Failed to insert prompt',
+                    'data': None
+                }
+
+        except Exception as e:
+            logger.error(f"添加提示词时发生错误: {str(e)}", exc_info=True)
+            return {
+                'success': False,
+                'message': f'Error: {str(e)}',
+                'data': None
+            }
+
+    @classmethod
+    def get_prompt_by_id(cls, prompt_id: int) -> Optional[Dict[str, Any]]:
+        """
+        根据ID获取提示词
+
+        Args:
+            prompt_id: 提示词ID
+
+        Returns:
+            Dict 或 None: 提示词数据
+        """
+        try:
+            def query_operation(client):
+                result = client.table('tb_ma_template_prompt') \
+                    .select('*') \
+                    .eq('id', prompt_id) \
+                    .limit(1) \
+                    .execute()
+                return result
+
+            result = SupabaseService.execute_with_retry(query_operation)
+
+            if result and result.data and len(result.data) > 0:
+                return result.data[0]
+            return None
+
+        except Exception as e:
+            logger.error(f"查询提示词失败: {str(e)}", exc_info=True)
+            return None
+
+    @classmethod
+    def list_prompts(cls, limit: int = 100, offset: int = 0) -> list:
+        """
+        获取提示词列表
+
+        Args:
+            limit: 返回数量限制
+            offset: 偏移量
+
+        Returns:
+            List: 提示词列表
+        """
+        try:
+            def query_operation(client):
+                result = client.table('tb_ma_template_prompt') \
+                    .select('*') \
+                    .order('id', desc=True) \
+                    .range(offset, offset + limit - 1) \
+                    .execute()
+                return result
+
+            result = SupabaseService.execute_with_retry(query_operation)
+
+            if result and result.data:
+                return result.data
+            return []
+
+        except Exception as e:
+            logger.error(f"查询提示词列表失败: {str(e)}", exc_info=True)
+            return []
+
+    @classmethod
+    def list_prompts_paginated(cls, next_offset: int = 0, page_size: int = 10) -> Dict[str, Any]:
+        """
+        分页获取提示词列表
+
+        Args:
+            next_offset: 下一页的起始位置（从0开始）
+            page_size: 每页返回的记录数，默认10条
+
+        Returns:
+            Dict: 包含分页信息的字典
+                - success (bool): 操作是否成功
+                - message (str): 操作消息
+                - data (dict): 包含记录列表和分页信息
+                    - items (list): 提示词记录列表
+                    - next (int): 下一页的起始位置，如果没有更多数据则为None
+                    - has_more (bool): 是否还有更多数据
+                    - total (int): 当前返回的记录数
+        """
+        try:
+            logger.info(f"查询提示词列表: next_offset={next_offset}, page_size={page_size}")
+
+            # 多查询1条记录来判断是否还有下一页
+            fetch_limit = page_size + 1
+
+            def query_operation(client):
+                # 按照 created_at 时间倒序排列（最新的在前面）
+                result = client.table('tb_ma_template_prompt') \
+                    .select('*') \
+                    .order('created_at', desc=True) \
+                    .range(next_offset, next_offset + fetch_limit - 1) \
+                    .execute()
+                return result
+
+            result = SupabaseService.execute_with_retry(query_operation)
+
+            if result and result.data:
+                records = result.data
+
+                # 判断是否还有更多数据
+                has_more = len(records) > page_size
+
+                # 只返回请求的页面大小的数据
+                items = records[:page_size]
+
+                # 计算下一页的起始位置
+                next_page_offset = next_offset + page_size if has_more else None
+
+                logger.info(
+                    f"查询成功: 返回{len(items)}条记录, "
+                    f"has_more={has_more}, next={next_page_offset}"
+                )
+
+                return {
+                    'success': True,
+                    'message': 'Query successful',
+                    'data': {
+                        'items': items,
+                        'next': next_page_offset,
+                        'has_more': has_more,
+                        'total': len(items)
+                    }
+                }
+            else:
+                logger.info("查询结果为空")
+                return {
+                    'success': True,
+                    'message': 'No data found',
+                    'data': {
+                        'items': [],
+                        'next': None,
+                        'has_more': False,
+                        'total': 0
+                    }
+                }
+
+        except Exception as e:
+            logger.error(f"分页查询提示词列表失败: {str(e)}", exc_info=True)
+            return {
+                'success': False,
+                'message': f'Error: {str(e)}',
+                'data': {
+                    'items': [],
+                    'next': None,
+                    'has_more': False,
+                    'total': 0
+                }
+            }
+
+    @classmethod
+    def count_prompts(cls) -> Dict[str, Any]:
+        """
+        统计提示词总记录数
+
+        Returns:
+            Dict: 包含统计结果的字典
+                - success (bool): 操作是否成功
+                - message (str): 操作消息
+                - data (dict): 包含统计信息
+                    - count (int): 总记录数
+        """
+        try:
+            logger.info("开始统计提示词总记录数")
+
+            def count_operation(client):
+                # 使用 Supabase 的 count 功能
+                result = client.table('tb_ma_template_prompt') \
+                    .select('*', count='exact') \
+                    .limit(0) \
+                    .execute()
+                return result
+
+            result = SupabaseService.execute_with_retry(count_operation)
+
+            if result:
+                # Supabase 的 count 在 result.count 中
+                count = result.count if hasattr(result, 'count') else 0
+
+                logger.info(f"统计完成: 总共 {count} 条记录")
+
+                return {
+                    'success': True,
+                    'message': 'Count successful',
+                    'data': {
+                        'count': count
+                    }
+                }
+            else:
+                logger.error("统计失败: 未返回结果")
+                return {
+                    'success': False,
+                    'message': 'Failed to count records',
+                    'data': {
+                        'count': 0
+                    }
+                }
+
+        except Exception as e:
+            logger.error(f"统计提示词记录数失败: {str(e)}", exc_info=True)
+            return {
+                'success': False,
+                'message': f'Error: {str(e)}',
+                'data': {
+                    'count': 0
+                }
+            }
+
+    @classmethod
+    def count_search_prompts(cls, query: str) -> Dict[str, Any]:
+        """
+        统计搜索结果的记录数
+
+        Args:
+            query: 搜索关键词
+
+        Returns:
+            Dict: 包含统计结果的字典
+                - success (bool): 操作是否成功
+                - message (str): 操作消息
+                - data (dict): 包含统计信息
+                    - count (int): 符合搜索条件的记录总数
+        """
+        try:
+            logger.info(f"开始统计搜索结果数量: query={query}")
+
+            # 如果查询为空，返回0
+            if not query or query.strip() == '':
+                logger.info("搜索查询为空，返回0")
+                return {
+                    'success': True,
+                    'message': 'Empty query',
+                    'data': {
+                        'count': 0
+                    }
+                }
+
+            def count_operation(client):
+                # 使用 Supabase 的 count 功能，配合 ilike 进行模糊搜索
+                result = client.table('tb_ma_template_prompt') \
+                    .select('*', count='exact') \
+                    .ilike('prompt', f'%{query}%') \
+                    .limit(0) \
+                    .execute()
+                return result
+
+            result = SupabaseService.execute_with_retry(count_operation)
+
+            if result:
+                # Supabase 的 count 在 result.count 中
+                count = result.count if hasattr(result, 'count') else 0
+
+                logger.info(f"搜索统计完成: 查询'{query}'共找到 {count} 条记录")
+
+                return {
+                    'success': True,
+                    'message': 'Count successful',
+                    'data': {
+                        'count': count
+                    }
+                }
+            else:
+                logger.error("搜索统计失败: 未返回结果")
+                return {
+                    'success': False,
+                    'message': 'Failed to count search results',
+                    'data': {
+                        'count': 0
+                    }
+                }
+
+        except Exception as e:
+            logger.error(f"统计搜索结果数量失败: {str(e)}", exc_info=True)
+            return {
+                'success': False,
+                'message': f'Error: {str(e)}',
+                'data': {
+                    'count': 0
+                }
+            }
+
+    @classmethod
+    def search_prompts(cls, query: str, next_offset: int = 0, page_size: int = 10) -> Dict[str, Any]:
+        """
+        分页搜索提示词
+
+        Args:
+            query: 搜索关键词
+            next_offset: 下一页的起始位置（从0开始）
+            page_size: 每页返回的记录数，默认10条
+
+        Returns:
+            Dict: 包含搜索结果的字典
+                - success (bool): 操作是否成功
+                - message (str): 操作消息
+                - data (dict): 包含分页信息的字典
+                    - items (list): 提示词记录列表（最多10条）
+                    - next (int): 下一页的起始位置，如果没有更多数据则为None
+                    - has_more (bool): 是否还有更多数据
+                    - total (int): 当前返回的记录数
+        """
+        try:
+            logger.info(f"搜索提示词: query={query}, next_offset={next_offset}, page_size={page_size}")
+
+            # 如果查询为空，返回空结果
+            if not query or query.strip() == '':
+                logger.info("搜索查询为空，返回空结果")
+                return {
+                    'success': True,
+                    'message': 'Empty query',
+                    'data': {
+                        'items': [],
+                        'next': None,
+                        'has_more': False,
+                        'total': 0
+                    }
+                }
+
+            # 多查询1条记录来判断是否还有下一页
+            fetch_limit = page_size + 1
+            offset = next_offset
+
+            def search_operation(client):
+                # 使用 ilike 进行模糊搜索（不区分大小写）
+                result = client.table('tb_ma_template_prompt') \
+                    .select('*') \
+                    .ilike('prompt', f'%{query}%') \
+                    .order('created_at', desc=True) \
+                    .range(offset, offset + fetch_limit - 1) \
+                    .execute()
+                return result
+
+            result = SupabaseService.execute_with_retry(search_operation)
+
+            if result and result.data:
+                records = result.data
+
+                # 判断是否还有更多数据
+                has_more = len(records) > page_size
+
+                # 只返回请求的页面大小的数据
+                items = records[:page_size]
+
+                # 计算下一页的起始位置
+                next_page_offset = offset + page_size if has_more else None
+
+                logger.info(
+                    f"搜索成功: 返回{len(items)}条记录, "
+                    f"has_more={has_more}, next={next_page_offset}"
+                )
+
+                return {
+                    'success': True,
+                    'message': 'Search successful',
+                    'data': {
+                        'items': items,
+                        'next': next_page_offset,
+                        'has_more': has_more,
+                        'total': len(items)
+                    }
+                }
+            else:
+                logger.info("搜索结果为空")
+                return {
+                    'success': True,
+                    'message': 'No results found',
+                    'data': {
+                        'items': [],
+                        'next': None,
+                        'has_more': False,
+                        'total': 0
+                    }
+                }
+
+        except Exception as e:
+            logger.error(f"搜索提示词失败: {str(e)}", exc_info=True)
+            return {
+                'success': False,
+                'message': f'Error: {str(e)}',
+                'data': {
+                    'items': [],
+                    'next': None,
+                    'has_more': False,
+                    'total': 0
+                }
+            }
+
+
+# 创建全局实例
+plugin_service = PluginService()
