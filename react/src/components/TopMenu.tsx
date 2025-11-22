@@ -31,15 +31,19 @@ export default function TopMenu({
   const resumeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // 定义导航项
-  const navItems = [
-    { path: '/templates', label: t('navigation.templates') },
+  const navItems: { path: string; label: string; isExternal?: boolean }[] = [
+    {
+      path: 'https://www.magicart.cc/nano-banana',
+      label: t('navigation.templates'),
+      isExternal: true // 标记为外部链接
+    },
     // 已暂时关闭 Sora2 和探索功能
     // { path: '/sora', label: 'Sora2' },
     // { path: '/explore', label: t('navigation.explore') },
   ]
 
-  // 获取当前激活的导航项
-  const activeItem = navItems.find((item) => location.pathname === item.path)?.path || null
+  // 获取当前激活的导航项（排除外部链接）
+  const activeItem = navItems.find((item) => !item.isExternal && location.pathname === item.path)?.path || null
 
   // 路由切换时重置悬停状态，避免动画冲突
   useEffect(() => {
@@ -114,7 +118,13 @@ export default function TopMenu({
   }, [location.pathname])
 
   const handleNavigate = useCallback(
-    (path: string) => {
+    (path: string, isExternal?: boolean) => {
+      // 外部链接处理
+      if (isExternal) {
+        window.open(path, '_blank', 'noopener,noreferrer')
+        return
+      }
+
       if (location.pathname === path) {
         return
       }
@@ -159,7 +169,7 @@ export default function TopMenu({
               onMouseLeave={() => setHoveredItem(null)}
             >
               <button
-                onClick={() => handleNavigate(item.path)}
+                onClick={() => handleNavigate(item.path, item.isExternal)}
                 className={cn(
                   "relative h-full px-2 sm:px-4 text-xs sm:text-base font-medium cursor-pointer",
                   "flex items-center rounded-lg",
