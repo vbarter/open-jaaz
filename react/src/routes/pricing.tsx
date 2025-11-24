@@ -569,8 +569,8 @@ function PricingPage() {
                   </CardContent>
 
                   <CardFooter className='pt-4'>
-                    {/* 支付按钮 - 仅对Base套餐启用 */}
-                    {(plan.key === 'base' || plan.key === 'free') && (
+                    {/* 支付按钮 - 仅对Free套餐启用，暂时隐藏Base套餐按钮 */}
+                    {(plan.key === 'free') && (
                     <Button
                       variant={buttonVariant}
                       className='w-full'
