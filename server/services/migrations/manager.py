@@ -21,13 +21,14 @@ from services.migrations.v18_remove_logo_url import V18RemoveLogoUrl
 from services.migrations.v19_add_views_likes_to_sora2 import V19AddViewsLikesToSora2
 from services.migrations.v20_add_sora_task_tables import V20AddSoraTaskTables
 from services.migrations.v21_fix_sora_feedback_fk import V21FixSoraFeedbackFk
+from services.migrations.v22_add_stripe_support import V22AddStripeSupport
 from . import Migration
 from log import get_logger
 
 logger = get_logger(__name__)
 
 # Database version
-CURRENT_VERSION = 21
+CURRENT_VERSION = 22
 
 ALL_MIGRATIONS = [
     {
@@ -113,6 +114,10 @@ ALL_MIGRATIONS = [
     {
         'version': 21,
         'migration': V21FixSoraFeedbackFk,
+    },
+    {
+        'version': 22,
+        'migration': V22AddStripeSupport,
     },
 ]
 class MigrationManager:

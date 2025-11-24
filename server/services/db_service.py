@@ -801,7 +801,7 @@ class DatabaseService:
             async with aiosqlite.connect(self.db_path) as db:
                 db.row_factory = sqlite3.Row
                 cursor = await db.execute("""
-                    SELECT id, product_id, name, level, points, price_cents, description, is_active
+                    SELECT id, product_id, name, level, points, price_cents, description, is_active, sku, stripe_price_id
                     FROM tb_products
                     WHERE product_id = ? AND is_active = 1
                 """, (product_id,))
@@ -817,7 +817,7 @@ class DatabaseService:
             async with aiosqlite.connect(self.db_path) as db:
                 db.row_factory = sqlite3.Row
                 cursor = await db.execute("""
-                    SELECT id, product_id, name, level, points, price_cents, description
+                    SELECT id, product_id, name, level, points, price_cents, description, sku, stripe_price_id
                     FROM tb_products
                     WHERE is_active = 1
                     ORDER BY level, price_cents
@@ -834,7 +834,7 @@ class DatabaseService:
             async with aiosqlite.connect(self.db_path) as db:
                 db.row_factory = sqlite3.Row
                 cursor = await db.execute("""
-                    SELECT id, product_id, name, level, points, price_cents, description, sku
+                    SELECT id, product_id, name, level, points, price_cents, description, sku, stripe_price_id
                     FROM tb_products
                     WHERE level = ? AND is_active = 1
                     LIMIT 1
@@ -851,7 +851,7 @@ class DatabaseService:
             async with aiosqlite.connect(self.db_path) as db:
                 db.row_factory = sqlite3.Row
                 cursor = await db.execute("""
-                    SELECT id, product_id, name, level, points, price_cents, description, sku
+                    SELECT id, product_id, name, level, points, price_cents, description, sku, stripe_price_id
                     FROM tb_products
                     WHERE sku = ? AND is_active = 1
                     LIMIT 1
@@ -862,17 +862,17 @@ class DatabaseService:
             logger.error(f"Error getting product by sku {sku}: {e}")
             return None
     
-    async def create_order(self, user_uuid: str, product_id: str, price_cents: int = 0) -> int:
+    async def create_order(self, user_uuid: str, product_id: str, price_cents: int = 0, payment_provider: str = 'creem') -> int:
         """创建新订单"""
         try:
             async with aiosqlite.connect(self.db_path) as db:
                 cursor = await db.execute("""
-                    INSERT INTO tb_orders (user_uuid, product_id, price_cents, status)
-                    VALUES (?, ?, ?, 'pending')
-                """, (user_uuid, product_id, price_cents))
+                    INSERT INTO tb_orders (user_uuid, product_id, price_cents, status, payment_provider)
+                    VALUES (?, ?, ?, 'pending', ?)
+                """, (user_uuid, product_id, price_cents, payment_provider))
                 await db.commit()
                 order_id = cursor.lastrowid
-                logger.info(f"Created order {order_id} for user {user_uuid}, product {product_id}")
+                logger.info(f"Created order {order_id} for user {user_uuid}, product {product_id}, provider {payment_provider}")
                 return order_id
         except Exception as e:
             logger.error(f"Error creating order: {e}")
@@ -944,7 +944,60 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error completing order {order_id}: {e}")
             return False
-    
+
+    async def update_order_stripe_info(self, order_id: int, stripe_session_id: str = None,
+                                      stripe_subscription_id: str = None, stripe_customer_id: str = None,
+                                      stripe_payment_intent_id: str = None):
+        """更新订单的Stripe相关信息"""
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                await db.execute("""
+                    UPDATE tb_orders
+                    SET stripe_session_id = ?, stripe_subscription_id = ?,
+                        stripe_customer_id = ?, stripe_payment_intent_id = ?,
+                        updated_at = STRFTIME('%Y-%m-%dT%H:%M:%fZ', 'now')
+                    WHERE id = ?
+                """, (stripe_session_id, stripe_subscription_id, stripe_customer_id,
+                     stripe_payment_intent_id, order_id))
+                await db.commit()
+                logger.info(f"Updated order {order_id} with Stripe info")
+        except Exception as e:
+            logger.error(f"Error updating order Stripe info: {e}")
+
+    async def get_order_by_stripe_session_id(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """根据Stripe会话ID获取订单信息"""
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                db.row_factory = sqlite3.Row
+                cursor = await db.execute("""
+                    SELECT o.*, p.points, p.level
+                    FROM tb_orders o
+                    LEFT JOIN tb_products p ON o.product_id = p.product_id
+                    WHERE o.stripe_session_id = ?
+                """, (session_id,))
+                row = await cursor.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            logger.error(f"Error getting order by Stripe session ID {session_id}: {e}")
+            return None
+
+    async def get_order_by_id(self, order_id: int) -> Optional[Dict[str, Any]]:
+        """根据订单ID获取订单信息"""
+        try:
+            async with aiosqlite.connect(self.db_path) as db:
+                db.row_factory = sqlite3.Row
+                cursor = await db.execute("""
+                    SELECT o.*, p.points, p.level
+                    FROM tb_orders o
+                    LEFT JOIN tb_products p ON o.product_id = p.product_id
+                    WHERE o.id = ?
+                """, (order_id,))
+                row = await cursor.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            logger.error(f"Error getting order by ID {order_id}: {e}")
+            return None
+
     async def get_user_orders(self, user_uuid: str, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
         """获取用户订单历史"""
         try:

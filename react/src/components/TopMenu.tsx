@@ -37,6 +37,11 @@ export default function TopMenu({
       label: t('navigation.templates'),
       isExternal: true // 标记为外部链接
     },
+    {
+      path: '/pricing',
+      label: t('navigation.pricing'),
+      isExternal: false
+    },
     // 已暂时关闭 Sora2 和探索功能
     // { path: '/sora', label: 'Sora2' },
     // { path: '/explore', label: t('navigation.explore') },
