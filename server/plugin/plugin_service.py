@@ -12,12 +12,13 @@ from datetime import datetime
 import httpx
 import tempfile
 import uuid
-import os as os_module
+import os
 from pathlib import Path
+import base64
+from openai import OpenAI
 
 # 导入Supabase服务
 import sys
-import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from superbase import SupabaseService
 from utils.cos_image_service import get_cos_image_service
@@ -634,6 +635,365 @@ class PluginService:
                     'has_more': False,
                     'total': 0
                 }
+            }
+
+    @classmethod
+    async def generate_image(cls, prompt: str, quality: str = "normal", aspect_ratio: str = "1:1", response_format: str = "url") -> Dict[str, Any]:
+        """
+        生成图片使用TuZi API
+
+        Args:
+            prompt: 生成图片的提示词
+            quality: 图片质量 ("normal", "hd", "2k", "4k")
+            aspect_ratio: 图片宽高比 (如 "1:1", "16:9", "9:16" 等)
+            response_format: 响应格式 ("url" 或 "b64_json")
+
+        Returns:
+            Dict: 包含操作结果的字典
+                - success (bool): 操作是否成功
+                - message (str): 操作消息
+                - data (dict): 包含生成的图片URL（腾讯云COS URL）
+        """
+        try:
+            logger.info(f"开始生成图片: quality={quality}, aspect_ratio={aspect_ratio}, prompt={prompt[:100]}...")
+
+            # 将aspect_ratio添加到提示词中
+            enhanced_prompt = f"{prompt}, aspect_ratio: {aspect_ratio}"
+
+            # 获取API密钥
+            api_key = os.getenv('TUZI_API_KEY')
+            if not api_key:
+                logger.error("TUZI_API_KEY 环境变量未配置")
+                return {
+                    'success': False,
+                    'message': 'TUZI_API_KEY not configured',
+                    'data': {}
+                }
+
+            # 初始化OpenAI客户端（配置为TuZi API）
+            client = OpenAI(
+                api_key=api_key,
+                base_url="https://api.tu-zi.com/v1"
+            )
+
+            # 质量到模型的映射
+            quality_model_map = {
+                "normal": "gemini-3-pro-image-preview",
+                "hd": "gemini-3-pro-image-preview-hd",
+                "2k": "gemini-3-pro-image-preview-2k",
+                "4k": "gemini-3-pro-image-preview-4k"
+            }
+
+            model = quality_model_map.get(quality, "gemini-3-pro-image-preview")
+            logger.info(f"使用模型: {model}")
+
+            # 根据模型类型选择不同的调用方式
+            if quality == "normal":
+                # 使用 images.generate 方法
+                result = client.images.generate(
+                    model=model,
+                    prompt=enhanced_prompt,
+                    n=1,
+                    response_format=response_format
+                )
+
+                if not result.data or len(result.data) == 0:
+                    raise Exception("No image data returned from TuZi API")
+
+                image_data = result.data[0]
+
+                # 处理响应
+                if hasattr(image_data, 'url') and image_data.url:
+                    image_url = image_data.url
+                    is_b64 = False
+                elif hasattr(image_data, 'b64_json') and image_data.b64_json:
+                    image_url = image_data.b64_json
+                    is_b64 = True
+                else:
+                    raise Exception("Invalid response format from TuZi API")
+
+            else:
+                # 使用 chat.completions 方法（针对 preview 模型）
+                messages = [
+                    {
+                        "role": "system",
+                        "content": [
+                            {
+                                "text": "根据用户提示词，直接绘图",
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "text": enhanced_prompt,
+                                "type": "text"
+                            }
+                        ]
+                    }
+                ]
+
+                completion = client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=2000
+                )
+
+                if not completion.choices or len(completion.choices) == 0:
+                    raise Exception("No choices in completion response")
+
+                content = completion.choices[0].message.content
+
+                # 从Markdown中提取图片URL
+                import re
+                match = re.search(r'!\[.*?\]\((.*?)\)', content)
+                if match:
+                    image_url = match.group(1)
+                    is_b64 = False
+                else:
+                    # 尝试直接将内容作为图片URL
+                    if content.startswith('http'):
+                        image_url = content.strip()
+                        is_b64 = False
+                    else:
+                        raise Exception("No image URL found in response")
+
+            # 上传到腾讯云COS
+            cos_service = get_cos_image_service()
+            if not cos_service.available:
+                logger.warning("腾讯云服务不可用，返回原始URL")
+                return {
+                    'success': True,
+                    'message': 'Image generated successfully (COS unavailable)',
+                    'data': {'image_url': image_url if not is_b64 else f"data:image/png;base64,{image_url}"}
+                }
+
+            # 生成唯一文件名
+            unique_filename = f"tuzi_generated_{uuid.uuid4().hex[:12]}.png"
+
+            if is_b64:
+                # Base64数据
+                image_bytes = base64.b64decode(image_url)
+                cos_url = await cos_service.upload_image_from_bytes(
+                    image_bytes=image_bytes,
+                    image_key=unique_filename,
+                    content_type='image/png'
+                )
+            else:
+                # URL数据，需要先下载
+                async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as http_client:
+                    response = await http_client.get(image_url)
+                    response.raise_for_status()
+                    image_bytes = response.content
+
+                    content_type = response.headers.get('content-type', 'image/png')
+                    cos_url = await cos_service.upload_image_from_bytes(
+                        image_bytes=image_bytes,
+                        image_key=unique_filename,
+                        content_type=content_type
+                    )
+
+            if cos_url:
+                logger.info(f"图片生成并上传成功: {cos_url}")
+                return {
+                    'success': True,
+                    'message': 'Image generated successfully',
+                    'data': {'image_url': cos_url}
+                }
+            else:
+                logger.error("上传到COS失败，返回原始URL")
+                return {
+                    'success': True,
+                    'message': 'Image generated (COS upload failed)',
+                    'data': {'image_url': image_url if not is_b64 else f"data:image/png;base64,{image_url}"}
+                }
+
+        except Exception as e:
+            logger.error(f"生成图片失败: {str(e)}", exc_info=True)
+            return {
+                'success': False,
+                'message': f'Error: {str(e)}',
+                'data': {}
+            }
+
+    @classmethod
+    async def edit_image(cls,
+                         image_url: Optional[str] = None,
+                         image_base64: Optional[str] = None,
+                         prompt: str = "",
+                         quality: str = "normal",
+                         aspect_ratio: str = "1:1",
+                         response_format: str = "url") -> Dict[str, Any]:
+        """
+        编辑图片使用TuZi API
+
+        Args:
+            image_url: 要编辑的图片URL（可选）
+            image_base64: 要编辑的图片Base64数据（可选）
+            prompt: 编辑图片的提示词
+            quality: 图片质量 ("normal", "hd", "2k", "4k")
+            aspect_ratio: 图片宽高比 (如 "1:1", "16:9", "9:16" 等)
+            response_format: 响应格式 ("url" 或 "b64_json")
+
+        Returns:
+            Dict: 包含操作结果的字典
+                - success (bool): 操作是否成功
+                - message (str): 操作消息
+                - data (dict): 包含生成的图片URL（腾讯云COS URL）
+        """
+        try:
+            logger.info(f"开始编辑图片: quality={quality}, aspect_ratio={aspect_ratio}, prompt={prompt[:100]}...")
+
+            # 将aspect_ratio添加到提示词中
+            enhanced_prompt = f"{prompt}, aspect_ratio: {aspect_ratio}"
+
+            # 验证输入
+            if not image_url and not image_base64:
+                return {
+                    'success': False,
+                    'message': 'Either image_url or image_base64 must be provided',
+                    'data': {}
+                }
+
+            # 获取API密钥
+            api_key = os.getenv('TUZI_API_KEY')
+            if not api_key:
+                logger.error("TUZI_API_KEY 环境变量未配置")
+                return {
+                    'success': False,
+                    'message': 'TUZI_API_KEY not configured',
+                    'data': {}
+                }
+
+            # 初始化OpenAI客户端（配置为TuZi API）
+            client = OpenAI(
+                api_key=api_key,
+                base_url="https://api.tu-zi.com/v1"
+            )
+
+            # 质量到模型的映射
+            quality_model_map = {
+                "normal": "gemini-3-pro-image-preview",
+                "hd": "gemini-3-pro-image-preview-hd",
+                "2k": "gemini-3-pro-image-preview-2k",
+                "4k": "gemini-3-pro-image-preview-4k"
+            }
+
+            model = quality_model_map.get(quality, "gemini-3-pro-image-preview")
+            logger.info(f"使用模型: {model}")
+
+            # 准备图片数据
+            temp_file_path = None
+            try:
+                if image_base64:
+                    # 如果提供了base64数据，保存为临时文件
+                    image_bytes = base64.b64decode(image_base64)
+                    temp_file_path = os.path.join(tempfile.gettempdir(), f"temp_image_{uuid.uuid4().hex[:8]}.png")
+                    with open(temp_file_path, 'wb') as f:
+                        f.write(image_bytes)
+                elif image_url:
+                    # 如果提供了URL，下载图片
+                    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as http_client:
+                        response = await http_client.get(image_url)
+                        response.raise_for_status()
+                        image_bytes = response.content
+
+                        temp_file_path = os.path.join(tempfile.gettempdir(), f"temp_image_{uuid.uuid4().hex[:8]}.png")
+                        with open(temp_file_path, 'wb') as f:
+                            f.write(image_bytes)
+
+                # 调用编辑API
+                with open(temp_file_path, 'rb') as image_file:
+                    result = client.images.edit(
+                        model=model,
+                        image=image_file,
+                        prompt=enhanced_prompt,
+                        n=1,
+                        response_format=response_format
+                    )
+
+                if not result.data or len(result.data) == 0:
+                    raise Exception("No image data returned from TuZi API")
+
+                image_data = result.data[0]
+
+                # 处理响应
+                if hasattr(image_data, 'url') and image_data.url:
+                    result_image_url = image_data.url
+                    is_b64 = False
+                elif hasattr(image_data, 'b64_json') and image_data.b64_json:
+                    result_image_url = image_data.b64_json
+                    is_b64 = True
+                else:
+                    raise Exception("Invalid response format from TuZi API")
+
+                # 上传到腾讯云COS
+                cos_service = get_cos_image_service()
+                if not cos_service.available:
+                    logger.warning("腾讯云服务不可用，返回原始URL")
+                    return {
+                        'success': True,
+                        'message': 'Image edited successfully (COS unavailable)',
+                        'data': {'image_url': result_image_url if not is_b64 else f"data:image/png;base64,{result_image_url}"}
+                    }
+
+                # 生成唯一文件名
+                unique_filename = f"tuzi_edited_{uuid.uuid4().hex[:12]}.png"
+
+                if is_b64:
+                    # Base64数据
+                    result_image_bytes = base64.b64decode(result_image_url)
+                    cos_url = await cos_service.upload_image_from_bytes(
+                        image_bytes=result_image_bytes,
+                        image_key=unique_filename,
+                        content_type='image/png'
+                    )
+                else:
+                    # URL数据，需要先下载
+                    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as http_client:
+                        response = await http_client.get(result_image_url)
+                        response.raise_for_status()
+                        result_image_bytes = response.content
+
+                        content_type = response.headers.get('content-type', 'image/png')
+                        cos_url = await cos_service.upload_image_from_bytes(
+                            image_bytes=result_image_bytes,
+                            image_key=unique_filename,
+                            content_type=content_type
+                        )
+
+                if cos_url:
+                    logger.info(f"图片编辑并上传成功: {cos_url}")
+                    return {
+                        'success': True,
+                        'message': 'Image edited successfully',
+                        'data': {'image_url': cos_url}
+                    }
+                else:
+                    logger.error("上传到COS失败，返回原始URL")
+                    return {
+                        'success': True,
+                        'message': 'Image edited (COS upload failed)',
+                        'data': {'image_url': result_image_url if not is_b64 else f"data:image/png;base64,{result_image_url}"}
+                    }
+
+            finally:
+                # 清理临时文件
+                if temp_file_path and os.path.exists(temp_file_path):
+                    try:
+                        os.remove(temp_file_path)
+                        logger.debug(f"临时文件已删除: {temp_file_path}")
+                    except Exception as e:
+                        logger.warning(f"删除临时文件失败: {temp_file_path}, error: {e}")
+
+        except Exception as e:
+            logger.error(f"编辑图片失败: {str(e)}", exc_info=True)
+            return {
+                'success': False,
+                'message': f'Error: {str(e)}',
+                'data': {}
             }
 
 
