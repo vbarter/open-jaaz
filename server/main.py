@@ -182,6 +182,11 @@ llm_icon_dir = os.path.join(root_dir, "static", "llm_icon")
 if os.path.exists(llm_icon_dir):
     app.mount("/static/llm_icon", StaticFiles(directory=llm_icon_dir), name="llm_icon")
 
+# Mount server static directory for other static files (images, etc.)
+server_static_dir = os.path.join(root_dir, "static")
+if os.path.exists(server_static_dir):
+    app.mount("/server/static", StaticFiles(directory=server_static_dir), name="server_static")
+
 # Mount static files from React build directory with /static prefix (less specific path)
 if os.path.exists(react_build_dir):
     app.mount("/static", StaticFiles(directory=react_build_dir), name="static")

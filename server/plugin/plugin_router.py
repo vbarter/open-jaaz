@@ -8,7 +8,7 @@ Plugin Router
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Literal
 import logging
 import httpx
 import json
@@ -100,6 +100,31 @@ async def add_prompt(prompt_data: AddPromptRequest):
             message=f"Internal server error: {str(e)}",
             data=[]
         )
+
+
+class GenerateImageRequest(BaseModel):
+    """生成图片请求模型"""
+    prompt: str = Field(..., description="生成图片的提示词")
+    quality: Literal["normal", "hd", "2k", "4k"] = Field(default="normal", description="图片质量")
+    aspect_ratio: Optional[str] = Field(default="1:1", description="图片宽高比(如1:1, 16:9, 9:16等)")
+    response_format: Optional[str] = Field(default="url", description="响应格式(url或b64_json)")
+
+
+class EditImageRequest(BaseModel):
+    """编辑图片请求模型"""
+    image_url: Optional[str] = Field(None, description="要编辑的图片URL")
+    image_base64: Optional[str] = Field(None, description="要编辑的图片Base64数据")
+    prompt: str = Field(..., description="编辑图片的提示词")
+    quality: Literal["normal", "hd", "2k", "4k"] = Field(default="normal", description="图片质量")
+    aspect_ratio: Optional[str] = Field(default="1:1", description="图片宽高比(如1:1, 16:9, 9:16等)")
+    response_format: Optional[str] = Field(default="url", description="响应格式(url或b64_json)")
+
+
+class ImageResponse(BaseModel):
+    """图片生成/编辑响应模型"""
+    code: int
+    message: str
+    data: dict
 
 
 class LLMRequest(BaseModel):
@@ -411,6 +436,131 @@ async def search_prompt(request: SearchPromptRequest):
                 'has_more': False,
                 'total': 0
             }
+        )
+
+
+@router.post("/api/plugin/generate_image", response_model=ImageResponse)
+async def generate_image(request: GenerateImageRequest):
+    """
+    生成图片接口
+
+    使用TuZi API生成图片并上传到腾讯云COS
+
+    Args:
+        request: 图片生成请求
+            - prompt: 生成图片的提示词
+            - quality: 图片质量 ("normal", "hd", "2k", "4k")
+            - response_format: 响应格式 ("url" 或 "b64_json")
+
+    Returns:
+        ImageResponse: 标准响应格式
+            - code: 0表示成功，非0表示失败
+            - message: 操作消息
+            - data: 包含 image_url 字段（腾讯云COS URL）
+    """
+    try:
+        logger.info(f"收到生成图片请求: quality={request.quality}, prompt={request.prompt[:100]}...")
+
+        # 调用service层处理业务逻辑
+        result = await plugin_service.generate_image(
+            prompt=request.prompt,
+            quality=request.quality,
+            aspect_ratio=request.aspect_ratio,
+            response_format=request.response_format
+        )
+
+        # 根据service返回的结果构造响应
+        if result['success']:
+            logger.info(f"图片生成成功: {result['data'].get('image_url', '')}")
+            return ImageResponse(
+                code=0,
+                message=result['message'],
+                data=result['data']
+            )
+        else:
+            logger.error(f"图片生成失败: {result['message']}")
+            return ImageResponse(
+                code=1,
+                message=result['message'],
+                data=result.get('data', {})
+            )
+
+    except Exception as e:
+        logger.error(f"生成图片时发生异常: {str(e)}", exc_info=True)
+        return ImageResponse(
+            code=1,
+            message=f"Internal server error: {str(e)}",
+            data={}
+        )
+
+
+@router.post("/api/plugin/edit_image", response_model=ImageResponse)
+async def edit_image(request: EditImageRequest):
+    """
+    编辑图片接口
+
+    使用TuZi API编辑图片并上传到腾讯云COS
+
+    Args:
+        request: 图片编辑请求
+            - image_url: 要编辑的图片URL（可选）
+            - image_base64: 要编辑的图片Base64数据（可选）
+            - prompt: 编辑图片的提示词
+            - quality: 图片质量 ("normal", "hd", "2k", "4k")
+            - response_format: 响应格式 ("url" 或 "b64_json")
+
+    Returns:
+        ImageResponse: 标准响应格式
+            - code: 0表示成功，非0表示失败
+            - message: 操作消息
+            - data: 包含 image_url 字段（腾讯云COS URL）
+
+    Note:
+        必须提供 image_url 或 image_base64 其中之一
+    """
+    try:
+        # 验证输入
+        if not request.image_url and not request.image_base64:
+            return ImageResponse(
+                code=1,
+                message="Either image_url or image_base64 must be provided",
+                data={}
+            )
+
+        logger.info(f"收到编辑图片请求: quality={request.quality}, prompt={request.prompt[:100]}...")
+
+        # 调用service层处理业务逻辑
+        result = await plugin_service.edit_image(
+            image_url=request.image_url,
+            image_base64=request.image_base64,
+            prompt=request.prompt,
+            quality=request.quality,
+            aspect_ratio=request.aspect_ratio,
+            response_format=request.response_format
+        )
+
+        # 根据service返回的结果构造响应
+        if result['success']:
+            logger.info(f"图片编辑成功: {result['data'].get('image_url', '')}")
+            return ImageResponse(
+                code=0,
+                message=result['message'],
+                data=result['data']
+            )
+        else:
+            logger.error(f"图片编辑失败: {result['message']}")
+            return ImageResponse(
+                code=1,
+                message=result['message'],
+                data=result.get('data', {})
+            )
+
+    except Exception as e:
+        logger.error(f"编辑图片时发生异常: {str(e)}", exc_info=True)
+        return ImageResponse(
+            code=1,
+            message=f"Internal server error: {str(e)}",
+            data={}
         )
 
 
