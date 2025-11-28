@@ -18,6 +18,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from plugin.plugin_service import plugin_service
+from plugin.image_task_manager import task_manager
 
 # 配置日志
 logger = logging.getLogger('plugin_router')
@@ -442,21 +443,33 @@ async def search_prompt(request: SearchPromptRequest):
 @router.post("/api/plugin/generate_image", response_model=ImageResponse)
 async def generate_image(request: GenerateImageRequest):
     """
-    生成图片接口
+    生成图片接口（异步任务模式）
 
     使用TuZi API生成图片并上传到腾讯云COS
+
+    **重要**: 此接口立即返回task_id，不等待图片生成完成。
+    使用 /api/plugin/check_task 接口轮询检查任务状态和获取结果。
 
     Args:
         request: 图片生成请求
             - prompt: 生成图片的提示词
             - quality: 图片质量 ("normal", "hd", "2k", "4k")
+            - aspect_ratio: 图片宽高比 (如 "1:1", "16:9", "9:16" 等)
             - response_format: 响应格式 ("url" 或 "b64_json")
 
     Returns:
         ImageResponse: 标准响应格式
             - code: 0表示成功，非0表示失败
             - message: 操作消息
-            - data: 包含 image_url 字段（腾讯云COS URL）
+            - data: 包含任务信息
+                - task_id: 任务ID（用于后续查询任务状态）
+                - status: 初始状态 "pending"
+
+    使用流程:
+        1. 调用此接口获取task_id
+        2. 使用task_id调用 /api/plugin/check_task 检查状态
+        3. 当status为"completed"时，result字段包含image_url
+        4. 当status为"failed"时，error字段包含错误信息
     """
     try:
         logger.info(f"收到生成图片请求: quality={request.quality}, prompt={request.prompt[:100]}...")
@@ -497,9 +510,12 @@ async def generate_image(request: GenerateImageRequest):
 @router.post("/api/plugin/edit_image", response_model=ImageResponse)
 async def edit_image(request: EditImageRequest):
     """
-    编辑图片接口
+    编辑图片接口（异步任务模式）
 
     使用TuZi API编辑图片并上传到腾讯云COS
+
+    **重要**: 此接口立即返回task_id，不等待图片编辑完成。
+    使用 /api/plugin/check_task 接口轮询检查任务状态和获取结果。
 
     Args:
         request: 图片编辑请求
@@ -507,16 +523,20 @@ async def edit_image(request: EditImageRequest):
             - image_base64: 要编辑的图片Base64数据（可选）
             - prompt: 编辑图片的提示词
             - quality: 图片质量 ("normal", "hd", "2k", "4k")
+            - aspect_ratio: 图片宽高比 (如 "1:1", "16:9", "9:16" 等)
             - response_format: 响应格式 ("url" 或 "b64_json")
 
     Returns:
         ImageResponse: 标准响应格式
             - code: 0表示成功，非0表示失败
             - message: 操作消息
-            - data: 包含 image_url 字段（腾讯云COS URL）
+            - data: 包含任务信息
+                - task_id: 任务ID（用于后续查询任务状态）
+                - status: 初始状态 "pending"
 
     Note:
-        必须提供 image_url 或 image_base64 其中之一
+        - 必须提供 image_url 或 image_base64 其中之一
+        - 使用流程同 generate_image 接口
     """
     try:
         # 验证输入
@@ -558,6 +578,68 @@ async def edit_image(request: EditImageRequest):
     except Exception as e:
         logger.error(f"编辑图片时发生异常: {str(e)}", exc_info=True)
         return ImageResponse(
+            code=1,
+            message=f"Internal server error: {str(e)}",
+            data={}
+        )
+
+
+class CheckTaskRequest(BaseModel):
+    """检查任务状态请求模型"""
+    task_id: str = Field(..., description="任务ID")
+
+
+class CheckTaskResponse(BaseModel):
+    """检查任务状态响应模型"""
+    code: int
+    message: str
+    data: dict
+
+
+@router.post("/api/plugin/check_task", response_model=CheckTaskResponse)
+async def check_task(request: CheckTaskRequest):
+    """
+    检查图片生成/编辑任务状态
+
+    Args:
+        request: 包含task_id的请求
+
+    Returns:
+        CheckTaskResponse: 标准响应格式
+            - code: 0表示成功，非0表示失败
+            - message: 操作消息
+            - data: 包含任务信息
+                - task_id: 任务ID
+                - status: 任务状态 ("pending", "processing", "completed", "failed")
+                - result: 任务结果（如果已完成）
+                - error: 错误信息（如果失败）
+                - created_at: 创建时间
+                - updated_at: 更新时间
+    """
+    try:
+        logger.info(f"收到检查任务状态请求: task_id={request.task_id}")
+
+        # 从任务管理器获取任务状态
+        task_info = await task_manager.get_task(request.task_id)
+
+        if not task_info:
+            logger.warning(f"任务不存在: task_id={request.task_id}")
+            return CheckTaskResponse(
+                code=1,
+                message="Task not found",
+                data={}
+            )
+
+        logger.info(f"任务状态查询成功: task_id={request.task_id}, status={task_info['status']}")
+        return CheckTaskResponse(
+            code=0,
+            message="success",
+            data=task_info
+        )
+
+    except Exception as e:
+        logger.error(f"检查任务状态时发生异常: {str(e)}", exc_info=True)
+        return CheckTaskResponse(
             code=1,
             message=f"Internal server error: {str(e)}",
             data={}
