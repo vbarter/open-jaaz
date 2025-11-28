@@ -894,15 +894,33 @@ class PluginService:
                     with open(temp_file_path, 'wb') as f:
                         f.write(image_bytes)
                 elif image_url:
-                    # 如果提供了URL，下载图片
-                    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as http_client:
-                        response = await http_client.get(image_url)
-                        response.raise_for_status()
-                        image_bytes = response.content
+                    # 检查是否是base64 data URL
+                    if image_url.startswith('data:'):
+                        # 解析data URL格式: data:image/png;base64,iVBORw0KGgoAAAANS...
+                        logger.info("检测到data URL格式，从中提取base64数据")
+                        try:
+                            # 找到逗号的位置，之后就是base64数据
+                            comma_index = image_url.index(',')
+                            base64_data = image_url[comma_index + 1:]
+                            image_bytes = base64.b64decode(base64_data)
 
-                        temp_file_path = os.path.join(tempfile.gettempdir(), f"temp_image_{uuid.uuid4().hex[:8]}.png")
-                        with open(temp_file_path, 'wb') as f:
-                            f.write(image_bytes)
+                            temp_file_path = os.path.join(tempfile.gettempdir(), f"temp_image_{uuid.uuid4().hex[:8]}.png")
+                            with open(temp_file_path, 'wb') as f:
+                                f.write(image_bytes)
+                        except (ValueError, base64.binascii.Error) as e:
+                            logger.error(f"解析data URL失败: {str(e)}")
+                            raise ValueError(f"Invalid data URL format: {str(e)}")
+                    else:
+                        # 如果是普通URL，下载图片
+                        logger.info(f"下载图片: {image_url}")
+                        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as http_client:
+                            response = await http_client.get(image_url)
+                            response.raise_for_status()
+                            image_bytes = response.content
+
+                            temp_file_path = os.path.join(tempfile.gettempdir(), f"temp_image_{uuid.uuid4().hex[:8]}.png")
+                            with open(temp_file_path, 'wb') as f:
+                                f.write(image_bytes)
 
                 # 调用编辑API
                 with open(temp_file_path, 'rb') as image_file:
