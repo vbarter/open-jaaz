@@ -236,8 +236,8 @@ export default function TopMenu({
       <div className="flex items-center gap-1 sm:gap-2">
         {right}
         {/* <AgentSettings /> */}
-        {/* 中英文切换按钮 - 移动端隐藏 */}
-        <LanguageSwitcher className="hidden sm:flex" />
+        {/* 中英文切换按钮 */}
+        <LanguageSwitcher />
         {/* 只有登录用户才显示邀请按钮 - 移动端隐藏 */}
         {authStatus.is_logged_in && <InviteButton className="hidden sm:flex" />}
         {authStatus.is_logged_in && <PointsBadge className="hidden sm:flex" />}

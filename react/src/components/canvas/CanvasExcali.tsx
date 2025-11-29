@@ -21,9 +21,12 @@ import {
   BinaryFiles,
   ExcalidrawInitialDataState,
 } from '@excalidraw/excalidraw/types'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { nanoid } from 'nanoid'
 import { VideoElement } from './VideoElement'
+import ImageSlicerDialog from './ImageSlicerDialog'
+import { ImageInfo, GridSettings, SliceResult } from '@/utils/image-slicer'
 
 import '@/assets/style/canvas.css'
 
@@ -38,7 +41,13 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
   // 创建图片布局管理器实例
   const imageLayoutManagerRef = useRef(new ImageLayoutManager())
 
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation('canvas')
+
+  // Image slicer state
+  const [slicerDialogOpen, setSlicerDialogOpen] = useState(false)
+  const [selectedImageInfo, setSelectedImageInfo] = useState<ImageInfo | null>(null)
+  const [selectedImageElement, setSelectedImageElement] = useState<ExcalidrawImageElement | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // Immediate handler for UI updates (no debounce)
   const handleSelectionChange = (
@@ -350,8 +359,317 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
     }
   }, [excalidrawAPI, initialData])
 
+  // Open slicer dialog
+  const handleOpenSlicer = useCallback(() => {
+    if (!excalidrawAPI) return
+
+    const appState = excalidrawAPI.getAppState()
+    const elements = excalidrawAPI.getSceneElements()
+    const files = excalidrawAPI.getFiles()
+
+    // Find selected image elements
+    const selectedImages = elements.filter(
+      (el): el is ExcalidrawImageElement =>
+        el.type === 'image' &&
+        !el.isDeleted &&
+        appState.selectedElementIds[el.id]
+    )
+
+    if (selectedImages.length === 1) {
+      const imageElement = selectedImages[0]
+      const file = files[imageElement.fileId as string]
+
+      if (file) {
+        setSelectedImageElement(imageElement)
+        setSelectedImageInfo({
+          src: file.dataURL,
+          width: imageElement.width,
+          height: imageElement.height,
+          originalName: 'image',
+        })
+        setSlicerDialogOpen(true)
+      }
+    }
+  }, [excalidrawAPI])
+
+  // Store excalidrawAPI ref for use in MutationObserver
+  const excalidrawAPIRef = useRef(excalidrawAPI)
+  useEffect(() => {
+    excalidrawAPIRef.current = excalidrawAPI
+  }, [excalidrawAPI])
+
+  // Inject "图片分割" option into Excalidraw's native context menu
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.addedNodes.length) {
+          mutation.addedNodes.forEach((node) => {
+            if (node instanceof HTMLElement) {
+              // Look for Excalidraw context menu
+              const contextMenu = node.classList?.contains('context-menu')
+                ? node
+                : node.querySelector?.('.context-menu')
+
+              if (contextMenu) {
+                // Check if we already injected our item
+                if (contextMenu.querySelector('[data-image-slicer]')) return
+
+                // Check if an image is selected - do this in real-time
+                const api = excalidrawAPIRef.current
+                if (!api) return
+
+                const appState = api.getAppState()
+                const elements = api.getSceneElements()
+
+                const selectedImages = elements.filter(
+                  (el) =>
+                    el.type === 'image' &&
+                    !el.isDeleted &&
+                    appState.selectedElementIds[el.id]
+                )
+
+                // Only show slice option if exactly one image is selected
+                if (selectedImages.length !== 1) return
+
+                // Find the menu items container
+                const menuItems = contextMenu.querySelector('.context-menu-items') || contextMenu
+
+                // Create separator
+                const separator = document.createElement('div')
+                separator.className = 'context-menu-separator'
+                separator.style.cssText = 'height: 1px; background: var(--color-gray-30); margin: 4px 0;'
+
+                // Create our custom menu item
+                const sliceItem = document.createElement('button')
+                sliceItem.setAttribute('data-image-slicer', 'true')
+                sliceItem.className = 'context-menu-item'
+                sliceItem.style.cssText = `
+                  display: flex;
+                  align-items: center;
+                  width: 100%;
+                  padding: 8px 12px;
+                  border: none;
+                  background: transparent;
+                  cursor: pointer;
+                  font-size: 14px;
+                  color: var(--color-gray-100, #1b1b1f);
+                  text-align: left;
+                  gap: 8px;
+                `
+
+                // Add icon (Grid3x3 SVG)
+                const iconSpan = document.createElement('span')
+                iconSpan.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>`
+                iconSpan.style.cssText = 'display: flex; align-items: center;'
+
+                // Add text
+                const textSpan = document.createElement('span')
+                textSpan.textContent = t('imageSlicer.contextMenu.slice', '图片分割')
+
+                sliceItem.appendChild(iconSpan)
+                sliceItem.appendChild(textSpan)
+
+                // Add hover effect
+                sliceItem.addEventListener('mouseenter', () => {
+                  sliceItem.style.background = 'var(--color-gray-10, #f5f5f5)'
+                })
+                sliceItem.addEventListener('mouseleave', () => {
+                  sliceItem.style.background = 'transparent'
+                })
+
+                // Add click handler
+                sliceItem.addEventListener('click', (e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+
+                  // Close the context menu by dispatching Escape key
+                  document.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: 'Escape',
+                    code: 'Escape',
+                    keyCode: 27,
+                    which: 27,
+                    bubbles: true,
+                    cancelable: true
+                  }))
+
+                  // Also try to remove the context menu directly
+                  const menu = document.querySelector('.context-menu')
+                  if (menu) {
+                    menu.remove()
+                  }
+
+                  // Open slicer dialog
+                  handleOpenSlicer()
+                })
+
+                // Append separator and item
+                menuItems.appendChild(separator)
+                menuItems.appendChild(sliceItem)
+              }
+            }
+          })
+        }
+      }
+    })
+
+    observer.observe(document.body, { childList: true, subtree: true })
+
+    return () => observer.disconnect()
+  }, [t, handleOpenSlicer])
+
+  // Handle double-click on image to show chat popup
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || !excalidrawAPI) return
+
+    const handleDoubleClick = (e: MouseEvent) => {
+      const appState = excalidrawAPI.getAppState()
+      const elements = excalidrawAPI.getSceneElements()
+      const files = excalidrawAPI.getFiles()
+
+      // Find selected image elements
+      const selectedImages = elements.filter(
+        (el): el is ExcalidrawImageElement =>
+          el.type === 'image' &&
+          !el.isDeleted &&
+          appState.selectedElementIds[el.id]
+      )
+
+      // Only emit event if images are selected
+      if (selectedImages.length > 0) {
+        const imageData = selectedImages
+          .filter((image) => image.fileId)
+          .map((image) => {
+            const file = files[image.fileId as string]
+            if (!file) return null
+            const isBase64 = file.dataURL.startsWith('data:')
+            let id: string
+            if (isBase64) {
+              id = file.id
+            } else {
+              const urlPath = file.dataURL.split('?')[0]
+              id = urlPath.split('/').at(-1)!
+            }
+            return {
+              fileId: id,
+              base64: isBase64 ? file.dataURL : undefined,
+              width: image.width,
+              height: image.height,
+            }
+          })
+          .filter(Boolean) as { fileId: string; base64?: string; width: number; height: number }[]
+
+        if (imageData.length > 0) {
+          // Calculate position for popup
+          const centerX = selectedImages.reduce((acc, img) => acc + img.x + img.width / 2, 0) / selectedImages.length
+          const bottomY = selectedImages.reduce((acc, img) => Math.max(acc, img.y + img.height), Number.NEGATIVE_INFINITY)
+
+          const scrollX = appState.scrollX
+          const scrollY = appState.scrollY
+          const zoom = appState.zoom.value
+          const offsetX = (scrollX + centerX) * zoom
+          const offsetY = (scrollY + bottomY) * zoom
+
+          eventBus.emit('Canvas::ImageDoubleClick', {
+            images: imageData,
+            position: { x: offsetX, y: offsetY },
+          })
+        }
+      }
+    }
+
+    container.addEventListener('dblclick', handleDoubleClick)
+
+    return () => {
+      container.removeEventListener('dblclick', handleDoubleClick)
+    }
+  }, [excalidrawAPI])
+
+  // Add sliced images to canvas
+  const handleSliceApply = useCallback(
+    async (slices: SliceResult[], settings: GridSettings) => {
+      if (!excalidrawAPI || !selectedImageElement) return
+
+      const currentElements = excalidrawAPI.getSceneElements()
+      const gap = 10 // Gap between slices
+
+      // Calculate starting position (right side of original image)
+      const startX = selectedImageElement.x + selectedImageElement.width + 50
+      const startY = selectedImageElement.y
+
+      const newFiles: BinaryFileData[] = []
+      const newElements: ExcalidrawImageElement[] = []
+
+      for (const slice of slices) {
+        const fileId = nanoid()
+        const elementId = nanoid()
+
+        // Calculate position based on grid
+        const x = startX + slice.col * (slice.width + gap)
+        const y = startY + slice.row * (slice.height + gap)
+
+        // Create file data
+        newFiles.push({
+          id: fileId,
+          dataURL: slice.dataURL,
+          mimeType: `image/${settings.format}`,
+          created: Date.now(),
+        })
+
+        // Create image element
+        const newElement: ExcalidrawImageElement = {
+          type: 'image',
+          id: elementId,
+          x,
+          y,
+          width: slice.width,
+          height: slice.height,
+          fileId,
+          status: 'saved',
+          scale: [1, 1],
+          // Basic properties
+          strokeColor: '#000000',
+          backgroundColor: 'transparent',
+          fillStyle: 'solid',
+          strokeWidth: 1,
+          strokeStyle: 'solid',
+          roundness: null,
+          roughness: 1,
+          opacity: 100,
+          angle: 0,
+          seed: Math.floor(Math.random() * 1000000),
+          version: 1,
+          versionNonce: Math.floor(Math.random() * 1000000),
+          locked: false,
+          isDeleted: false,
+          groupIds: [],
+          boundElements: null,
+          updated: Date.now(),
+          frameId: null,
+          index: null as unknown as string,
+          link: null,
+        }
+
+        newElements.push(newElement)
+      }
+
+      // Add files to Excalidraw
+      excalidrawAPI.addFiles(newFiles)
+
+      // Add elements to scene
+      excalidrawAPI.updateScene({
+        elements: [...currentElements, ...newElements],
+      })
+
+      // Reset state
+      setSelectedImageElement(null)
+      setSelectedImageInfo(null)
+    },
+    [excalidrawAPI, selectedImageElement]
+  )
+
   return (
-    <div className={excalidrawClassName} style={{ width: '100%', height: '100%' }}>
+    <div ref={containerRef} className={excalidrawClassName} style={{ width: '100%', height: '100%' }}>
       <Excalidraw
         theme={customTheme as Theme}
         langCode={i18n.language}
@@ -395,6 +713,14 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
             // console.log('👇 Pointer down on:', payload.pointer.x, payload.pointer.y)
           }
         }}
+      />
+
+      {/* Image Slicer Dialog */}
+      <ImageSlicerDialog
+        open={slicerDialogOpen}
+        onOpenChange={setSlicerDialogOpen}
+        imageInfo={selectedImageInfo}
+        onApply={handleSliceApply}
       />
     </div>
   )

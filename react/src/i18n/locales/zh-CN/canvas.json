@@ -102,5 +102,37 @@
   "newChat": "新对话",
   "loadingFailed": "加载失败:",
   "retry": "重试",
-  "newChatWithNumber": "新对话 {{number}}"
+  "newChatWithNumber": "新对话 {{number}}",
+  "imageSlicer": {
+    "title": "图片分割",
+    "preview": "预览",
+    "selectAll": "全选",
+    "reset": "重置",
+    "settings": "设置",
+    "gridLayout": "网格布局",
+    "cols": "列数",
+    "rows": "行数",
+    "totalSlices": "切片总数",
+    "adjustments": "调整",
+    "resetAdjust": "重置",
+    "cropMode": "裁剪模式",
+    "original": "原比例",
+    "square": "正方形",
+    "scaleX": "横向缩放",
+    "scaleY": "纵向缩放",
+    "hint": "提示：可在预览区滚轮缩放，拖拽移动",
+    "format": "输出格式",
+    "processing": "处理中...",
+    "cancel": "取消",
+    "applySelected": "应用选中 ({{count}})",
+    "applyAll": "应用全部 ({{count}})",
+    "originalSize": "原图",
+    "blockSize": "单块",
+    "adjusted": "(已调整)",
+    "contextMenu": {
+      "slice": "图片分割",
+      "copy": "复制图片",
+      "download": "下载图片"
+    }
+  }
 }
