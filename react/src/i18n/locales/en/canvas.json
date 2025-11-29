@@ -102,5 +102,37 @@
   "newChat": "New Chat",
   "loadingFailed": "Loading failed:",
   "retry": "Retry",
-  "newChatWithNumber": "New Chat {{number}}"
+  "newChatWithNumber": "New Chat {{number}}",
+  "imageSlicer": {
+    "title": "Image Slicer",
+    "preview": "Preview",
+    "selectAll": "Select All",
+    "reset": "Reset",
+    "settings": "Settings",
+    "gridLayout": "Grid Layout",
+    "cols": "Columns",
+    "rows": "Rows",
+    "totalSlices": "Total Slices",
+    "adjustments": "Adjustments",
+    "resetAdjust": "Reset",
+    "cropMode": "Crop Mode",
+    "original": "Original",
+    "square": "Square",
+    "scaleX": "Scale X",
+    "scaleY": "Scale Y",
+    "hint": "Tip: Use scroll wheel to zoom, drag to move",
+    "format": "Output Format",
+    "processing": "Processing...",
+    "cancel": "Cancel",
+    "applySelected": "Apply Selected ({{count}})",
+    "applyAll": "Apply All ({{count}})",
+    "originalSize": "Original",
+    "blockSize": "Block",
+    "adjusted": "(Adjusted)",
+    "contextMenu": {
+      "slice": "Slice Image",
+      "copy": "Copy Image",
+      "download": "Download Image"
+    }
+  }
 }

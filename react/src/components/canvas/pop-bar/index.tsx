@@ -1,11 +1,11 @@
 import { useCanvas } from '@/contexts/canvas'
-import { TCanvasAddImagesToChatEvent } from '@/lib/event'
+import { eventBus, TCanvasAddImagesToChatEvent } from '@/lib/event'
 import {
   ExcalidrawImageElement,
   OrderedExcalidrawElement,
 } from '@excalidraw/excalidraw/element/types'
 import { AnimatePresence } from 'motion/react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import CanvasPopbarContainer from './CanvasPopbarContainer'
 
 const CanvasPopbarWrapper = () => {
@@ -18,6 +18,43 @@ const CanvasPopbarWrapper = () => {
 
   const selectedImagesRef = useRef<TCanvasAddImagesToChatEvent>([])
   const selectedElementsRef = useRef<OrderedExcalidrawElement[]>([])
+  const doubleClickTriggeredRef = useRef(false)
+
+  // Listen for double-click event to show chat popup
+  useEffect(() => {
+    const handleImageDoubleClick = (data: { images: TCanvasAddImagesToChatEvent; position: { x: number; y: number } }) => {
+      selectedImagesRef.current = data.images
+      setPos(data.position)
+      setShowChat(true)
+      doubleClickTriggeredRef.current = true
+    }
+
+    eventBus.on('Canvas::ImageDoubleClick', handleImageDoubleClick)
+
+    return () => {
+      eventBus.off('Canvas::ImageDoubleClick', handleImageDoubleClick)
+    }
+  }, [])
+
+  // Hide chat when right-click (mousedown with button 2)
+  // Using mousedown instead of contextmenu because it fires earlier
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      // Right click is button 2
+      if (e.button === 2 && doubleClickTriggeredRef.current) {
+        setShowChat(false)
+        setPos(null)
+        doubleClickTriggeredRef.current = false
+      }
+    }
+
+    // Use capture phase to ensure we get the event first
+    document.addEventListener('mousedown', handleMouseDown, true)
+
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown, true)
+    }
+  }, [])
 
   excalidrawAPI?.onChange((elements, appState, files) => {
     const selectedIds = appState.selectedElementIds
@@ -26,6 +63,12 @@ const CanvasPopbarWrapper = () => {
       setShowAddToChat(false)
       setShowMagicGenerate(false)
       setShowChat(false)
+      doubleClickTriggeredRef.current = false
+      return
+    }
+
+    // If chat was triggered by double-click, keep it showing
+    if (doubleClickTriggeredRef.current) {
       return
     }
 
@@ -35,17 +78,17 @@ const CanvasPopbarWrapper = () => {
 
     // 判断是否显示添加到对话按钮：选中图片元素
     const hasSelectedImages = selectedImages.length > 0
-    setShowAddToChat(hasSelectedImages)
+    setShowAddToChat(false) // 禁用添加到聊天按钮
 
     // 判断是否显示魔法生成按钮：选中2个以上元素（包含所有类型）
     const selectedCount = Object.keys(selectedIds).length
     setShowMagicGenerate(selectedCount >= 2)
 
-    // 判断是否显示聊天按钮：选中图片元素（与添加到聊天条件相同）
-    setShowChat(hasSelectedImages)
+    // 禁用聊天按钮 - 用户要求选中图片时不显示聊天弹窗
+    setShowChat(false)
 
-    // 如果既没有选中图片，也没有满足魔法生成条件，隐藏弹窗
-    if (!hasSelectedImages && selectedCount < 2) {
+    // 如果没有满足魔法生成条件，隐藏弹窗
+    if (selectedCount < 2) {
       setPos(null)
       return
     }

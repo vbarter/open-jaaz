@@ -80,6 +80,11 @@ export type TEvents = {
   'Canvas::AddImagesToChat': TCanvasAddImagesToChatEvent
   'Canvas::MagicGenerate': TCanvasMagicGenerateEvent
   'Canvas::Chat': TCanvasChatEvent
+  'Canvas::ImageDoubleClick': {
+    images: TCanvasAddImagesToChatEvent
+    position: { x: number; y: number }
+  }
+  'Canvas::ContextMenuOpened': null
   // ********** Canvas events - End **********
 
   // ********** Material events - Start **********
