@@ -290,6 +290,93 @@
   margin: 4px 0 !important;
 }
 
+/* 🎯 隐藏不需要的右键菜单选项 - 只保留核心功能 */
+/* 保留: copy, paste, copyAsPng, copyAsSvg, sendBackward, bringForward, sendToBack, bringToFront, flipHorizontal, flipVertical */
+
+/* 隐藏剪切功能 */
+.excalidraw .popover .context-menu [data-testid="cut"] {
+  display: none !important;
+}
+
+/* 隐藏框选包裹功能 */
+.excalidraw .popover .context-menu [data-testid="wrapSelectionInFrame"] {
+  display: none !important;
+}
+
+/* 隐藏裁剪图片功能 */
+.excalidraw .popover .context-menu [data-testid="cropEditor"] {
+  display: none !important;
+}
+
+/* 隐藏复制样式功能 */
+.excalidraw .popover .context-menu [data-testid="copyStyles"] {
+  display: none !important;
+}
+
+/* 隐藏粘贴样式功能 */
+.excalidraw .popover .context-menu [data-testid="pasteStyles"] {
+  display: none !important;
+}
+
+/* 隐藏添加到库功能 */
+.excalidraw .popover .context-menu [data-testid="addToLibrary"] {
+  display: none !important;
+}
+
+/* 隐藏添加链接功能 */
+.excalidraw .popover .context-menu [data-testid="hyperlink"] {
+  display: none !important;
+}
+
+/* 隐藏复制元素链接功能 */
+.excalidraw .popover .context-menu [data-testid="copyElementLink"] {
+  display: none !important;
+}
+
+/* 隐藏复制功能 */
+.excalidraw .popover .context-menu [data-testid="duplicateSelection"] {
+  display: none !important;
+}
+
+/* 隐藏锁定功能 */
+.excalidraw .popover .context-menu [data-testid="toggleElementLock"] {
+  display: none !important;
+}
+
+/* 隐藏删除功能 */
+.excalidraw .popover .context-menu [data-testid="deleteSelectedElements"] {
+  display: none !important;
+}
+
+/* 隐藏linkToElement功能 */
+.excalidraw .popover .context-menu [data-testid="linkToElement"] {
+  display: none !important;
+}
+
+/* 隐藏分组相关功能 */
+.excalidraw .popover .context-menu [data-testid="group"],
+.excalidraw .popover .context-menu [data-testid="ungroup"] {
+  display: none !important;
+}
+
+/* 隐藏绑定文字功能 */
+.excalidraw .popover .context-menu [data-testid="bindText"],
+.excalidraw .popover .context-menu [data-testid="unbindText"] {
+  display: none !important;
+}
+
+/* 隐藏多余的分隔线 - 当相邻项目都被隐藏时 */
+.excalidraw .popover .context-menu li:has([data-testid="cut"]) + hr,
+.excalidraw .popover .context-menu li:has([data-testid="wrapSelectionInFrame"]) + hr,
+.excalidraw .popover .context-menu li:has([data-testid="cropEditor"]) + hr,
+.excalidraw .popover .context-menu li:has([data-testid="pasteStyles"]) + hr,
+.excalidraw .popover .context-menu li:has([data-testid="addToLibrary"]) + hr,
+.excalidraw .popover .context-menu li:has([data-testid="hyperlink"]) + hr,
+.excalidraw .popover .context-menu li:has([data-testid="copyElementLink"]) + hr,
+.excalidraw .popover .context-menu li:has([data-testid="toggleElementLock"]) + hr {
+  display: none !important;
+}
+
 /* 自定义深色模式修复类 */
 .excalidraw-custom.excalidraw-dark-fix {
   /* 移除所有滤镜效果 */
