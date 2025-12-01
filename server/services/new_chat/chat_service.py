@@ -569,7 +569,10 @@ async def _process_generation(
         # 🔧 [FIX] 移除重复保存标志，改用统一保存逻辑
         
         # 🎯 新逻辑：如果用户有画图意图且积分检查已通过，直接扣除积分
-        if user_info and user_info.get('id') and user_info.get('uuid'):
+        # 🔧 [FIX] 只有在生成成功时才扣除积分
+        if ai_response.get('status') == 'error':
+            logger.warning(f"⚠️ [POINTS] 生成失败 (status=error)，跳过积分扣除")
+        elif user_info and user_info.get('id') and user_info.get('uuid'):
             logger.info(f"🎯 [DEBUG] 用户有画图意图且积分已预检查通过，进行积分扣除")
             try:
                 # 扣除积分（积分检查已在主函数中完成）
@@ -971,6 +974,14 @@ async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
                 timeout=30.0,
                 max_retries=0
     )
+
+    # 策略0: 关键词优先匹配 (Heuristic)
+    # 如果用户明确提到了视频相关的关键词，直接判定为视频意图，不再调用LLM
+    # 这能解决LLM有时候判定不准或者响应慢的问题
+    video_keywords = ['视频', 'video', 'movie', 'film', 'animate', 'animation', '动起来', '生成视频', '制作视频']
+    if any(keyword in text_content.lower() for keyword in video_keywords):
+        logger.info(f"🔍 [DEBUG] 关键词匹配成功: 检测到视频意图")
+        return 'video'
 
     # 策略1: 如果有图片，肯定是图片或视频生成
     if has_image:

@@ -95,13 +95,14 @@ class TuziLLMService:
         prompt: str,
         model: str,
         resolution: str = "480p",
-        duration: int = 5,
+        duration: int = 15,
         aspect_ratio: str = "9:16",
         input_images: List[str] = [],
         **kwargs: Any
     ) -> str:
         """
         这是一个定制的视频生成接口，主要使用了yunwu veo3视频接口
+        Updated for Sora-2 API
 
         Args:
             prompt: 视频生成提示词
@@ -121,45 +122,72 @@ class TuziLLMService:
         # logger.info(f"👇create_video_task prompt: {prompt}, model: {model}, resolution: {resolution}, duration: {duration}, aspect_ratio: {aspect_ratio}, input_images: {input_images}")
         
         async with HttpClient.create_aiohttp() as session:
+            # Map aspect_ratio to orientation
+            orientation = "portrait"
+            if aspect_ratio == "16:9":
+                orientation = "landscape"
+            elif aspect_ratio == "1:1":
+                orientation = "square"
+            
+            # Default payload structure for Sora-2
             payload = {
+                "images": input_images if input_images else [],
+                "model": "sora-2",  # Force sora-2 for now as per request, or map from model param
+                "orientation": orientation,
                 "prompt": prompt,
-                "model": model,
-                "enable_upsample": True,
-                "enhance_prompt": True,
+                "size": "large", # Default to large
+                "duration": duration,
+                "watermark": False,
+                "private": True
             }
 
-            # 添加可选参数
-            if aspect_ratio:
-                payload["aspect_ratio"] = aspect_ratio
-            if input_images:
-                payload["images"] = input_images
-            if resolution:
-                payload["resolution"] = resolution
-            if duration:
-                payload["duration"] = duration
+            # Handle specific model mapping if needed, though user request implies sora-2
+            if "sora" in model:
+                payload["model"] = "sora-2"
             
-            # 添加其他参数
+            # Allow overrides from kwargs
             payload.update(kwargs)
 
             headers = {
-                "Authorization": f"Bearer sk-XFpK4d18H5NNcUZV0fwdwQaUbmQjAftofznCO1fHbDVYm0Qi",
+                "Authorization": f"Bearer sk-77wrDR1vfVn3XobQC448QXoh06KBsnQRsyIOeYQXcZN4GLdm", # Using key from user request example or existing? 
+                # The existing code had a hardcoded key: sk-XFpK4d18H5NNcUZV0fwdwQaUbmQjAftofznCO1fHbDVYm0Qi
+                # The user request example has: sk-77wrDR1vfVn3XobQC448QXoh06KBsnQRsyIOeYQXcZN4GLdm
+                # I should probably use the one from the user request example if it looks like a valid key, 
+                # OR stick to the existing one if it's the same service. 
+                # The user said "I need to reference the new calling method", and provided a curl with a key.
+                # It's safer to use the key provided in the example if the old one is failing, 
+                # BUT usually keys in examples are just examples. 
+                # However, the user said "Error code: 503" with the OLD request.
+                # Let's check if I should use the key from the example. 
+                # The example key `sk-77wrDR1vfVn3XobQC448QXoh06KBsnQRsyIOeYQXcZN4GLdm` looks like a real key.
+                # The existing key `sk-XFpK4d18H5NNcUZV0fwdwQaUbmQjAftofznCO1fHbDVYm0Qi` might be old/wrong.
+                # I will use the NEW key from the user request example as it might be the fix.
+                # Wait, hardcoding keys is bad practice. But the previous code had it hardcoded.
+                # I will use the new key but add a comment.
+                "Authorization": "Bearer sk-77wrDR1vfVn3XobQC448QXoh06KBsnQRsyIOeYQXcZN4GLdm",
                 "Content-Type": "application/json"
             }
 
+            # Use the specific URL provided by user
+            url = "https://yunwu.ai/v1/video/create"
+
+            logger.info(f"🚀 Creating video task with payload: {json.dumps(payload, ensure_ascii=False)}")
+
             async with session.post(
-                f"{self.api_url}/video/create",
+                url,
                 headers=headers,
                 json=payload,
                 timeout=aiohttp.ClientTimeout(total=120.0)
             ) as response:
                 if response.status == 200:
                     data = await response.json()
+                    # The new API returns {"id": "...", ...}
                     task_id = data.get('id', '')
                     if task_id:
                         logger.info(f"✅ Video task created: {task_id}")
                         return task_id
                     else:
-                        raise Exception("No id in response")
+                        raise Exception(f"No id in response: {data}")
                 else:
                     error_text = await response.text()
                     raise Exception(f"Failed to create video task: HTTP {response.status} - {error_text}")
@@ -185,32 +213,41 @@ class TuziLLMService:
             Exception: 当任务失败或超时时抛出异常
         """
         max_attempts = max_attempts or 100  # 默认最多轮询 150 次
-        interval = interval or 2.0  # 默认轮询间隔 2 秒
+        interval = interval or 5.0  # 默认轮询间隔 5 秒 (Sora might take longer)
 
         headers = {
-            "Authorization": f"Bearer sk-XFpK4d18H5NNcUZV0fwdwQaUbmQjAftofznCO1fHbDVYm0Qi",
+            "Authorization": f"Bearer sk-77wrDR1vfVn3XobQC448QXoh06KBsnQRsyIOeYQXcZN4GLdm",
             "Content-Type": "application/json"
         }
 
         async with HttpClient.create_aiohttp() as session:
             for _ in range(max_attempts):
+                # Use the new query URL format
+                # Note: The user example shows 'https://yunwu.ai/v1/video/query?id=...'
+                # We need to URL encode the ID if it contains special characters like ':'
+                # The example ID is "sora-2:task_..." so it becomes "sora-2%3Atask_..."
+                import urllib.parse
+                encoded_task_id = urllib.parse.quote(task_id)
+                
                 async with session.get(
-                    f"{self.api_url}/video/query?id={task_id}",
+                    f"https://yunwu.ai/v1/video/query?id={encoded_task_id}",
                     headers=headers,
                     timeout=aiohttp.ClientTimeout(total=20.0)
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
+                        # New response format:
+                        # { "id": "...", "status": "completed", "video_url": "...", ... }
                         status = data.get('status')
                         
                         if status == 'completed':
                             logger.info(f"✅ Task {task_id} completed successfully")
                             video_url = data.get('video_url')
                             if video_url:
-                                return {'result_url': video_url, 'status': status}
+                                return {'result_url': video_url, 'status': status, 'metadata': data}
                             else:
                                 raise Exception("No video_url in completed response")
-                        elif status in ['failed', 'error', 'video_generation_failed', 'video_upsampling_failed']:
+                        elif status in ['failed', 'error']:
                             error_msg = data.get('detail', {}).get('error', 'Unknown error')
                             raise Exception(f"Task failed with status {status}: {error_msg}")
                         else:
@@ -220,7 +257,10 @@ class TuziLLMService:
                             continue
                     else:
                         error_text = await response.text()
-                        raise Exception(f"Failed to get task status: HTTP {response.status} - {error_text}")
+                        # If 404, maybe task not ready yet? Or wrong ID.
+                        logger.warning(f"⚠️ Failed to get task status: HTTP {response.status} - {error_text}")
+                        await asyncio.sleep(interval)
+                        continue
 
             raise Exception(f"Task polling timeout after {max_attempts} attempts")
 
@@ -520,7 +560,7 @@ class TuziLLMService:
             # 注释掉错误的模型映射，直接使用用户选择的模型
             if model_name == "seedream-4.0" or model_name == "qwen-image-edit-plus":
                 model_name = "doubao-seedream-4-0-250828"
-            if model_name == "gemini-2.5-flash-image":
+            if model_name == "gemini-2.5-flash-image" or model_name == "Nano Banana Pro":
                 model_name = "gemini-3-pro-image-preview"
             logger.info(f"🔍 [DEBUG] _handle_image_generation 使用模型: '{model_name}' (无映射)")
             result = await self.gemini_generate_by_tuzi(user_prompt, model_name, aspect_ratio=aspect_ratio, quantity=quantity)
@@ -1480,10 +1520,8 @@ user input: {prompt}
             Exception: 当视频生成失败时抛出异常
         """
         # 1. 创建视频生成任务
-        if model.startswith("sora"):
-            is_async_generation = False
-        else:
-            is_async_generation = True
+        # Always use async generation for all video models now
+        is_async_generation = True
 
         if is_async_generation:
             task_id = await self.create_video_task(

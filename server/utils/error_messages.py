@@ -94,7 +94,7 @@ class ErrorMessages:
         
         if any(keyword in error_lower for keyword in ['timeout', 'timed out', '超时']):
             return 'timeout'
-        elif any(keyword in error_lower for keyword in ['busy', 'rate limit', '繁忙', 'too many requests']):
+        elif any(keyword in error_lower for keyword in ['busy', 'rate limit', '繁忙', 'too many requests', '503', 'no available channels', 'capacity', 'quota']):
             return 'service_busy'
         elif any(keyword in error_lower for keyword in ['network', 'connection', '网络', '连接']):
             return 'network_error'
