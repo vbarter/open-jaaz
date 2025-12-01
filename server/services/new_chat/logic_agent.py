@@ -46,7 +46,8 @@ async def create_local_response(messages: List[Dict[str, Any]],
             logger.error(f"❌ Tu-zi service configuration error: {e}")
             return {
                 'role': 'assistant',
-                'content': '✨ Cloud API Key not configured'
+                'content': '✨ Cloud API Key not configured',
+                'status': 'error'
             }
 
         # 获取用户提示词
@@ -74,7 +75,8 @@ async def create_local_response(messages: List[Dict[str, Any]],
             from utils.error_messages import ErrorMessages
             return {
                 'role': 'assistant',
-                'content': ErrorMessages.get_generation_failed_message()
+                'content': ErrorMessages.get_generation_failed_message(),
+                'status': 'error'
             }
 
         # 处理 result 可能是字符串的情况（错误消息）
@@ -82,7 +84,8 @@ async def create_local_response(messages: List[Dict[str, Any]],
             logger.warning(f"⚠️ 收到字符串结果（可能是错误消息）: {result}")
             return {
                 'role': 'assistant',
-                'content': result  # 直接返回友好的错误消息
+                'content': result,  # 直接返回友好的错误消息
+                'status': 'error'
             }
 
         # 检查是否有错误
@@ -97,13 +100,15 @@ async def create_local_response(messages: List[Dict[str, Any]],
                 logger.info(f"📝 使用预设的用户友好消息: {user_message}")
                 return {
                     'role': 'assistant',
-                    'content': user_message
+                    'content': user_message,
+                    'status': 'error'
                 }
             else:
                 from utils.error_messages import get_user_friendly_error
                 return {
                     'role': 'assistant',
-                    'content': get_user_friendly_error(error_msg)
+                    'content': get_user_friendly_error(error_msg),
+                    'status': 'error'
                 }
 
         # 检查是否是文本响应（GPT-4o等文本模型）
@@ -119,7 +124,8 @@ async def create_local_response(messages: List[Dict[str, Any]],
             from utils.error_messages import ErrorMessages
             return {
                 'role': 'assistant',
-                'content': ErrorMessages.get_generation_failed_message()
+                'content': ErrorMessages.get_generation_failed_message(),
+                'status': 'error'
             }
 
         # 初始化变量
@@ -273,12 +279,14 @@ async def create_local_response(messages: List[Dict[str, Any]],
             from utils.error_messages import ErrorMessages
             return {
                 'role': 'assistant',
-                'content': ErrorMessages.get_timeout_message()
+                'content': ErrorMessages.get_timeout_message(),
+                'status': 'error'
             }
         else:
             return {
                 'role': 'assistant',
-                'content': get_user_friendly_error(str(e))
+                'content': get_user_friendly_error(str(e)),
+                'status': 'error'
             }
 
 if __name__ == "__main__":

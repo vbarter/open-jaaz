@@ -85,10 +85,9 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
 
     try {
       // 获取选中的元素
-
       const appState = excalidrawAPI.getAppState()
       const selectedIds = appState.selectedElementIds
-
+      const allElements = excalidrawAPI.getSceneElements()
 
       if (Object.keys(selectedIds).length === 0) {
         console.warn('[CanvasInlineChat] 没有选中任何元素')
@@ -97,8 +96,11 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
         return
       }
 
+      // 重新计算选中的元素，不依赖props，确保数据最新
+      const currentSelectedElements = allElements.filter(el => selectedIds[el.id])
+
       // 检查是否有图片元素
-      const imageElements = selectedElements.filter((element) => element.type === 'image')
+      const imageElements = currentSelectedElements.filter((element) => element.type === 'image')
       if (imageElements.length === 0) {
         console.warn('[CanvasInlineChat] 没有选中图片元素')
         toast.error(t('canvas:popbar.selectImagesError'))
@@ -180,11 +182,13 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
                 dataURL: localDataURL as typeof file.dataURL,
               }
             }
+            toast.dismiss('download-images')
           } catch (error) {
             console.error(`[CanvasInlineChat] 批量下载远程图片失败:`, error)
             toast.error(`图片下载失败: ${error instanceof Error ? error.message : '未知错误'}`, {
               id: 'download-images',
             })
+            toast.dismiss('download-images')
             setIsSubmitting(false)
             return
           }
@@ -196,14 +200,14 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
       let width: number
       let height: number
 
-      const hasImages = selectedElements.some((element) => element.type === 'image')
+      const hasImages = currentSelectedElements.some((element) => element.type === 'image')
 
       if (hasImages && fileIds.length > 0) {
 
 
         try {
           const blob = await exportToBlob({
-            elements: selectedElements,
+            elements: currentSelectedElements,
             appState: {
               ...appState,
               selectedElementIds: selectedIds,
@@ -235,7 +239,7 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
           console.warn('[CanvasInlineChat] Blob导出失败，尝试SVG转PNG方案:', blobError)
 
           const svgString = await exportToSvg({
-            elements: selectedElements,
+            elements: currentSelectedElements,
             appState: {
               ...appState,
               selectedElementIds: selectedIds,
@@ -279,7 +283,7 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
 
 
         const canvas = await exportToCanvas({
-          elements: selectedElements,
+          elements: currentSelectedElements,
           appState: {
             ...appState,
             selectedElementIds: selectedIds,
@@ -298,7 +302,7 @@ const CanvasInlineChat = ({ selectedImages, selectedElements, onExpandedChange }
           console.error('[CanvasInlineChat] Canvas被污染，fallback到Blob方案:', canvasError)
 
           const blob = await exportToBlob({
-            elements: selectedElements,
+            elements: currentSelectedElements,
             appState: {
               ...appState,
               selectedElementIds: selectedIds,
