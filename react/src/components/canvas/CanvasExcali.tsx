@@ -13,6 +13,8 @@ import {
   OrderedExcalidrawElement,
   Theme,
   NonDeleted,
+  FileId,
+  FractionalIndex,
 } from '@excalidraw/excalidraw/element/types'
 import '@excalidraw/excalidraw/index.css'
 import {
@@ -20,12 +22,14 @@ import {
   BinaryFileData,
   BinaryFiles,
   ExcalidrawInitialDataState,
+  DataURL,
 } from '@excalidraw/excalidraw/types'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { nanoid } from 'nanoid'
 import { VideoElement } from './VideoElement'
 import ImageSlicerDialog from './ImageSlicerDialog'
+import { PosterGeneratorDialog } from '@/components/plugin/PosterGeneratorDialog'
 import { ImageInfo, GridSettings, SliceResult } from '@/utils/image-slicer'
 
 import '@/assets/style/canvas.css'
@@ -47,6 +51,11 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
   const [slicerDialogOpen, setSlicerDialogOpen] = useState(false)
   const [selectedImageInfo, setSelectedImageInfo] = useState<ImageInfo | null>(null)
   const [selectedImageElement, setSelectedImageElement] = useState<ExcalidrawImageElement | null>(null)
+  
+  // Poster generator state
+  const [posterDialogOpen, setPosterDialogOpen] = useState(false)
+  const [posterReferenceImage, setPosterReferenceImage] = useState<{ fileId: string; base64?: string } | undefined>(undefined)
+
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Immediate handler for UI updates (no debounce)
@@ -346,11 +355,121 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
   useEffect(() => {
     eventBus.on('Socket::Session::ImageGenerated', handleImageGenerated)
     eventBus.on('Socket::Session::VideoGenerated', handleVideoGenerated)
+    
+    // Handle adding poster images
+    const handleAddPosterImages = (event: { images: { url: string; index: number }[]; referenceImageId?: string }) => {
+      if (!excalidrawAPI) return
+      
+      const currentElements = excalidrawAPI.getSceneElements()
+      const newFiles: BinaryFileData[] = []
+      const newElements: ExcalidrawImageElement[] = []
+      
+      // Calculate start position
+      let startX = 0
+      let startY = 0
+      
+      // If we have a reference image, start near it
+      if (event.referenceImageId) {
+        const refElement = currentElements.find(el => el.type === 'image' && el.fileId === event.referenceImageId)
+        if (refElement) {
+          startX = refElement.x + refElement.width + 50
+          startY = refElement.y
+        }
+      } else {
+        // Otherwise use center of view
+        const appState = excalidrawAPI.getAppState()
+        startX = appState.scrollX + appState.width / 2
+        startY = appState.scrollY + appState.height / 2
+      }
+      
+      const gap = 20
+      const width = 300 // Default width
+      const height = 400 // Default height (3:4)
+      
+      event.images.forEach((img, i) => {
+        const fileId = nanoid()
+        const elementId = nanoid()
+        
+        // Simple grid layout
+        const cols = 3
+        const row = Math.floor(i / cols)
+        const col = i % cols
+        
+        const x = startX + col * (width + gap)
+        const y = startY + row * (height + gap)
+        
+        // We need to fetch the image to get dataURL
+        // Since we can't do async easily here, we'll just add a placeholder or try to fetch
+        // For now, let's assume the URL is accessible and we can add it as an image
+        // But Excalidraw needs dataURL for images usually, or we can use the URL if it supports it
+        // Actually, let's fetch the image content
+        
+        fetch(img.url)
+          .then(res => res.blob())
+          .then(blob => {
+            const reader = new FileReader()
+            reader.onloadend = () => {
+              const dataURL = reader.result as string
+              
+              const file: BinaryFileData = {
+                id: fileId as FileId,
+                dataURL: dataURL as DataURL,
+                mimeType: blob.type as any,
+                created: Date.now(),
+              }
+              
+              const element: ExcalidrawImageElement = {
+                type: 'image',
+                id: elementId,
+                x,
+                y,
+                width,
+                height,
+                fileId: fileId as FileId,
+                status: 'saved',
+                scale: [1, 1],
+                crop: null,
+                strokeColor: '#000000',
+                backgroundColor: 'transparent',
+                fillStyle: 'solid',
+                strokeWidth: 1,
+                strokeStyle: 'solid',
+                roundness: null,
+                roughness: 1,
+                opacity: 100,
+                angle: 0,
+                seed: Math.floor(Math.random() * 1000000),
+                version: 1,
+                versionNonce: Math.floor(Math.random() * 1000000),
+                locked: false,
+                isDeleted: false,
+                groupIds: [],
+                boundElements: null,
+                updated: Date.now(),
+                frameId: null,
+                index: null as unknown as FractionalIndex,
+                link: null,
+              }
+              
+              excalidrawAPI.addFiles([file])
+              excalidrawAPI.updateScene({
+                elements: [...excalidrawAPI.getSceneElements(), element]
+              })
+            }
+            reader.readAsDataURL(blob)
+          })
+          .catch(err => console.error('Failed to fetch poster image:', err))
+      })
+    }
+    
+    eventBus.on('Canvas::AddPosterImages', handleAddPosterImages)
+
     return () => {
       eventBus.off('Socket::Session::ImageGenerated', handleImageGenerated)
       eventBus.off('Socket::Session::VideoGenerated', handleVideoGenerated)
+      eventBus.off('Canvas::AddPosterImages', handleAddPosterImages)
     }
-  }, [handleImageGenerated, handleVideoGenerated])
+  }, [handleImageGenerated, handleVideoGenerated, excalidrawAPI, canvasId])
 
   // 初始化时从现有元素加载布局管理器
   useEffect(() => {
@@ -369,11 +488,11 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
 
     // Find selected image elements
     const selectedImages = elements.filter(
-      (el): el is ExcalidrawImageElement =>
+      (el) =>
         el.type === 'image' &&
         !el.isDeleted &&
         appState.selectedElementIds[el.id]
-    )
+    ) as ExcalidrawImageElement[]
 
     if (selectedImages.length === 1) {
       const imageElement = selectedImages[0]
@@ -388,6 +507,37 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
           originalName: 'image',
         })
         setSlicerDialogOpen(true)
+      }
+    }
+  }, [excalidrawAPI])
+
+  // Open poster generator dialog
+  // Moved up to fix hoisting issue
+  const handleOpenPosterGenerator = useCallback(() => {
+    if (!excalidrawAPI) return
+
+    const appState = excalidrawAPI.getAppState()
+    const elements = excalidrawAPI.getSceneElements()
+    const files = excalidrawAPI.getFiles()
+
+    // Find selected image elements
+    const selectedImages = elements.filter(
+      (el) =>
+        el.type === 'image' &&
+        !el.isDeleted &&
+        appState.selectedElementIds[el.id]
+    ) as ExcalidrawImageElement[]
+
+    if (selectedImages.length === 1) {
+      const imageElement = selectedImages[0]
+      const file = files[imageElement.fileId as string]
+
+      if (file) {
+        setPosterReferenceImage({
+          fileId: imageElement.fileId as string,
+          base64: file.dataURL
+        })
+        setPosterDialogOpen(true)
       }
     }
   }, [excalidrawAPI])
@@ -426,7 +576,7 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
                     el.type === 'image' &&
                     !el.isDeleted &&
                     appState.selectedElementIds[el.id]
-                )
+                ) as ExcalidrawImageElement[]
 
                 // Only show slice option if exactly one image is selected
                 if (selectedImages.length !== 1) return
@@ -502,9 +652,58 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
                   handleOpenSlicer()
                 })
 
-                // Append separator and item
                 menuItems.appendChild(separator)
                 menuItems.appendChild(sliceItem)
+
+                // Create Poster Generator item
+                const posterItem = document.createElement('button')
+                posterItem.setAttribute('data-poster-generator', 'true')
+                posterItem.className = 'context-menu-item'
+                posterItem.style.cssText = sliceItem.style.cssText
+
+                // Add icon (Sparkles SVG)
+                const posterIconSpan = document.createElement('span')
+                posterIconSpan.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`
+                posterIconSpan.style.cssText = 'display: flex; align-items: center;'
+
+                // Add text
+                const posterTextSpan = document.createElement('span')
+                posterTextSpan.textContent = t('poster.contextMenu.generate', '生成海报')
+
+                posterItem.appendChild(posterIconSpan)
+                posterItem.appendChild(posterTextSpan)
+
+                // Add hover effect
+                posterItem.addEventListener('mouseenter', () => {
+                  posterItem.style.background = 'var(--color-gray-10, #f5f5f5)'
+                })
+                posterItem.addEventListener('mouseleave', () => {
+                  posterItem.style.background = 'transparent'
+                })
+
+                // Add click handler
+                posterItem.addEventListener('click', (e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+
+                  // Close context menu
+                  document.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: 'Escape',
+                    code: 'Escape',
+                    keyCode: 27,
+                    which: 27,
+                    bubbles: true,
+                    cancelable: true
+                  }))
+
+                  const menu = document.querySelector('.context-menu')
+                  if (menu) menu.remove()
+
+                  // Open poster dialog
+                  handleOpenPosterGenerator()
+                })
+
+                menuItems.appendChild(posterItem)
               }
             }
           })
@@ -515,7 +714,7 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
     observer.observe(document.body, { childList: true, subtree: true })
 
     return () => observer.disconnect()
-  }, [t, handleOpenSlicer])
+  }, [t, handleOpenSlicer, handleOpenPosterGenerator])
 
   // Handle double-click on image to show chat popup
   useEffect(() => {
@@ -529,11 +728,11 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
 
       // Find selected image elements
       const selectedImages = elements.filter(
-        (el): el is ExcalidrawImageElement =>
+        (el) =>
           el.type === 'image' &&
           !el.isDeleted &&
           appState.selectedElementIds[el.id]
-      )
+      ) as ExcalidrawImageElement[]
 
       // Only emit event if images are selected
       if (selectedImages.length > 0) {
@@ -610,9 +809,9 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
 
         // Create file data
         newFiles.push({
-          id: fileId,
-          dataURL: slice.dataURL,
-          mimeType: `image/${settings.format}`,
+          id: fileId as FileId,
+          dataURL: slice.dataURL as DataURL,
+          mimeType: `image/${settings.format}` as any,
           created: Date.now(),
         })
 
@@ -624,9 +823,10 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
           y,
           width: slice.width,
           height: slice.height,
-          fileId,
+          fileId: fileId as FileId,
           status: 'saved',
           scale: [1, 1],
+          crop: null,
           // Basic properties
           strokeColor: '#000000',
           backgroundColor: 'transparent',
@@ -646,7 +846,7 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
           boundElements: null,
           updated: Date.now(),
           frameId: null,
-          index: null as unknown as string,
+          index: null as unknown as FractionalIndex,
           link: null,
         }
 
@@ -715,12 +915,18 @@ const CanvasExcali: React.FC<CanvasExcaliProps> = ({ canvasId, initialData }) =>
         }}
       />
 
-      {/* Image Slicer Dialog */}
       <ImageSlicerDialog
         open={slicerDialogOpen}
         onOpenChange={setSlicerDialogOpen}
         imageInfo={selectedImageInfo}
         onApply={handleSliceApply}
+      />
+
+      {/* Poster Generator Dialog */}
+      <PosterGeneratorDialog
+        open={posterDialogOpen}
+        onOpenChange={setPosterDialogOpen}
+        referenceImage={posterReferenceImage}
       />
     </div>
   )

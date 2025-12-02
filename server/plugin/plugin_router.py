@@ -8,7 +8,7 @@ Plugin Router
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from typing import Optional, Literal, List, Dict, Any
 import logging
 import httpx
 import json
@@ -19,6 +19,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from plugin.plugin_service import plugin_service
 from plugin.image_task_manager import task_manager
+from plugin.poster_service import poster_service
 
 # 配置日志
 logger = logging.getLogger('plugin_router')
@@ -752,3 +753,79 @@ async def llm_chat(llm_data: LLMRequest):
             message=f"Internal server error: {str(e)}",
             data={}
         )
+
+
+# ==================== 小红书海报相关接口 ====================
+
+class PosterOutlineRequest(BaseModel):
+    """海报大纲生成请求"""
+    topic: str = Field(..., description="用户主题")
+
+
+class PosterGenerateRequest(BaseModel):
+    """海报图片生成请求"""
+    pages: List[Dict[str, Any]] = Field(..., description="页面列表")
+    full_outline: str = Field(..., description="完整大纲")
+    user_topic: str = Field(..., description="用户主题")
+    style: Optional[str] = Field("default", description="风格")
+    session_id: str = Field(..., description="会话ID")
+    canvas_id: Optional[str] = Field(None, description="画布ID")
+
+
+@router.post("/api/plugin/poster/outline")
+async def generate_poster_outline(request: PosterOutlineRequest):
+    """生成海报大纲"""
+    try:
+        result = await poster_service.generate_outline(request.topic)
+        if result['success']:
+            return {
+                "code": 0,
+                "message": "success",
+                "data": result
+            }
+        else:
+            return {
+                "code": 1,
+                "message": result['message'],
+                "data": {}
+            }
+    except Exception as e:
+        logger.error(f"生成大纲接口异常: {str(e)}")
+        return {
+            "code": 1,
+            "message": str(e),
+            "data": {}
+        }
+
+
+@router.post("/api/plugin/poster/generate")
+async def generate_poster_images(request: PosterGenerateRequest):
+    """批量生成海报图片"""
+    try:
+        result = await poster_service.generate_poster_images(
+            pages=request.pages,
+            full_outline=request.full_outline,
+            user_topic=request.user_topic,
+            style=request.style,
+            session_id=request.session_id,
+            canvas_id=request.canvas_id
+        )
+        if result['success']:
+            return {
+                "code": 0,
+                "message": "success",
+                "data": result
+            }
+        else:
+            return {
+                "code": 1,
+                "message": result['message'],
+                "data": {}
+            }
+    except Exception as e:
+        logger.error(f"生成海报图片接口异常: {str(e)}")
+        return {
+            "code": 1,
+            "message": str(e),
+            "data": {}
+        }

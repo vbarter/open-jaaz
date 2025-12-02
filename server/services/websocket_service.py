@@ -455,3 +455,54 @@ async def send_generation_complete(
         progress=1.0,
         data=result_data
     )
+
+
+async def send_poster_image_generated(
+    session_id: str,
+    canvas_id: Optional[str],
+    image_data: Dict[str, Any]
+):
+    """发送单张海报图片生成完成事件（实时推送）"""
+    try:
+        event_data = {
+            'type': 'poster_image_generated',
+            'session_id': session_id,
+            'canvas_id': canvas_id,
+            'image': image_data,
+            'timestamp': int(time.time() * 1000)
+        }
+
+        completed = image_data.get('completed_count', '?')
+        total = image_data.get('total_count', '?')
+        logger.info(f"🖼️ [POSTER] Sending single poster image: index={image_data.get('index')}, progress={completed}/{total}, url={image_data.get('image_url', '')[:50]}...")
+        await broadcast_session_update(session_id, canvas_id, event_data)
+
+        # 注意：不再调用 send_image_to_canvas，前端 handlePosterImageGenerated 会负责添加到画布
+        # 这样避免图片重复添加
+
+    except Exception as e:
+        logger.error(f"Error sending poster image generated event: {e}")
+        traceback.print_exc()
+
+
+async def send_poster_completed(
+    session_id: str,
+    canvas_id: Optional[str],
+    images: List[Dict[str, Any]]
+):
+    """发送海报生成完成事件（全部完成时）"""
+    try:
+        event_data = {
+            'type': 'poster_completed',
+            'session_id': session_id,
+            'canvas_id': canvas_id,
+            'images': images,
+            'timestamp': int(time.time() * 1000)
+        }
+
+        logger.info(f"🖼️ [POSTER] Sending poster completed event: {len(images)} images")
+        await broadcast_session_update(session_id, canvas_id, event_data)
+
+    except Exception as e:
+        logger.error(f"Error sending poster completed event: {e}")
+        traceback.print_exc()

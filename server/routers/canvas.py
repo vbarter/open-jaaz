@@ -51,8 +51,11 @@ async def create_canvas(request: Request, current_user: Optional[CurrentUser] = 
     user_uuid = get_user_uuid_for_database_operations(current_user)
     user_email = current_user.email if current_user else None
     
-    # 只有在没有template_id或template_id为空时才执行handle_chat
-    if not template_id:
+    # 🆕 检查是否是插件请求，插件请求由前端处理，不需要后端执行普通聊天流程
+    plugin = data.get('plugin')
+
+    # 只有在没有template_id或template_id为空，且不是插件请求时才执行handle_chat
+    if not template_id and not plugin:
         # 添加用户信息到请求数据中
         if current_user:
             data['user_info'] = {
@@ -61,7 +64,7 @@ async def create_canvas(request: Request, current_user: Optional[CurrentUser] = 
                 'email': current_user.email,
                 'nickname': current_user.nickname
             }
-        
+
         # 创建带错误处理的异步任务
         async def handle_chat_with_error_handling():
             try:
@@ -77,8 +80,10 @@ async def create_canvas(request: Request, current_user: Optional[CurrentUser] = 
                     })
                 except Exception as ws_error:
                     logger.error(f"Failed to send error via websocket: {ws_error}")
-        
+
         asyncio.create_task(handle_chat_with_error_handling())
+    elif plugin:
+        logger.info(f"[debug] 插件请求，跳过普通聊天流程: plugin={plugin}")
     
     # 📝 创建canvas，关联用户UUID和邮箱
     await db_service.create_canvas(id, name, user_uuid=user_uuid, user_email=user_email)

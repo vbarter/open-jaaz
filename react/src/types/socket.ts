@@ -26,6 +26,9 @@ export enum SessionEventType {
   ThinkingStarted = 'thinking_started',
   ThinkingUpdate = 'thinking_update',
   ThinkingComplete = 'thinking_complete',
+  // Poster 事件类型
+  PosterImageGenerated = 'poster_image_generated',
+  PosterCompleted = 'poster_completed',
 }
 
 export interface SessionBaseEvent {
@@ -41,6 +44,7 @@ export interface SessionErrorEvent extends SessionBaseEvent {
 }
 export interface SessionDoneEvent extends SessionBaseEvent {
   type: SessionEventType.Done
+  canvas_id?: string
 }
 export interface SessionInfoEvent extends SessionBaseEvent {
   type: SessionEventType.Info
@@ -83,6 +87,9 @@ export interface SessionToolCallResultEvent extends SessionBaseEvent {
 export interface SessionAllMessagesEvent extends SessionBaseEvent {
   type: SessionEventType.AllMessages
   messages: Message[]
+  canvas_id?: string
+  error_type?: string
+  timestamp?: number
 }
 export interface SessionToolCallProgressEvent extends SessionBaseEvent {
   type: SessionEventType.ToolCallProgress
@@ -173,6 +180,32 @@ export interface SessionThinkingCompleteEvent extends SessionBaseEvent {
   timestamp: number
 }
 
+export interface SessionPosterImageGeneratedEvent extends SessionBaseEvent {
+  type: SessionEventType.PosterImageGenerated
+  canvas_id?: string
+  image: {
+    index: number
+    success: boolean
+    image_url?: string
+    error?: string
+    completed_count?: number
+    total_count?: number
+  }
+  timestamp?: number
+}
+
+export interface SessionPosterCompletedEvent extends SessionBaseEvent {
+  type: SessionEventType.PosterCompleted
+  canvas_id?: string
+  images: Array<{
+    index: number
+    success: boolean
+    image_url?: string
+    error?: string
+  }>
+  timestamp?: number
+}
+
 export type SessionUpdateEvent =
   | SessionDeltaEvent
   | SessionToolCallEvent
@@ -195,3 +228,5 @@ export type SessionUpdateEvent =
   | SessionThinkingStartedEvent
   | SessionThinkingUpdateEvent
   | SessionThinkingCompleteEvent
+  | SessionPosterImageGeneratedEvent
+  | SessionPosterCompletedEvent

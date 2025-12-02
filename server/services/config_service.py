@@ -71,9 +71,11 @@ DEFAULT_PROVIDERS_CONFIG: AppConfig = {
         'api_key': 'sk-T5GzBCTpRm92Po9G9WU9B19w1p1pxHJ8qwfcAcZ47MdZCzEM',
     },
     'yunwu': {
-        'models': {},
-        'url': 'https://api.apiplus.org/v1',
-        'api_key': 'sk-3id68TiP9AKUFzIhSnz8KrTTDXDXKyR05xuOW7kyCIubMlDq',
+        'models': {
+            'gemini-3-pro-image-preview': {'type': 'image'},
+        },
+        'url': 'https://yunwu.ai/v1',
+        'api_key': 'sk-w2mG8This58ExrIV2rRscpqC4fVJWICr1AF9GT8EosWQP5ZA',
     },
 
 }
