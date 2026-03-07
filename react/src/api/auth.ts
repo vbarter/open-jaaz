@@ -842,8 +842,9 @@ export function checkDirectAuthParams(): {
 
   if (authSuccess && encodedAuthData) {
     try {
-      // 解码认证数据
-      const decodedData = atob(encodedAuthData)
+      // 解码认证数据（兼容 URL-safe base64）
+      const standardBase64 = encodedAuthData.replace(/-/g, '+').replace(/_/g, '/')
+      const decodedData = atob(standardBase64)
       authData = JSON.parse(decodedData)
     } catch (error) {
       console.error('Failed to decode auth data:', error)

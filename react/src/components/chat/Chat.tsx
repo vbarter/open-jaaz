@@ -38,7 +38,9 @@ import 'react-photo-view/dist/react-photo-view.css'
 import { DEFAULT_SYSTEM_PROMPT } from '@/constants'
 import { useSocket } from '@/hooks/useSocket'
 import { ModelInfo, ToolInfo } from '@/api/model'
-import { usePosterPlugin, PosterOutline, PosterImage } from '@/hooks/usePosterPlugin' // 🆕 导入类型
+import { usePosterPlugin, PosterImage } from '@/hooks/usePosterPlugin' // 🆕 导入类型
+import { PosterOutline } from '@/types/types'
+import PosterOutlineMessage from './Message/PosterOutlineMessage' // 🆕 导入组件
 import { Button } from '@/components/ui/button'
 import { Share2, Sparkles, Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -292,7 +294,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       ...prev,
                       {
                         role: 'assistant',
-                        content: `### 📝 海报大纲已生成\n\n${outlineData.outline}\n\n请确认无误后点击下方按钮生成图片。`
+                        poster_outline: outlineData,
+                        content: '' // 内容为空，由组件渲染
                       }
                     ])
 
@@ -1723,8 +1726,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       title: generateChatSessionTitle(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      model: textModel?.model || session?.model || 'gpt-4o',
-      provider: textModel?.provider || session?.provider || 'openai',
+      model: textModel?.model || session?.model || 'gpt-5.2',
+      provider: textModel?.provider || session?.provider || 'yunwu',
       // name: newSessionName, // Remove invalid property
       // messages: [], // Remove invalid property
     }
@@ -2026,7 +2029,39 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           </>
                         )}
                       </div>
+
                     ) : null}
+
+                    {/* 🆕 海报大纲消息组件 */}
+                    {message.role === 'assistant' && message.poster_outline && (
+                      <PosterOutlineMessage
+                        outline={message.poster_outline}
+                        isGenerating={isPluginGenerating}
+                        onGenerate={async (pages, fullOutline) => {
+                          try {
+                            setPending('tool')
+                            await generateImages(
+                              pages,
+                              fullOutline,
+                              posterTopic,
+                              sessionId,
+                              canvasId
+                            )
+                            // 生成开始后，清除大纲消息中的poster_outline，避免重复显示按钮
+                            // 或者保持显示但禁用按钮（组件内部已处理disabled）
+                            // 这里选择保留显示，以便用户查看历史
+                          } catch (error) {
+                            console.error('海报生成失败:', error)
+                          }
+                        }}
+                        onCancel={() => {
+                          // 移除这条消息或者只是清除outline数据
+                          setMessages(prev => prev.filter(m => m !== message))
+                          setPosterTopic('')
+                          setPosterOutline(null)
+                        }}
+                      />
+                    )}
 
                     {/* Tool calls for assistant messages */}
                     {message.role === 'assistant' &&
@@ -2127,76 +2162,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </ScrollArea>
 
         <div className='p-2 gap-2 bg-background/95 backdrop-blur-sm border-t border-border/50 flex-shrink-0'>
-          {/* 🆕 插件确认按钮区域 */}
-      {posterOutline && !isPluginGenerating && (
-        <div className="p-4 border-t bg-gray-50 dark:bg-gray-900/50 flex flex-col gap-2">
-          <div className="text-sm text-gray-500 mb-2">
-            已生成海报大纲，点击下方按钮开始绘制图片
-          </div>
-          <div className="flex gap-2">
-            <Button 
-              onClick={async () => {
-                if (!posterTopic || !posterOutline) return
-                try {
-                  setPending('tool')
-                  // 传递 sessionId 和 canvasId，启用 WebSocket 推送模式
-                  await generateImages(
-                    posterOutline.pages, 
-                    posterOutline.outline, 
-                    posterTopic,
-                    sessionId,
-                    canvasId
-                  )
-                  
-                  // 注意：generateImages 现在立即返回 true
-                  // 图片生成结果将通过 WebSocket (PosterCompleted 事件) 异步接收
-                  // isPluginGenerating 状态会保持为 true，直到收到完成事件
-                  
-                  // 清除状态，隐藏按钮
-                  setPosterOutline(null)
-                  setPosterTopic('')
-                  
-                } catch (error) {
-                  console.error('海报生成失败:', error)
-                  toast.error('海报生成失败，请重试')
-                  setPending(false)
-                }
-              }}
-              disabled={isPluginGenerating}
-            >
-              {isPluginGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  正在绘制...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  开始绘制图片
-                </>
-              )}
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setPosterOutline(null)
-                setPosterTopic('')
-                toast.info('已取消海报生成')
-              }}
-            >
-              取消
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* 🆕 插件生成中状态显示 */}
-      {isPluginGenerating && (
-        <div className="p-4 border-t bg-gray-50 dark:bg-gray-900/50 flex items-center justify-center gap-2 text-pink-500">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>{pluginProgress}</span>
-        </div>
-      )}
+          {/* 🆕 插件生成中状态显示 - 仅在底部显示进度条，不再显示大纲确认卡片 */}
+          {isPluginGenerating && (
+            <div className="p-2 border-t bg-gray-50 dark:bg-gray-900/50 flex items-center justify-center gap-2 text-pink-500 text-sm">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>{pluginProgress}</span>
+            </div>
+          )}
 
       <ChatTextarea
             onSend={onSendMessages}

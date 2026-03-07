@@ -150,7 +150,7 @@ const ChatCanvasHandler: React.FC<ChatCanvasHandlerProps> = ({
             modelName = textModel.model
             localStorage.setItem('current_selected_model', modelName)
           } else {
-            modelName = 'gpt-4o' // 默认模型
+            modelName = 'gpt-5.2' // 默认模型
             localStorage.setItem('current_selected_model', modelName)
           }
         }

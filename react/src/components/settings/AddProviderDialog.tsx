@@ -34,7 +34,7 @@ const PROVIDER_OPTIONS = [
     data: {
       apiUrl: 'https://openrouter.ai/api/v1/',
       models: {
-        'openai/gpt-4o': { type: 'text' },
+        'yunwu/gpt-5.2': { type: 'text' },
         'deepseek/deepseek-chat-v3-0324': { type: 'text' },
         'deepseek/deepseek-chat-v3-0324:free': { type: 'text' },
       },

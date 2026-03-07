@@ -62,6 +62,7 @@ type ChatTextareaProps = {
   onStop?: () => void // Add missing prop
   selectedPlugin?: string // 🆕 Add prop
   setSelectedPlugin?: (plugin: string) => void // 🆕 Add prop
+  variant?: 'default' | 'homepage'
 }
 
 const ChatTextarea: React.FC<ChatTextareaProps> = ({
@@ -75,6 +76,7 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
   enableDynamicPlaceholder = true,
   selectedPlugin, // 🆕 Destructure
   setSelectedPlugin, // 🆕 Destructure
+  variant = 'default',
 }) => {
   const { t } = useTranslation()
   const { authStatus } = useAuth()
@@ -340,7 +342,7 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
         modelName = textModel.model
         localStorage.setItem('current_selected_model', modelName)
       } else {
-        modelName = 'gpt-4o' // 默认模型
+        modelName = 'gpt-5.2' // 默认模型
         localStorage.setItem('current_selected_model', modelName)
       }
     }
@@ -488,7 +490,8 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
       className={cn(
-        'relative flex flex-col gap-2 p-2 sm:p-4 bg-background border-t shadow-sm',
+        'relative flex flex-col',
+        variant === 'homepage' ? 'gap-3 p-4 sm:p-6' : 'gap-2 p-2 sm:p-3',
         className
       )}
     >
@@ -550,10 +553,11 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
       <div
         ref={dropAreaRef}
         className={cn(
-          'relative rounded-xl border bg-background transition-colors',
-          isFocused && 'border-primary ring-1 ring-primary/20',
-          isDragOver && 'border-primary bg-primary/5',
-          selectedPlugin === 'xiaohongshu-poster' && 'border-pink-500 ring-1 ring-pink-500/20 bg-pink-50/10' // 🆕 Add plugin style
+          'relative transition-all',
+          variant === 'homepage'
+            ? 'rounded-3xl bg-white border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.06)] focus-within:ring-2 focus-within:ring-blue-100/80'
+            : 'rounded-2xl bg-neutral-100 border-0 shadow-[0_4px_8px_rgba(0,0,0,0.04)]',
+          isDragOver && 'bg-primary/5',
         )}
       >
         <Textarea
@@ -569,106 +573,115 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
             }
           }}
           placeholder={dynamicPlaceholder}
-          autoSize={{ minRows: 1, maxRows: 8 }}
-          className='w-full min-h-[44px] max-h-[200px] p-3 bg-transparent border-none outline-none resize-none text-sm placeholder:text-muted-foreground/50'
+          autoSize={{ minRows: variant === 'homepage' ? 3 : 2, maxRows: 8 }}
+          className={cn(
+            'w-full max-h-[200px] bg-transparent border-none outline-none resize-none shadow-none focus:ring-0 focus:outline-none',
+            variant === 'homepage'
+              ? 'text-base sm:text-lg min-h-[96px] px-5 pt-4 pb-2 placeholder:text-gray-300'
+              : 'text-sm min-h-[56px] px-4 pt-3 pb-1 placeholder:text-gray-400'
+          )}
         />
-      </div>
 
-      <div className='flex items-center justify-between gap-2 w-full'>
-        <div className='flex items-center gap-2 max-w-[calc(100%-45px)] flex-nowrap overflow-x-auto scrollbar-hide'>
-          <div className='relative shrink-0'>
-            <input
-              ref={imageInputRef}
-              type='file'
-              accept='image/*'
-              multiple
-              className='hidden'
-              onChange={handleImagesUpload}
-            />
-            <Button
-              variant='ghost'
-              size='icon'
-              className='h-8 w-8 text-muted-foreground hover:text-foreground'
-              onClick={() => imageInputRef.current?.click()}
-              title={t('chat:textarea.uploadImage')}
-            >
-              <PlusIcon className='size-4' />
-            </Button>
-          </div>
-
-          <div className='shrink-0'>
-            <ModelSelectorV3 />
-          </div>
-
-          <Button
-            variant={selectedPlugin === 'xiaohongshu-poster' ? 'default' : 'outline'}
-            className={cn(
-              'shrink-0 h-8 px-2 flex items-center justify-center gap-1',
-              selectedPlugin === 'xiaohongshu-poster' && 'bg-pink-500 hover:bg-pink-600 text-white border-pink-500'
-            )}
-            onClick={() => {
-                if (setSelectedPlugin) {
-                    setSelectedPlugin(selectedPlugin === 'xiaohongshu-poster' ? '' : 'xiaohongshu-poster')
-                }
-            }}
-            title="小红书海报"
-          >
-            <Sparkles className={cn('size-4', selectedPlugin === 'xiaohongshu-poster' ? 'text-white' : 'text-pink-500')} />
-            <span className="text-xs hidden sm:inline">海报</span>
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+        <div className={cn(
+          'flex items-center justify-between gap-2',
+          variant === 'homepage' ? 'px-4 pb-4' : 'px-3 pb-2.5'
+        )}>
+          <div className='flex items-center gap-1.5 flex-nowrap overflow-x-auto scrollbar-hide'>
+            <div className='relative shrink-0'>
+              <input
+                ref={imageInputRef}
+                type='file'
+                accept='image/*'
+                multiple
+                className='hidden'
+                onChange={handleImagesUpload}
+              />
               <Button
-                variant='outline'
-                className='shrink-0 h-8 w-8 p-0 flex items-center justify-center'
+                variant='ghost'
+                size='icon'
+                className={cn(
+                  'rounded-full text-muted-foreground/60 hover:text-foreground',
+                  variant === 'homepage'
+                    ? 'h-9 w-9 border border-gray-100 hover:bg-gray-50'
+                    : 'h-8 w-8 hover:bg-muted/80'
+                )}
+                onClick={() => imageInputRef.current?.click()}
+                title={t('chat:textarea.uploadImage')}
               >
-                <RectangleVertical className='size-4' />
+                <PlusIcon className='size-4' />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align='start' className='w-36'>
-              {['auto', '1:1', '4:3', '3:4', '16:9', '9:16'].map((ratio) => (
-                <DropdownMenuItem
-                  key={ratio}
-                  onClick={() => setSelectedAspectRatio(ratio)}
-                  className='flex items-center justify-between'
+            </div>
+          </div>
+
+          <div className={cn(
+            'flex items-center gap-1.5',
+            variant === 'homepage' && 'bg-gray-50/50 rounded-full px-1 py-1 border border-gray-100'
+          )}>
+            <div className='shrink-0'>
+              <ModelSelectorV3 />
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant='ghost'
+                  className='shrink-0 h-8 w-8 p-0 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/80'
                 >
-                  <span>{ratio}</span>
-                  {selectedAspectRatio === ratio && (
-                    <div className='size-2 rounded-full bg-primary' />
-                  )}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  <RectangleVertical className='size-4' />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align='end' className='w-36'>
+                {['auto', '1:1', '4:3', '3:4', '16:9', '9:16'].map((ratio) => (
+                  <DropdownMenuItem
+                    key={ratio}
+                    onClick={() => setSelectedAspectRatio(ratio)}
+                    className='flex items-center justify-between'
+                  >
+                    <span>{ratio}</span>
+                    {selectedAspectRatio === ratio && (
+                      <div className='size-2 rounded-full bg-primary' />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-
+            {pending || isSubmitting ? (
+              <Button
+                className={cn(
+                  'shrink-0 relative p-0 rounded-full flex items-center justify-center',
+                  variant === 'homepage' ? 'h-9 w-9' : 'h-8 w-8',
+                  'bg-zinc-800 text-white hover:bg-zinc-700'
+                )}
+                variant='ghost'
+                onClick={handleCancelChat}
+              >
+                <Loader2 className='size-4 animate-spin absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' />
+                <Square className='size-1.5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' />
+              </Button>
+            ) : (
+              <Button
+                className={cn(
+                  'shrink-0 p-0 rounded-full disabled:opacity-30 flex items-center justify-center',
+                  variant === 'homepage' ? 'h-9 w-9' : 'h-8 w-8',
+                  variant === 'homepage' && prompt.trim().length === 0
+                    ? 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                    : 'bg-zinc-800 text-white hover:bg-zinc-700'
+                )}
+                variant='ghost'
+                onClick={handleSendPrompt}
+                disabled={
+                  (!textModel && (!selectedTools || selectedTools.length === 0)) ||
+                  prompt.length === 0 ||
+                  !!pending ||
+                  isSubmitting
+                }
+              >
+                <ArrowUp className='size-4' />
+              </Button>
+            )}
+          </div>
         </div>
-
-        {pending || isSubmitting ? (
-          <Button
-            className='shrink-0 relative h-8 w-8 p-0 flex items-center justify-center'
-            variant='default'
-            onClick={handleCancelChat}
-          >
-            <Loader2 className='size-4 animate-spin absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' />
-            <Square className='size-1.5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' />
-          </Button>
-        ) : (
-          <Button
-            className='shrink-0 h-8 w-8 p-0 flex items-center justify-center'
-            variant='default'
-            onClick={handleSendPrompt}
-            disabled={
-              (!textModel && (!selectedTools || selectedTools.length === 0)) ||
-              prompt.length === 0 ||
-              !!pending ||
-              isSubmitting
-            }
-          >
-            <ArrowUp className='size-4' />
-          </Button>
-        )}
       </div>
 
       <PosterGeneratorDialog 

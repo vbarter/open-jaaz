@@ -20,7 +20,7 @@ class GenerateImageByGoogleNanoBananaInputSchema(BaseModel):
 
 
 @tool("generate_image_by_google_nano_banana",
-      description="Generate an image by Nano Banana Pro image model using text prompt or optionally pass images for reference or for editing. Use this model if you need to use multiple input images as reference. Supports multiple providers with automatic fallback.",
+      description="Generate an image by Nano Banana 2 image model using text prompt or optionally pass images for reference or for editing. Use this model if you need to use multiple input images as reference. Supports multiple providers with automatic fallback.",
       args_schema=GenerateImageByGoogleNanoBananaInputSchema)
 async def generate_image_by_google_nano_banana(
     prompt: str,

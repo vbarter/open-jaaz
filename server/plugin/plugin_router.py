@@ -668,7 +668,7 @@ async def llm_chat(llm_data: LLMRequest):
 
         # 准备调用云雾AI的请求数据
         yunwu_request = {
-            "model": "gpt-5.1",
+            "model": "gpt-5.2-chat-latest",
             "stream": False,
             "max_tokens": 2000,
             "messages": [

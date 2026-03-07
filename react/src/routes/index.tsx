@@ -98,9 +98,10 @@ function Home() {
               {t('home:subtitle')}
             </p>
 
-            <div className='w-full max-w-2xl mx-auto px-2 sm:px-0'>
-              <div className='bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl p-0.5 sm:p-1 shadow-lg border border-white/20'>
+            <div className='w-full max-w-3xl mx-auto px-2 sm:px-0'>
+              <div className='rounded-xl sm:rounded-2xl'>
                 <ChatTextarea
+                  variant='homepage'
                   className='w-full border-0 bg-transparent'
                   messages={[]}
                   initialValue={initialPrompt}

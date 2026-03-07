@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
 import { eventBus } from '@/lib/event'
+import { PosterOutline } from '@/types/types'
 
 export interface GeneratedImage {
   index: number
@@ -12,11 +13,6 @@ export interface GeneratedImage {
 export interface PosterImage {
   url: string
   index: number
-}
-
-export interface PosterOutline {
-  pages: any[]
-  outline: string
 }
 
 export function usePosterPlugin() {

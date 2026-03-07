@@ -41,6 +41,18 @@ export type MessageMedia = {
   videos?: MediaItem[]
 }
 
+export type PosterPage = {
+  index: number
+  type: 'cover' | 'content' | 'summary'
+  title: string
+  content: string
+}
+
+export type PosterOutline = {
+  pages: PosterPage[]
+  outline: string
+}
+
 export type AssistantMessage = {
   role: 'assistant'
   tool_calls?: ToolCall[]
@@ -53,6 +65,8 @@ export type AssistantMessage = {
   type?: 'video' | 'image' | string
   video_url?: string
   image_url?: string
+  // 插件输出
+  poster_outline?: PosterOutline
 }
 export type UserMessage = {
   role: 'user'

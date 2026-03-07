@@ -38,101 +38,38 @@ OUTLINE_PROMPT_TEMPLATE = """你是一个小红书内容创作专家。用户会
 6. 内容要有实用价值，能解决用户问题或提供有用信息
 7. 最后一页可以是总结或行动呼吁
 
-输出格式（严格遵守）：
-- 用 <page> 标签分割每一页（重要：这是强制分隔符）
-- 每页第一行是页面类型标记：[封面]、[内容]、[总结]
-- 后面是该页的具体内容描述
-- 内容要具体、详细，方便后续生成图片
-- 避免在内容中使用 | 竖线符号（会与 markdown 表格冲突）
+输出格式：
+请直接返回一个 JSON 对象，不要包含 markdown 代码块标记（如 ```json）。
+JSON 结构如下：
+{{
+    "outline": "这里放一段简短的整体大纲描述，用于展示给用户看",
+    "pages": [
+        {{
+            "index": 0,
+            "type": "cover",
+            "title": "封面标题",
+            "content": "封面副标题及画面描述"
+        }},
+        {{
+            "index": 1,
+            "type": "content",
+            "title": "页面标题",
+            "content": "具体的页面内容，包含步骤、清单或说明"
+        }},
+        ...
+        {{
+            "index": N,
+            "type": "summary",
+            "title": "总结标题",
+            "content": "总结内容"
+        }}
+    ]
+}}
 
-## 示例输出：
-
-[封面]
-标题：5分钟学会手冲咖啡☕
-副标题：新手也能做出咖啡店的味道
-背景：温馨的咖啡场景，一个家庭布局的咖啡角
-
-<page>
-[内容]
-第一步：准备器具
-
-必备工具：
-• 手冲壶（细嘴壶）
-• 滤杯和滤纸
-• 咖啡豆 15g
-• 热水 250ml（92-96℃）
-• 磨豆机
-• 电子秤
-
-配图建议：整齐摆放的咖啡器具
-
-<page>
-
-[内容]
-第二步：研磨咖啡豆
-
-研磨粗细度：中细研磨（像细砂糖）
-重量：15克
-新鲜度：建议现磨现冲
-
-小贴士💡：
-咖啡豆最好是烘焙后2周内的
-研磨后要在15分钟内冲泡完成
-
-配图建议：研磨咖啡豆的特写
-
-<page>
-
-[内容]
-第三步：闷蒸
-
-注水量：30ml（2倍咖啡粉重量）
-时间：30秒
-手法：从中心向外螺旋注水
-
-关键点⚠️：
-让所有咖啡粉都湿润
-不要注水太快
-
-配图建议：手冲壶注水的过程
-
-<page>
-
-[内容]
-第四步：分段萃取
-
-第二次注水：到120ml，用时1分钟
-第三次注水：到250ml，用时1分30秒
-总时间：2-2.5分钟
-
-配图建议：完整的冲泡过程
-
-<page>
-
-[总结]
-完成！享受你的手冲咖啡✨
-
-记住三个关键：
-✅ 水温 92-96℃
-✅ 粉水比 1:15
-✅ 总时间 2-2.5分钟
-
-新手提示：
-前几次可能不完美
-多练习就会越来越好
-享受过程最重要！
-
-配图建议：一杯完成的手冲咖啡，温暖的场景
-
-### 最后
-现在，请根据用户的主题生成大纲。记住：
-1. 严格使用 <page> 标签分割每一页
-2. 每页开头标注类型：[封面]、[内容]、[总结]
-3. 内容要详细、具体、专业、有价值。
-4. 适合制作成小红书图文 
-5. 避免使用竖线符号 | （会与 markdown 表格冲突）
-
-【特别的！！注意】直接给出大纲内容（不要有任何多余的说明，也就是你直接从[封面]开始，不要有针对用户的回应对话），请输出：
+注意：
+- type 只能是 "cover", "content", "summary" 中的一个
+- content 字段的内容要详细，适合作为生成图片的提示词
+- 确保 JSON 格式合法
 """
 
 IMAGE_PROMPT_TEMPLATE = """请生成一张小红书风格的图文内容图片。
@@ -243,22 +180,42 @@ class PosterService:
             # 在线程池中执行同步调用
             response = await asyncio.to_thread(
                 client.chat.completions.create,
-                model="gpt-4o", # 使用较强的模型生成大纲
+                model="gpt-5.2-chat-latest", # 使用较强的模型生成大纲
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "system", "content": "You are a helpful assistant. Output valid JSON only."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7
+                temperature=0.7,
+                response_format={"type": "json_object"} # 强制 JSON 模式
             )
             
             outline_text = response.choices[0].message.content
-            pages = self._parse_outline(outline_text)
+            
+            try:
+                data = json.loads(outline_text)
+                pages = data.get("pages", [])
+                outline_summary = data.get("outline", "")
+                
+                # 确保每个页面都有必要的字段
+                for i, page in enumerate(pages):
+                    if "index" not in page:
+                        page["index"] = i
+                    if "type" not in page:
+                        page["type"] = "content"
+            except json.JSONDecodeError:
+                logger.error(f"JSON解析失败: {outline_text}")
+                # 降级处理：尝试修复或返回错误
+                return {
+                    "success": False,
+                    "message": "Failed to parse outline JSON",
+                    "data": None
+                }
             
             logger.info(f"大纲生成完成，共 {len(pages)} 页")
             
             return {
                 "success": True,
-                "outline": outline_text,
+                "outline": outline_summary,
                 "pages": pages
             }
             
@@ -271,38 +228,8 @@ class PosterService:
             }
 
     def _parse_outline(self, outline_text: str) -> List[Dict[str, Any]]:
-        """解析大纲文本"""
-        # 按 <page> 分割页面
-        if '<page>' in outline_text:
-            pages_raw = re.split(r'<page>', outline_text, flags=re.IGNORECASE)
-        else:
-            pages_raw = outline_text.split("---")
-
-        pages = []
-        for index, page_text in enumerate(pages_raw):
-            page_text = page_text.strip()
-            if not page_text:
-                continue
-
-            page_type = "content"
-            # 尝试提取页面类型 [封面] [内容] [总结]
-            type_match = re.match(r"\[(\S+)\]", page_text)
-            if type_match:
-                type_cn = type_match.group(1)
-                type_mapping = {
-                    "封面": "cover",
-                    "内容": "content",
-                    "总结": "summary",
-                }
-                page_type = type_mapping.get(type_cn, "content")
-
-            pages.append({
-                "index": index,
-                "type": page_type,
-                "content": page_text
-            })
-
-        return pages
+        """(Deprecated) 解析大纲文本 - 已废弃，直接使用 JSON 解析"""
+        return []
 
     async def generate_poster_images(
         self,

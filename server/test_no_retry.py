@@ -23,7 +23,7 @@ async def test_no_retry():
         
         # 测试意图理解（短文本，应该快速响应）
         print("📝 测试1: 意图理解")
-        intent_result = await service._chat_with_gpt("这是一个测试", "gpt-4o-mini")
+        intent_result = await service._chat_with_gpt("这是一个测试", "gpt-5.2")
         
         elapsed = time.time() - start_time
         print(f"⏱️  意图理解耗时: {elapsed:.2f}秒")

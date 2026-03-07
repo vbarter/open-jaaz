@@ -522,10 +522,10 @@ class TuziLLMService:
     def _get_image_generation_model(self, user_model: str) -> str:
         """获取图片生成模型，如果用户选择的不是画图模型则使用默认模型"""
         # 已验证可用的图像编辑模型
-        supported_image_edit_models = ["gpt-4o", "seedream-4.0", "gemini-3-pro-image-preview"]
+        supported_image_edit_models = ["gpt-5.2", "seedream-4.0", "gemini-3-pro-image-preview"]
 
         # 不支持的模型（已知会报错）
-        unsupported_models = ["gemini-2.5-pro-all"]
+        unsupported_models = ["gemini-3.1-flash"]
 
         logger.info(f"🔍 [DEBUG] _get_image_generation_model 输入参数: user_model='{user_model}'")
         logger.info(f"🔍 [DEBUG] 支持图像编辑的模型: {supported_image_edit_models}")
@@ -560,7 +560,7 @@ class TuziLLMService:
             # 注释掉错误的模型映射，直接使用用户选择的模型
             if model_name == "seedream-4.0" or model_name == "qwen-image-edit-plus":
                 model_name = "doubao-seedream-4-0-250828"
-            if model_name == "gemini-2.5-flash-image" or model_name == "Nano Banana Pro":
+            if model_name == "gemini-2.5-flash-image" or model_name == "Nano Banana 2":
                 model_name = "gemini-3-pro-image-preview"
             logger.info(f"🔍 [DEBUG] _handle_image_generation 使用模型: '{model_name}' (无映射)")
             result = await self.gemini_generate_by_tuzi(user_prompt, model_name, aspect_ratio=aspect_ratio, quantity=quantity)
@@ -642,6 +642,9 @@ class TuziLLMService:
             如果 stream=False: 返回包含完整响应的字典
             如果 stream=True: 返回异步生成器，逐步yield文本片段
         """
+        from services.config_service import get_api_model_name
+        model = get_api_model_name(model)
+
         logger.info(f"🔍 [DEBUG] _chat_with_tuzi 参数:")
         logger.info(f"   prompt: {prompt}")
         logger.info(f"   model: {model}")
@@ -1257,27 +1260,37 @@ user input: {prompt}
             try:
                 logger.info(f"🔄 [重试 {attempt + 1}/{max_retries}] 开始图片生成...")
                 
+                # 根据模型选择正确的 provider 配置
+                from services.config_service import DEFAULT_PROVIDERS_CONFIG
+                if model in ("gemini-3-pro-image-preview",):
+                    yunwu_config = DEFAULT_PROVIDERS_CONFIG.get('yunwu', {})
+                    api_url = yunwu_config.get('url', self.api_url)
+                    api_key = yunwu_config.get('api_key', self.api_token)
+                else:
+                    api_url = self.api_url
+                    api_key = self.api_token
+
                 # 创建 OpenAI 客户端，每次重试都创建新的客户端
                 client = AsyncOpenAI(
-                    base_url=self.api_url,
-                    api_key=self.api_token,
+                    base_url=api_url,
+                    api_key=api_key,
                     timeout=timeout_seconds,
                     max_retries=0   # 禁用SDK内置重试，使用我们自己的重试逻辑
                 )
-                
+
                 # 打印详细的调试信息
                 logger.info(f"🔍 [DEBUG] generate_by_tuzi 参数:")
                 logger.info(f"   prompt: {prompt}")
                 logger.info(f"   model: {model}")
-                logger.info(f"   base_url: {self.api_url}")
-                logger.info(f"   api_key: {self.api_token[:10]}***")
+                logger.info(f"   base_url: {api_url}")
+                logger.info(f"   api_key: {api_key[:10]}***")
                 logger.info(f"   timeout: {timeout_seconds}秒")
                 
                 # 生成图片
                 logger.info(f"🚀 [DEBUG] 调用 client.images.generate...")
                 logger.info(f"🔍 [DEBUG] 传递给API的模型名称: '{model}'")
                 logger.info(f"🔍 [DEBUG] 传递给API的提示词: '{prompt}'")
-                logger.info(f"🔍 [DEBUG] API调用URL: {self.api_url}/images/generations")
+                logger.info(f"🔍 [DEBUG] API调用URL: {api_url}/images/generations")
                 image_model = model
                 logger.info(f"🎯 [DEBUG] 最终使用的图像生成模型: {image_model}")
                 

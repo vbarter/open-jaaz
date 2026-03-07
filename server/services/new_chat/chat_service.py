@@ -97,12 +97,12 @@ def find_model_config(provider: str, model_name: str) -> ModelInfo:
     # 最后的备选方案：使用 OpenAI
     openai_config = DEFAULT_PROVIDERS_CONFIG.get('openai', {})
     openai_models = openai_config.get('models', {})
-    first_openai_model = next(iter(openai_models.keys())) if openai_models else 'gpt-4o-mini'
-    
+    first_openai_model = next(iter(openai_models.keys())) if openai_models else 'gpt-5.2'
+
     return {
-        'provider': 'openai',
+        'provider': 'yunwu',
         'model': first_openai_model,
-        'url': openai_config.get('url', 'https://api.openai.com/v1'),
+        'url': openai_config.get('url', 'https://yunwu.ai/v1'),
         'type': 'text'
     }
 
@@ -877,8 +877,8 @@ async def auto_select_model_by_intent(intent: str, data: Dict[str, Any]) -> tupl
                     logger.info(f"💾 [Model Selection] 使用用户保存的文本模型: {model_name} ({provider})")
                     return model_name, provider
         # 3. 使用默认文本模型
-        default_model = 'gpt-4o'
-        default_provider = 'openai'
+        default_model = 'gpt-5.2'
+        default_provider = 'yunwu'
         logger.info(f"⚠️ [Model Selection] 使用默认文本模型: {default_model} ({default_provider})")
         return default_model, default_provider
 
@@ -926,7 +926,7 @@ async def auto_select_model_by_intent(intent: str, data: Dict[str, Any]) -> tupl
 
     # 默认返回文本模型
     logger.warning(f"⚠️ [Model Selection] 意图无法识别: {intent}，使用默认文本模型")
-    return 'gpt-4o', 'openai'
+    return 'gpt-5.2', 'yunwu'
 
 
 async def _check_video_or_image(messages: List[Dict[str, Any]]) -> str:
