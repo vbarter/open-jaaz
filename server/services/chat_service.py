@@ -87,12 +87,12 @@ def find_model_config(provider: str, model_name: str) -> ModelInfo:
     # 最后的备选方案：使用 OpenAI
     openai_config = DEFAULT_PROVIDERS_CONFIG.get('openai', {})
     openai_models = openai_config.get('models', {})
-    first_openai_model = next(iter(openai_models.keys())) if openai_models else 'gpt-4o-mini'
-    
+    first_openai_model = next(iter(openai_models.keys())) if openai_models else 'gpt-5.2'
+
     return {
-        'provider': 'openai',
+        'provider': 'yunwu',
         'model': first_openai_model,
-        'url': openai_config.get('url', 'https://api.openai.com/v1'),
+        'url': openai_config.get('url', 'https://yunwu.ai/v1'),
         'type': 'text'
     }
 
@@ -148,7 +148,7 @@ async def handle_chat(data: Dict[str, Any]) -> None:
     else:
         # 既没有文本模型也没有工具模型，使用默认配置
         logger.warning("[warning] 既没有文本模型也没有工具模型，使用默认 OpenAI 配置")
-        text_model = dict(find_model_config('openai', 'gpt-4o-mini'))
+        text_model = dict(find_model_config('yunwu', 'gpt-5.2'))
     
     # Validate required fields
     if not session_id or session_id.strip() == '':

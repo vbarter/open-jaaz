@@ -39,8 +39,6 @@ DEFAULT_PROVIDERS_CONFIG: AppConfig = {
     },
     'openai': {
         'models': {
-            'gpt-4o': {'type': 'text'},
-            'gpt-4o-mini': {'type': 'text'},
             'sora2': {'type': 'video'},
         },
         'url': 'https://api.tu-zi.com/v1',
@@ -50,7 +48,6 @@ DEFAULT_PROVIDERS_CONFIG: AppConfig = {
     'google': {
         'models': {
             'gemini-3-pro-image-preview': {'type': 'image'},
-            'gemini-2.5-pro-all': {'type': 'text'},
             'veo3-fast': {'type': 'video'},
         },
         'url': 'https://api.tu-zi.com/v1',
@@ -71,9 +68,19 @@ DEFAULT_PROVIDERS_CONFIG: AppConfig = {
         'api_key': 'sk-T5GzBCTpRm92Po9G9WU9B19w1p1pxHJ8qwfcAcZ47MdZCzEM',
     },
     'yunwu': {
-        'models': {},
-        'url': 'https://api.apiplus.org/v1',
-        'api_key': 'sk-3id68TiP9AKUFzIhSnz8KrTTDXDXKyR05xuOW7kyCIubMlDq',
+        'models': {
+            'gpt-5.2': {'type': 'text'},
+            'gemini-3-pro-image-preview': {'type': 'image'},
+        },
+        'url': 'https://yunwu.ai/v1',
+        'api_key': 'sk-Xg2W8aAihZ1xSe1rbdO0towwzUlBzSXDH82CrmiyFsVv6q3Z',
+    },
+    'google-text': {
+        'models': {
+            'gemini-3.1-flash': {'type': 'text'},
+        },
+        'url': 'https://yunwu.ai/v1',
+        'api_key': 'sk-Xg2W8aAihZ1xSe1rbdO0towwzUlBzSXDH82CrmiyFsVv6q3Z',
     },
 
 }
@@ -250,6 +257,17 @@ def get_user_files_dir(user_email: Optional[str] = None, user_id: Optional[str] 
 def get_legacy_files_dir() -> str:
     """获取旧版本文件目录（向后兼容）"""
     return FILES_DIR
+
+
+MODEL_API_NAME_MAP = {
+    'gpt-5.2': 'gpt-5.2-chat-latest',
+    'gemini-3.1-flash': 'gemini-3.1-flash-lite-preview',
+}
+
+
+def get_api_model_name(model: str) -> str:
+    """将显示名映射为 API 调用时的模型名"""
+    return MODEL_API_NAME_MAP.get(model, model)
 
 
 config_service = ConfigService()

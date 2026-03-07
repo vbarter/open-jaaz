@@ -74,6 +74,12 @@ export type TEvents = {
   'Socket::Session::ThinkingStarted': ISocket.SessionThinkingStartedEvent
   'Socket::Session::ThinkingUpdate': ISocket.SessionThinkingUpdateEvent
   'Socket::Session::ThinkingComplete': ISocket.SessionThinkingCompleteEvent
+  'Socket::Session::PosterImageGenerated': ISocket.SessionPosterImageGeneratedEvent
+  'Socket::Session::PosterCompleted': ISocket.SessionPosterCompletedEvent
+  'generation:cancelled': null // 🆕 Add missing event
+  // Poster 进度更新事件
+  'Poster::ProgressUpdate': { completed: number; total: number; success: boolean }
+  'Poster::Completed': { successCount: number; totalCount: number }
   // ********** Socket events - End **********
 
   // ********** Canvas events - Start **********
@@ -83,6 +89,10 @@ export type TEvents = {
   'Canvas::ImageDoubleClick': {
     images: TCanvasAddImagesToChatEvent
     position: { x: number; y: number }
+  }
+  'Canvas::AddPosterImages': {
+    images: { url: string; index: number }[]
+    referenceImageId?: string
   }
   'Canvas::ContextMenuOpened': null
   // ********** Canvas events - End **********

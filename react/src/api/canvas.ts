@@ -39,6 +39,7 @@ export async function createCanvas(data: {
   model_name?: string
   system_prompt: string
   template_id?: number
+  plugin?: string
 }): Promise<{ id: string }> {
   const response = await fetch('/api/canvas/create', {
     method: 'POST',

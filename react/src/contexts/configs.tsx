@@ -73,7 +73,7 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
 
     // 未登录用户：强制使用 Google 模型
     if (!isLoggedIn) {
-      // console.log('🔄 未登录用户，强制设置 Google Nano Banana Pro 模型')
+      // console.log('🔄 未登录用户，强制设置 Google Nano Banana 2 模型')
       localStorage.setItem('current_selected_model', 'gemini-3-pro-image-preview')
       localStorage.removeItem('text_model')
 
@@ -125,10 +125,7 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
 
       // 默认策略函数
       function setDefaultModelStrategy() {
-        let defaultModel = llmModels.find((m) => m.type === 'text' && m.model === 'gpt-4o')
-        if (!defaultModel) {
-          defaultModel = llmModels.find((m) => m.type === 'text' && m.model === 'gpt-4o-mini')
-        }
+        let defaultModel = llmModels.find((m) => m.type === 'text' && m.model === 'gpt-5.2')
         if (!defaultModel) {
           defaultModel = llmModels.find((m) => m.type === 'text')
         }
@@ -147,7 +144,7 @@ export const ConfigsProvider = ({ children }: { children: React.ReactNode }) => 
       const googleImageTool = toolList.find(
         (t) =>
           t.provider === 'google' &&
-          (t.display_name === 'Nano Banana Pro' ||
+          (t.display_name === 'Nano Banana 2' ||
             t.id === 'generate_image_by_google_nano_banana')
       )
 

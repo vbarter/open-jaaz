@@ -242,7 +242,7 @@ function TemplateUsePage() {
         modelName = textModel.model
         localStorage.setItem('current_selected_model', modelName)
       } else {
-        modelName = 'gpt-4o-mini' // 默认模型
+        modelName = 'gpt-5.2' // 默认模型
         localStorage.setItem('current_selected_model', modelName)
       }
 
@@ -257,8 +257,8 @@ function TemplateUsePage() {
         ],
         session_id: sessionId,
         text_model: textModel || {
-          provider: 'openai',
-          model: 'gpt-4o-mini',
+          provider: 'yunwu',
+          model: 'gpt-5.2',
           url: '',
         },
         tool_list: selectedTools && selectedTools.length > 0 ? selectedTools : [],

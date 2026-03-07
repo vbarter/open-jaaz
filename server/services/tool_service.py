@@ -60,7 +60,7 @@ from services.db_service import db_service
 
 TOOL_MAPPING: Dict[str, ToolInfo] = {
     "generate_image_by_google_nano_banana": {
-        "display_name": "Nano Banana Pro",
+        "display_name": "Nano Banana 2",
         "type": "image",
         "provider": "google",
         "tool_function": generate_image_by_google_nano_banana,

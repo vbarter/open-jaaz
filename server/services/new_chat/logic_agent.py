@@ -18,10 +18,10 @@ logger = get_logger(__name__)
 async def create_local_response(messages: List[Dict[str, Any]],
                                       session_id: str = "",
                                       canvas_id: str = "",
-                                      model_name: str = "gpt-4o",
+                                      model_name: str = "gpt-5.2",
                                       user_info: Optional[Dict[str, Any]] = None,
                                       user_language: str = 'en',
-                                      provider: str = 'openai',
+                                      provider: str = 'yunwu',
                                       aspect_ratio: str = 'auto',
                                       quantity: int = 1,
                                       user_has_drawing_intent: str = "text") -> Dict[str, Any]:
@@ -193,13 +193,26 @@ async def create_local_response(messages: List[Dict[str, Any]],
 
         # 🖼️ 图片处理逻辑
         image_url = result_url
+        is_b64 = False
+
+        # 检查是否是 data URL (base64编码的图片)
+        if image_url.startswith('data:'):
+            if ';base64,' in image_url:
+                image_url = image_url.split(';base64,', 1)[1]
+                is_b64 = True
+                logger.info(f"🔄 [CHAT_DEBUG] 检测到data URL，转换为base64处理")
+        # 检查是否有 image_base64 可用（某些API返回base64而非URL）
+        elif result.get('image_base64'):
+            image_url = result['image_base64']
+            is_b64 = True
+            logger.info(f"🔄 [CHAT_DEBUG] 使用image_base64数据")
 
         # 保存图片到画布
         if session_id and canvas_id:
             try:
                 # 生成唯一文件名
                 file_id = generate(size=10)
-                
+
                 # 获取用户文件目录
                 user_email = user_info.get('email') if user_info else None
                 user_id = user_info.get('uuid') if user_info else None
@@ -208,7 +221,7 @@ async def create_local_response(messages: List[Dict[str, Any]],
 
                 # 下载并保存图片到本地临时文件
                 mime_type, width, height, extension = await get_image_info_and_save(
-                    image_url, file_path_without_extension, is_b64=False
+                    image_url, file_path_without_extension, is_b64=is_b64
                 )
 
                 width = max(1, int(width / 2))
@@ -238,29 +251,42 @@ async def create_local_response(messages: List[Dict[str, Any]],
                 image_url = await save_image_to_canvas(session_id, canvas_id, filename, mime_type, width, height, cos_url)
                 print(f"✨ 图片已保存到画布: {filename}")
             except Exception as e:
-                print(f"❌ 保存图片到画布失败: {e}")
+                import traceback
+                logger.error(f"❌ 保存图片到画布失败: {e}")
+                logger.error(f"❌ 详细错误: {traceback.format_exc()}")
+                logger.error(f"❌ result_url类型: {type(result_url).__name__}, 长度: {len(str(result_url))}, 前50字符: {str(result_url)[:50]}")
 
         # 📝 [CHAT_DEBUG] 记录图片URL信息
         logger.info(f"🖼️ [CHAT_DEBUG] 图片处理完成: filename={filename}")
         logger.info(f"🖼️ [CHAT_DEBUG] 使用腾讯云: {cos_url is not None}")
-        
+
+        # 如果filename为空，说明图片保存失败
+        if not filename:
+            from utils.error_messages import ErrorMessages
+            logger.error(f"❌ [CHAT_DEBUG] 图片保存失败，filename为空，无法在聊天中显示图片")
+            return {
+                'role': 'assistant',
+                'content': ErrorMessages.get_generation_failed_message(),
+                'status': 'error'
+            }
+
         # 🆕 [CHAT_DUAL_DISPLAY] + 🌐 [I18N] 实现聊天+画布双重显示 + 多语言支持
         # 聊天中显示腾讯云图片，画布中显示完整图片元素
-        
+
         # 使用统一的URL转换工具获取最优聊天显示URL
         from utils.url_converter import get_chat_image_url
         chat_image_url = get_chat_image_url(filename)
-        
+
         # 🌐 [I18N] 获取多语言提示消息
         from services.i18n_service import i18n_service
         localized_message = i18n_service.get_image_generated_message(user_language)
-        
+
         logger.info(f"🖼️ [CHAT_DUAL_DISPLAY] 图片双重显示:")
         logger.info(f"   📱 聊天显示URL: {chat_image_url}")
         logger.info(f"   🎨 画布已通过save_image_to_canvas显示")
         logger.info(f"   ☁️ 使用腾讯云: {cos_url is not None}")
         logger.info(f"   🌐 语言: {user_language}, 消息: {localized_message}")
-        
+
         # 聊天响应包含图片预览 + 多语言提示文本
         return {
             'role': 'assistant',

@@ -31,11 +31,14 @@ HTTP_LIMITS = httpx.Limits(
     keepalive_expiry=30.0
 )
 
+# 代理配置（用于访问 Google API，本地开发时需要）
+HTTP_PROXY = os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY") or os.environ.get("ALL_PROXY") or None
+
 async def test_google_connectivity() -> bool:
     """测试Google API连通性"""
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
-            response = await client.get("https://www.googleapis.com/oauth2/v2/userinfo", 
+        async with httpx.AsyncClient(timeout=httpx.Timeout(5.0), proxy=HTTP_PROXY) as client:
+            response = await client.get("https://www.googleapis.com/oauth2/v2/userinfo",
                                       headers={"Authorization": "Bearer invalid_token"})
             # 只要能连接到并获得响应（即使是401错误）都说明网络可达
             return True
@@ -533,7 +536,7 @@ async def oauth_callback(code: str = Query(...), state: str = Query(...), error:
         logger.info(f"Device code: {device_code}, redirect_uri: {auth_redirect_uri}")
         
         # 交换访问令牌，配置超时和连接限制
-        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, limits=HTTP_LIMITS) as client:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, limits=HTTP_LIMITS, proxy=HTTP_PROXY) as client:
             # 增强的重试机制：最多重试5次，适应国内网络环境
             max_retries = 5
             token_response = None
@@ -826,7 +829,7 @@ async def direct_oauth_callback(request: Request, code: str = Query(...), state:
         logger.info(f"Using redirect_uri: {redirect_uri}")
         
         # 交换访问令牌，配置超时和连接限制
-        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, limits=HTTP_LIMITS) as client:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, limits=HTTP_LIMITS, proxy=HTTP_PROXY) as client:
             token_url = "https://oauth2.googleapis.com/token"
             token_data_payload = {
                 "client_id": GOOGLE_CLIENT_ID,
@@ -1242,7 +1245,7 @@ async def test_network_connectivity():
     # 测试Google OAuth端点
     start_time = asyncio.get_event_loop().time()
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0), proxy=HTTP_PROXY) as client:
             response = await client.get("https://oauth2.googleapis.com/token")
         elapsed = asyncio.get_event_loop().time() - start_time
         results.append({
@@ -1265,7 +1268,7 @@ async def test_network_connectivity():
     # 测试Google Userinfo端点
     start_time = asyncio.get_event_loop().time()
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0), proxy=HTTP_PROXY) as client:
             response = await client.get("https://www.googleapis.com/oauth2/v2/userinfo",
                                       headers={"Authorization": "Bearer invalid"})
         elapsed = asyncio.get_event_loop().time() - start_time

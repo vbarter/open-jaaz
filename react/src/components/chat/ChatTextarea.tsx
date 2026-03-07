@@ -19,6 +19,7 @@ import {
   RectangleVertical,
   ChevronDown,
   Hash,
+  Sparkles,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import Textarea, { TextAreaRef } from 'rc-textarea'
@@ -27,6 +28,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import ModelSelectorV2 from './ModelSelectorV2'
 import ModelSelectorV3 from './ModelSelectorV3'
+import { PosterGeneratorDialog } from '@/components/plugin/PosterGeneratorDialog'
 import { useAuth } from '@/contexts/AuthContext'
 import { useBalance } from '@/hooks/use-balance'
 import { useTypingPlaceholder } from '@/hooks/use-typing-placeholder'
@@ -39,12 +41,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 type ChatTextareaProps = {
-  pending: boolean
+  pending: boolean | string // 🆕 Update type
   className?: string
-  messages: Message[]
+  messages?: Message[] // Make optional
   sessionId?: string
-  initialValue?: string // 🆕 新增：初始提示词值
-  onSendMessages: (
+  initialValue?: string
+  onSend: ( // Rename to match usage in Chat.tsx
     data: Message[],
     configs: {
       textModel: ModelInfo | null
@@ -52,56 +54,66 @@ type ChatTextareaProps = {
       modelName: string
       aspectRatio?: string
       quantity?: number
+      plugin?: string
     }
   ) => void
   onCancelChat?: () => void
-  enableDynamicPlaceholder?: boolean // 🆕 新增：是否启用动态placeholder效果
+  enableDynamicPlaceholder?: boolean
+  onStop?: () => void // Add missing prop
+  selectedPlugin?: string // 🆕 Add prop
+  setSelectedPlugin?: (plugin: string) => void // 🆕 Add prop
+  variant?: 'default' | 'homepage'
 }
 
 const ChatTextarea: React.FC<ChatTextareaProps> = ({
   pending,
   className,
-  messages,
+  messages = [],
   sessionId,
-  initialValue = '', // 🆕 添加默认值为空字符串
-  onSendMessages,
+  initialValue = '',
+  onSend,
   onCancelChat,
-  enableDynamicPlaceholder = true, // 🆕 默认启用动态placeholder，保持向后兼容
+  enableDynamicPlaceholder = true,
+  selectedPlugin, // 🆕 Destructure
+  setSelectedPlugin, // 🆕 Destructure
+  variant = 'default',
 }) => {
   const { t } = useTranslation()
   const { authStatus } = useAuth()
   const { textModel, selectedTools, setShowLoginDialog } = useConfigs()
   const { balance } = useBalance()
-  // 🆕 只有在启用动态placeholder时才调用hook
+  
   const dynamicPlaceholder = useTypingPlaceholder({
     typingSpeed: 80,
     deletingSpeed: 40,
     pauseBetweenWords: 800,
     pauseAfterComplete: 2500,
-    enabled: enableDynamicPlaceholder // 🆕 传入enabled参数控制是否启用
+    enabled: enableDynamicPlaceholder
   })
-  const [prompt, setPrompt] = useState(initialValue) // 🆕 使用initialValue初始化prompt状态
+  const [prompt, setPrompt] = useState(initialValue)
   const textareaRef = useRef<TextAreaRef>(null)
   const [images, setImages] = useState<
     {
       file_id: string
       width: number
       height: number
-      localPreviewUrl?: string // 本地预览URL，优先显示
-      serverUrl?: string // 服务器URL，作为备用（向后兼容）
-      directUrl?: string | null // 腾讯云直链URL（最佳性能）
-      redirectUrl?: string // 重定向URL
-      proxyUrl?: string // 代理URL
+      localPreviewUrl?: string
+      serverUrl?: string
+      directUrl?: string | null
+      redirectUrl?: string
+      proxyUrl?: string
       uploadStatus?: 'uploading' | 'local_ready' | 'cloud_synced' | 'failed'
     }[]
   >([])
   const [isFocused, setIsFocused] = useState(false)
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>('auto')
   const [quantity, setQuantity] = useState<number>(1)
-  const [isSubmitting, setIsSubmitting] = useState(false) // 本地提交状态，用于即时按钮反馈
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const MAX_QUANTITY = 30
 
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const [posterDialogOpen, setPosterDialogOpen] = useState(false)
+  // const [isPosterMode, setIsPosterMode] = useState(false) // 🗑️ Remove local state
 
   // 充值按钮组件
   const RechargeContent = useCallback(
@@ -172,7 +184,7 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
   const handleCancelChat = useCallback(async () => {
     if (sessionId) {
       // 立即触发取消事件，让 ThinkingIndicator 消失
-      eventBus.emit('generation:cancelled')
+      eventBus.emit('generation:cancelled', null) // 🆕 Fix lint error: pass null
       // 同时取消普通聊天和魔法生成任务
       await Promise.all([cancelChat(sessionId), cancelMagicGenerate(sessionId)])
     }
@@ -330,18 +342,19 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
         modelName = textModel.model
         localStorage.setItem('current_selected_model', modelName)
       } else {
-        modelName = 'gpt-4o' // 默认模型
+        modelName = 'gpt-5.2' // 默认模型
         localStorage.setItem('current_selected_model', modelName)
       }
     }
 
     // 调用消息发送，触发pending状态，包含aspect_ratio和quantity参数
-    onSendMessages(newMessage, {
+    onSend(newMessage, {
       textModel: textModel ? { ...textModel, type: 'text' as const } : null,
       toolList: selectedTools || [],
       modelName,
       aspectRatio: selectedAspectRatio,
-      quantity: quantity
+      quantity: quantity,
+      plugin: selectedPlugin // 🆕 Use prop
     })
   }, [
     pending,
@@ -349,7 +362,7 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
     textModel,
     selectedTools,
     prompt,
-    onSendMessages,
+    onSend,
     images,
     messages,
     t,
@@ -359,6 +372,7 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
     setShowLoginDialog,
     balance,
     RechargeContent,
+    selectedPlugin // 🆕 Update dependency
   ])
 
   // Drop Area
@@ -472,32 +486,29 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
 
   return (
     <motion.div
-      ref={dropAreaRef}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
       className={cn(
-        'w-full flex flex-col items-center border border-primary/20 rounded-2xl p-3 hover:border-primary/40 transition-all duration-300 cursor-text gap-5 bg-background/80 backdrop-blur-xl relative',
-        isFocused && 'border-primary/40',
+        'relative flex flex-col',
+        variant === 'homepage' ? 'gap-3 p-4 sm:p-6' : 'gap-2 p-2 sm:p-3',
         className
       )}
-      style={{
-        boxShadow: 'none',
-      }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3, ease: 'linear' }}
-      onClick={() => textareaRef.current?.focus()}
     >
       <AnimatePresence>
         {isDragOver && (
           <motion.div
-            className='absolute top-0 left-0 right-0 bottom-0 bg-background/50 backdrop-blur-xl rounded-2xl z-10'
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            className='absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-4 border-2 border-dashed border-primary/50 rounded-lg m-2'
           >
-            <div className='flex items-center justify-center h-full'>
-              <p className='text-sm text-muted-foreground'>Drop images here to upload</p>
+            <div className='p-4 rounded-full bg-primary/10'>
+              <ArrowUp className='size-8 text-primary animate-bounce' />
             </div>
+            <p className='text-lg font-medium text-primary'>
+              {t('chat:textarea.dropFiles')}
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -505,223 +516,179 @@ const ChatTextarea: React.FC<ChatTextareaProps> = ({
       <AnimatePresence>
         {images.length > 0 && (
           <motion.div
-            className='flex items-center gap-2 w-full'
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            className='flex gap-2 overflow-x-auto py-2 px-1'
           >
-            {images.map((image) => (
-              <motion.div
-                key={image.file_id}
-                className='relative size-10'
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2, ease: 'easeInOut' }}
+            {images.map((image, index) => (
+              <div
+                key={image.file_id || index}
+                className='relative group shrink-0 w-16 h-16 rounded-md overflow-hidden border bg-muted'
               >
                 <img
-                  key={image.file_id}
-                  src={
-                    image.localPreviewUrl || 
-                    image.directUrl || 
-                    image.redirectUrl || 
-                    image.serverUrl || 
-                    `/api/file/${image.file_id}`
-                  }
-                  alt='Uploaded image'
-                  className={cn(
-                    'w-full h-full object-cover rounded-md',
-                    image.uploadStatus === 'local_ready' && 'ring-2 ring-blue-500 ring-opacity-50'
-                  )}
-                  draggable={false}
-                  onError={(e) => {
-                    // 降级处理：本地预览 -> 直链 -> 重定向 -> 代理
-                    const target = e.target as HTMLImageElement
-                    if (image.localPreviewUrl && target.src === image.localPreviewUrl) {
-                      target.src = image.directUrl || image.redirectUrl || image.serverUrl || `/api/file/${image.file_id}`
-                    } else if (image.directUrl && target.src === image.directUrl) {
-                      target.src = image.redirectUrl || image.serverUrl || `/api/file/${image.file_id}`
-                    } else if (image.redirectUrl && target.src === image.redirectUrl) {
-                      target.src = image.serverUrl || `/api/file/${image.file_id}`
-                    }
-                  }}
+                  src={image.localPreviewUrl || image.serverUrl}
+                  alt='preview'
+                  className='w-full h-full object-cover'
                 />
-                {/* 上传状态指示器 */}
-                {image.uploadStatus === 'local_ready' && (
-                  <div className='absolute -bottom-1 -right-1 size-3 bg-blue-500 rounded-full animate-pulse' />
-                )}
-                <Button
-                  variant='secondary'
-                  size='icon'
-                  className='absolute -top-1 -right-1 size-4'
+                <button
                   onClick={() => {
-                    // 清理本地预览URL
-                    if (image.localPreviewUrl) {
-                      URL.revokeObjectURL(image.localPreviewUrl)
-                    }
-                    setImages((prev) => prev.filter((i) => i.file_id !== image.file_id))
+                    setImages((prev) => prev.filter((_, i) => i !== index))
                   }}
+                  className='absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity'
                 >
                   <XIcon className='size-3' />
-                </Button>
-              </motion.div>
+                </button>
+                {image.uploadStatus === 'uploading' && (
+                  <div className='absolute inset-0 flex items-center justify-center bg-black/30'>
+                    <Loader2 className='size-4 text-white animate-spin' />
+                  </div>
+                )}
+              </div>
             ))}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <Textarea
-        ref={textareaRef}
-        className='w-full h-full border-none outline-none resize-none'
-        placeholder={prompt ? '' : dynamicPlaceholder}
-        value={prompt}
-        autoSize
-        onChange={(e) => setPrompt(e.target.value)}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
-            handleSendPrompt()
-          }
-        }}
-      />
+      <div
+        ref={dropAreaRef}
+        className={cn(
+          'relative transition-all',
+          variant === 'homepage'
+            ? 'rounded-3xl bg-white border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.06)] focus-within:ring-2 focus-within:ring-blue-100/80'
+            : 'rounded-2xl bg-neutral-100 border-0 shadow-[0_4px_8px_rgba(0,0,0,0.04)]',
+          isDragOver && 'bg-primary/5',
+        )}
+      >
+        <Textarea
+          ref={textareaRef}
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              handleSendPrompt()
+            }
+          }}
+          placeholder={dynamicPlaceholder}
+          autoSize={{ minRows: variant === 'homepage' ? 3 : 2, maxRows: 8 }}
+          className={cn(
+            'w-full max-h-[200px] bg-transparent border-none outline-none resize-none shadow-none focus:ring-0 focus:outline-none',
+            variant === 'homepage'
+              ? 'text-base sm:text-lg min-h-[96px] px-5 pt-4 pb-2 placeholder:text-gray-300'
+              : 'text-sm min-h-[56px] px-4 pt-3 pb-1 placeholder:text-gray-400'
+          )}
+        />
 
-      <div className='flex items-center justify-between gap-2 w-full'>
-        <div className='flex items-center gap-2 max-w-[calc(100%-45px)] flex-nowrap overflow-x-auto'>
-          <input
-            ref={imageInputRef}
-            type='file'
-            accept='image/*'
-            multiple
-            onChange={handleImagesUpload}
-            hidden
-          />
-          <Button
-            variant='outline'
-            onClick={() => imageInputRef.current?.click()}
-            className='shrink-0 h-8 w-8 p-0 flex items-center justify-center'
-          >
-            <PlusIcon className='size-4' />
-          </Button>
-
-          <div className='shrink-0'>
-            <ModelSelectorV3 />
+        <div className={cn(
+          'flex items-center justify-between gap-2',
+          variant === 'homepage' ? 'px-4 pb-4' : 'px-3 pb-2.5'
+        )}>
+          <div className='flex items-center gap-1.5 flex-nowrap overflow-x-auto scrollbar-hide'>
+            <div className='relative shrink-0'>
+              <input
+                ref={imageInputRef}
+                type='file'
+                accept='image/*'
+                multiple
+                className='hidden'
+                onChange={handleImagesUpload}
+              />
+              <Button
+                variant='ghost'
+                size='icon'
+                className={cn(
+                  'rounded-full text-muted-foreground/60 hover:text-foreground',
+                  variant === 'homepage'
+                    ? 'h-9 w-9 border border-gray-100 hover:bg-gray-50'
+                    : 'h-8 w-8 hover:bg-muted/80'
+                )}
+                onClick={() => imageInputRef.current?.click()}
+                title={t('chat:textarea.uploadImage')}
+              >
+                <PlusIcon className='size-4' />
+              </Button>
+            </div>
           </div>
 
-          {/* Aspect Ratio Selector */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant='outline'
-                className='shrink-0 h-8 w-8 p-0 flex items-center justify-center'
-              >
-                <RectangleVertical className='size-4' />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align='start' className='w-36'>
-              {['auto', '1:1', '4:3', '3:4', '16:9', '9:16'].map((ratio) => (
-                <DropdownMenuItem
-                  key={ratio}
-                  onClick={() => setSelectedAspectRatio(ratio)}
-                  className='flex items-center justify-between'
+          <div className={cn(
+            'flex items-center gap-1.5',
+            variant === 'homepage' && 'bg-gray-50/50 rounded-full px-1 py-1 border border-gray-100'
+          )}>
+            <div className='shrink-0'>
+              <ModelSelectorV3 />
+            </div>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant='ghost'
+                  className='shrink-0 h-8 w-8 p-0 rounded-full flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/80'
                 >
-                  <span>{ratio}</span>
-                  {selectedAspectRatio === ratio && (
-                    <div className='size-2 rounded-full bg-primary' />
-                  )}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  <RectangleVertical className='size-4' />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align='end' className='w-36'>
+                {['auto', '1:1', '4:3', '3:4', '16:9', '9:16'].map((ratio) => (
+                  <DropdownMenuItem
+                    key={ratio}
+                    onClick={() => setSelectedAspectRatio(ratio)}
+                    className='flex items-center justify-between'
+                  >
+                    <span>{ratio}</span>
+                    {selectedAspectRatio === ratio && (
+                      <div className='size-2 rounded-full bg-primary' />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          {/* Quantity Selector - Hidden */}
-          {/* <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant='outline' 
-                className='shrink-0 h-8 w-8 p-0 flex items-center justify-center'
+            {pending || isSubmitting ? (
+              <Button
+                className={cn(
+                  'shrink-0 relative p-0 rounded-full flex items-center justify-center',
+                  variant === 'homepage' ? 'h-9 w-9' : 'h-8 w-8',
+                  'bg-zinc-800 text-white hover:bg-zinc-700'
+                )}
+                variant='ghost'
+                onClick={handleCancelChat}
               >
-                <Hash className='size-4' />
+                <Loader2 className='size-4 animate-spin absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' />
+                <Square className='size-1.5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align='start' className='w-72 p-0'>
-              <div className='p-4'>
-                <div className='flex items-center justify-between mb-4'>
-                  <span className='text-sm font-medium'>
-                    {t('chat:textarea.quantity', 'Image Quantity')}
-                  </span>
-                  <span className='text-sm text-primary font-medium bg-primary/10 px-2 py-1 rounded'>{quantity}</span>
-                </div>
-                
-                <div className='mb-4'>
-                  <div className='text-xs text-muted-foreground mb-2'>Quick Select:</div>
-                  <div className='grid grid-cols-6 gap-2'>
-                    {[1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 30].map((num) => (
-                      <Button
-                        key={num}
-                        variant={quantity === num ? 'default' : 'outline'}
-                        size='sm'
-                        className='h-8 text-xs'
-                        onClick={() => setQuantity(num)}
-                      >
-                        {num}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className='text-xs text-muted-foreground mb-2'>Custom Value:</div>
-                  <div className='flex items-center gap-3'>
-                    <span className='text-xs text-muted-foreground w-4'>1</span>
-                    <input
-                      type='range'
-                      min='1'
-                      max={MAX_QUANTITY}
-                      value={quantity}
-                      onChange={(e) => setQuantity(Number(e.target.value))}
-                      className='flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer
-                                [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
-                                [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary
-                                [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-sm
-                                [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full
-                                [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-0'
-                    />
-                    <span className='text-xs text-muted-foreground w-6'>{MAX_QUANTITY}</span>
-                  </div>
-                </div>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu> */}
+            ) : (
+              <Button
+                className={cn(
+                  'shrink-0 p-0 rounded-full disabled:opacity-30 flex items-center justify-center',
+                  variant === 'homepage' ? 'h-9 w-9' : 'h-8 w-8',
+                  variant === 'homepage' && prompt.trim().length === 0
+                    ? 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                    : 'bg-zinc-800 text-white hover:bg-zinc-700'
+                )}
+                variant='ghost'
+                onClick={handleSendPrompt}
+                disabled={
+                  (!textModel && (!selectedTools || selectedTools.length === 0)) ||
+                  prompt.length === 0 ||
+                  !!pending ||
+                  isSubmitting
+                }
+              >
+                <ArrowUp className='size-4' />
+              </Button>
+            )}
+          </div>
         </div>
-
-        {pending || isSubmitting ? (
-          <Button
-            className='shrink-0 relative h-8 w-8 p-0 flex items-center justify-center'
-            variant='default'
-            onClick={handleCancelChat}
-          >
-            <Loader2 className='size-4 animate-spin absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' />
-            <Square className='size-1.5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' />
-          </Button>
-        ) : (
-          <Button
-            className='shrink-0 h-8 w-8 p-0 flex items-center justify-center'
-            variant='default'
-            onClick={handleSendPrompt}
-            disabled={
-              (!textModel && (!selectedTools || selectedTools.length === 0)) ||
-              prompt.length === 0 ||
-              pending ||
-              isSubmitting
-            }
-          >
-            <ArrowUp className='size-4' />
-          </Button>
-        )}
       </div>
+
+      <PosterGeneratorDialog 
+        open={posterDialogOpen} 
+        onOpenChange={setPosterDialogOpen}
+        initialTopic={prompt}
+      />
     </motion.div>
   )
 }

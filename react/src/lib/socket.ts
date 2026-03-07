@@ -247,6 +247,14 @@ export class SocketIOManager {
         debugLog('🧠 [THINKING_DEBUG] 触发ThinkingComplete事件', data)
         eventBus.emit('Socket::Session::ThinkingComplete', data)
         break
+      case ISocket.SessionEventType.PosterImageGenerated:
+        debugLog('🖼️ [POSTER] 触发PosterImageGenerated事件', data)
+        eventBus.emit('Socket::Session::PosterImageGenerated', data)
+        break
+      case ISocket.SessionEventType.PosterCompleted:
+        debugLog('🖼️ [POSTER] 触发PosterCompleted事件', data)
+        eventBus.emit('Socket::Session::PosterCompleted', data)
+        break
       default:
         debugLog('⚠️ Unknown session update type:', type)
     }

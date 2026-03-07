@@ -26,6 +26,7 @@ function Home() {
 
   // 读取URL中的auto_prompt参数
   const [initialPrompt, setInitialPrompt] = useState('')
+  const [selectedPlugin, setSelectedPlugin] = useState('') // 🆕 Add plugin state
 
   useEffect(() => {
     // 从URL中获取auto_prompt参数
@@ -50,6 +51,7 @@ function Home() {
           message: variables.messages[0],
           timestamp: Date.now(),
           canvasId: data.id,
+          plugin: variables.plugin // 🆕 存储插件参数
         }
         localStorage.setItem('initial_user_message', JSON.stringify(messageData))
       }
@@ -96,13 +98,16 @@ function Home() {
               {t('home:subtitle')}
             </p>
 
-            <div className='w-full max-w-2xl mx-auto px-2 sm:px-0'>
-              <div className='bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl p-0.5 sm:p-1 shadow-lg border border-white/20'>
+            <div className='w-full max-w-3xl mx-auto px-2 sm:px-0'>
+              <div className='rounded-xl sm:rounded-2xl'>
                 <ChatTextarea
+                  variant='homepage'
                   className='w-full border-0 bg-transparent'
                   messages={[]}
                   initialValue={initialPrompt}
-                  onSendMessages={(messages, configs) => {
+                  selectedPlugin={selectedPlugin} // 🆕 Pass state
+                  setSelectedPlugin={setSelectedPlugin} // 🆕 Pass setter
+                  onSend={(messages, configs) => {
                     createCanvasMutation({
                       name: t('home:newCanvas'),
                       canvas_id: nanoid(),
@@ -112,6 +117,7 @@ function Home() {
                       tool_list: configs.toolList,
                       model_name: configs.modelName,
                       system_prompt: localStorage.getItem('system_prompt') || DEFAULT_SYSTEM_PROMPT,
+                      plugin: configs.plugin // 🆕 传递插件参数
                     })
                   }}
                   pending={isPending}

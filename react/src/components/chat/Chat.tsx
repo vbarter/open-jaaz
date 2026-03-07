@@ -38,8 +38,11 @@ import 'react-photo-view/dist/react-photo-view.css'
 import { DEFAULT_SYSTEM_PROMPT } from '@/constants'
 import { useSocket } from '@/hooks/useSocket'
 import { ModelInfo, ToolInfo } from '@/api/model'
+import { usePosterPlugin, PosterImage } from '@/hooks/usePosterPlugin' // 🆕 导入类型
+import { PosterOutline } from '@/types/types'
+import PosterOutlineMessage from './Message/PosterOutlineMessage' // 🆕 导入组件
 import { Button } from '@/components/ui/button'
-import { Share2 } from 'lucide-react'
+import { Share2, Sparkles, Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useQueryClient } from '@tanstack/react-query'
 import MixedContent, { MixedContentImages, MixedContentText } from './Message/MixedContent'
@@ -73,6 +76,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [showShareDialog, setShowShareDialog] = useState(false)
   const queryClient = useQueryClient()
   const { socketManager } = useSocket()
+  const { generateOutline, generateImages, isGenerating: isPluginGenerating, progress: pluginProgress } = usePosterPlugin() // 🆕 使用新的hook方法
+  
+  // 🆕 插件交互状态
+  const [posterTopic, setPosterTopic] = useState<string>('')
+  const [posterOutline, setPosterOutline] = useState<PosterOutline | null>(null)
+  const [selectedPlugin, setSelectedPlugin] = useState<string>('') // 🆕 Add selectedPlugin state
 
   const [messages, setMessages] = useState<Message[]>([])
   const [pending, setPending] = useState<PendingType>(() => {
@@ -87,9 +96,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           // 异步触发ThinkingIndicator显示
           setTimeout(() => {
             eventBus.emit('Socket::Session::ThinkingStarted', {
-              type: 'thinking_started',
+              type: 'thinking_started' as any, // 临时规避类型检查，或者导入 SessionEventType
               session_id: searchSessionId,
-              canvas_id: null,
+              canvas_id: undefined, // Fix: null -> undefined
               message: 'Processing...',
               timestamp: Date.now()
             })
@@ -219,6 +228,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             message,
             timestamp,
             canvasId,
+            plugin // 🆕 获取插件参数
           } = JSON.parse(initialMessageData)
 
           // 检查timestamp是否在5分钟内
@@ -244,6 +254,60 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               setTimeout(() => forceScrollToBottom(), 50)
               setTimeout(() => forceScrollToBottom(), 200)
               setTimeout(() => forceScrollToBottom(), 500)
+
+              setTimeout(() => forceScrollToBottom(), 500)
+
+              // 🆕 处理插件逻辑
+              if (plugin === 'xiaohongshu-poster') {
+                debugLog('✨ 检测到海报插件请求，开始执行...')
+                // 延迟执行，确保消息已显示
+                setTimeout(async () => {
+                  try {
+                    // 显示生成中状态
+                    setPending('tool')
+                    
+                    // 获取用户输入的主题
+                    let topic = ''
+                    if (typeof message.content === 'string') {
+                      topic = message.content
+                    } else if (Array.isArray(message.content)) {
+                      const textContent = message.content.find((c: any) => c.type === 'text')
+                      if (textContent && 'text' in textContent) {
+                        topic = textContent.text
+                      }
+                    }
+
+                    if (!topic) {
+                      console.error('无法获取主题，跳过海报生成')
+                      setPending(false)
+                      return
+                    }
+
+                    setPosterTopic(topic)
+
+                    // 1. 生成大纲
+                    const outlineData = await generateOutline(topic)
+                    setPosterOutline(outlineData)
+                    
+                    // 添加大纲消息
+                    setMessages(prev => [
+                      ...prev,
+                      {
+                        role: 'assistant',
+                        poster_outline: outlineData,
+                        content: '' // 内容为空，由组件渲染
+                      }
+                    ])
+
+                  } catch (error) {
+                    console.error('海报大纲生成失败:', error)
+                    toast.error('海报大纲生成失败，请重试')
+                  } finally {
+                    setPending(false)
+                    forceScrollToBottom()
+                  }
+                }, 1000)
+              }
 
               return true
             } else {
@@ -790,7 +854,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         produce((prev) => {
           prev.push({
             role: 'user',
-            content: data.message.content,
+            content: data.message.content as any,
           })
         })
       )
@@ -1350,6 +1414,116 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     })
   }, [])
 
+  // 🆕 处理单张海报图片生成完成事件（实时推送）
+  const handlePosterImageGenerated = useCallback(
+    (data: TEvents['Socket::Session::PosterImageGenerated']) => {
+      debugLog('🖼️ 收到单张海报图片生成事件:', data)
+
+      // 验证 session_id
+      if (data.session_id && data.session_id !== sessionId) {
+        return
+      }
+
+      const imageData = data.image
+
+      // 发送进度更新事件（用于更新 usePosterPlugin 的 progress 状态）
+      if (imageData.completed_count !== undefined && imageData.total_count !== undefined) {
+        eventBus.emit('Poster::ProgressUpdate', {
+          completed: imageData.completed_count,
+          total: imageData.total_count,
+          success: imageData.success
+        })
+      }
+
+      if (imageData.success && imageData.image_url) {
+        // 1. 一张一张显示在聊天中（每张图片单独一条消息）
+        const progressText = imageData.completed_count && imageData.total_count
+          ? ` (${imageData.completed_count}/${imageData.total_count})`
+          : ''
+        setMessages(produce((draft) => {
+          draft.push({
+            role: 'assistant',
+            content: [
+              { type: 'text', text: `### 🖼️ 海报图片 #${imageData.index + 1}${progressText}\n\n` },
+              {
+                type: 'image_url' as const,
+                image_url: { url: imageData.image_url! }
+              }
+            ] as any
+          })
+        }))
+
+        // 2. 添加到画布（单张图片）
+        eventBus.emit('Canvas::AddPosterImages', {
+          images: [{ url: imageData.image_url!, index: imageData.index }],
+          referenceImageId: undefined
+        })
+
+        debugLog(`✅ 海报图片 #${imageData.index + 1} 已显示`)
+      } else if (!imageData.success) {
+        // 显示失败消息
+        setMessages(produce((draft) => {
+          draft.push({
+            role: 'assistant',
+            content: `❌ 海报图片 #${imageData.index + 1} 生成失败: ${imageData.error || '未知错误'}`
+          })
+        }))
+      }
+
+      setTimeout(() => forceScrollToBottom(), 100)
+    },
+    [sessionId, forceScrollToBottom]
+  )
+
+  // 🆕 处理海报生成完成事件（所有图片完成后的总结）
+  const handlePosterCompleted = useCallback(
+    (data: TEvents['Socket::Session::PosterCompleted']) => {
+      debugLog('🖼️ 收到海报生成完成事件:', data)
+
+      // 验证 session_id
+      if (data.session_id && data.session_id !== sessionId) {
+        return
+      }
+
+      // 统计成功和失败的数量
+      const successCount = data.images.filter((img: any) => img.success).length
+      const failCount = data.images.filter((img: any) => !img.success).length
+      const totalCount = data.images.length
+
+      // 发送完成事件（用于更新 usePosterPlugin 状态）
+      eventBus.emit('Poster::Completed', {
+        successCount,
+        totalCount
+      })
+
+      if (successCount > 0) {
+        // 显示完成总结消息
+        setMessages(produce((draft) => {
+          draft.push({
+            role: 'assistant',
+            content: `### ✨ 海报生成完成\n\n成功生成 ${successCount} 张图片${failCount > 0 ? `，${failCount} 张失败` : ''}`
+          })
+        }))
+
+        toast.success(`成功生成 ${successCount} 张海报图片`)
+      } else {
+        toast.error('海报生成失败：未生成有效图片')
+
+        // 显示错误消息
+        setMessages(produce((draft) => {
+          draft.push({
+            role: 'assistant',
+            content: '❌ 海报生成失败，请重试。'
+          })
+        }))
+      }
+
+      setPending(false)
+      setTimeout(() => forceScrollToBottom(), 100)
+    },
+    [sessionId, forceScrollToBottom]
+  )
+
   useEffect(() => {
     let scrollTimeout: NodeJS.Timeout
 
@@ -1384,6 +1558,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     // eventBus.on('Socket::Session::VideoGenerated', handleVideoGenerated)
     eventBus.on('Socket::Session::UserImages', handleUserImages)
     eventBus.on('Socket::Session::AllMessages', handleAllMessages)
+    eventBus.on('Socket::Session::PosterImageGenerated', handlePosterImageGenerated) // 🆕 Single image
+    eventBus.on('Socket::Session::PosterCompleted', handlePosterCompleted) // 🆕 All complete
     eventBus.on('Socket::Session::Done', handleDone)
     eventBus.on('Socket::Session::Error', handleError)
     eventBus.on('Socket::Session::Info', handleInfo)
@@ -1405,6 +1581,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       // eventBus.off('Socket::Session::VideoGenerated', handleVideoGenerated)
       eventBus.off('Socket::Session::UserImages', handleUserImages)
       eventBus.off('Socket::Session::AllMessages', handleAllMessages)
+      eventBus.off('Socket::Session::PosterImageGenerated', handlePosterImageGenerated) // 🆕 Single image
+      eventBus.off('Socket::Session::PosterCompleted', handlePosterCompleted) // 🆕 All complete
       eventBus.off('Socket::Session::Done', handleDone)
       eventBus.off('Socket::Session::Error', handleError)
       eventBus.off('Socket::Session::Info', handleInfo)
@@ -1422,6 +1600,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     // handleVideoGenerated, // 已移除，视频在AllMessages中处理
     handleUserImages,
     handleAllMessages,
+    handlePosterImageGenerated, // 🆕 Single image dependency
+    handlePosterCompleted, // 🆕 All complete dependency
     handleDone,
     handleError,
     handleInfo,
@@ -1539,17 +1719,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     // 计算新session的名称
     const newSessionNumber = sessionList.length + 1
-    const newSessionName = `New Session ${newSessionNumber}`
+    // const newSessionName = `New Session ${newSessionNumber}`
 
     const newSession: Session = {
       id: nanoid(),
       title: generateChatSessionTitle(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      model: textModel?.model || session?.model || 'gpt-4o',
-      provider: textModel?.provider || session?.provider || 'openai',
-      name: newSessionName, // 设置明确的session名称
-      messages: [],
+      model: textModel?.model || session?.model || 'gpt-5.2',
+      provider: textModel?.provider || session?.provider || 'yunwu',
+      // name: newSessionName, // Remove invalid property
+      // messages: [], // Remove invalid property
     }
 
     // 🔥 关键修复：标记为新session，防止initChat加载历史消息
@@ -1647,6 +1827,55 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         setMessages(data)
       }
 
+      // 🆕 插件逻辑拦截
+      // 如果选中了小红书插件，直接调用插件逻辑，不走通用聊天
+      if (selectedPlugin === 'xiaohongshu-poster') {
+        debugLog('🎨 拦截消息，转入小红书插件处理流程')
+        
+        // 1. 获取用户输入
+        const lastMsg = data[data.length - 1]
+        let topic = ''
+        if (typeof lastMsg.content === 'string') {
+          topic = lastMsg.content
+        } else if (Array.isArray(lastMsg.content)) {
+          const textContent = lastMsg.content.find((c: any) => c.type === 'text')
+          if (textContent && 'text' in textContent) {
+            topic = textContent.text
+          }
+        }
+
+        if (topic) {
+          // 2. 手动更新消息列表显示用户输入
+          setMessages(prev => [...prev, lastMsg])
+          
+          // 3. 触发大纲生成
+          setPending('tool')
+          setPosterTopic(topic)
+          
+          generateOutline(topic)
+            .then(outlineData => {
+              setPosterOutline(outlineData)
+              setMessages(prev => [
+                ...prev,
+                {
+                  role: 'assistant',
+                  content: `### 📝 海报大纲已生成\n\n${outlineData.outline}\n\n请确认无误后点击下方按钮生成图片。`
+                }
+              ])
+            })
+            .catch(error => {
+              console.error('海报大纲生成失败:', error)
+              toast.error('海报大纲生成失败，请重试')
+            })
+            .finally(() => {
+              setPending(false)
+              forceScrollToBottom()
+            })
+            
+          return // 🚨 终止后续通用流程
+        }
+      }
+
       // Ensure we have a valid sessionId
       const effectiveSessionId = sessionId || sessionIdRef.current || nanoid()
 
@@ -1683,7 +1912,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       forceScrollToBottom() // 用户发送消息时强制滚动到底部
     },
-    [canvasId, sessionId, searchSessionId, forceScrollToBottom]
+    [canvasId, sessionId, searchSessionId, forceScrollToBottom, selectedPlugin, generateOutline, posterTopic, messages, socketManager]
   )
 
   const handleCancelChat = useCallback(() => {
@@ -1800,7 +2029,39 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           </>
                         )}
                       </div>
+
                     ) : null}
+
+                    {/* 🆕 海报大纲消息组件 */}
+                    {message.role === 'assistant' && message.poster_outline && (
+                      <PosterOutlineMessage
+                        outline={message.poster_outline}
+                        isGenerating={isPluginGenerating}
+                        onGenerate={async (pages, fullOutline) => {
+                          try {
+                            setPending('tool')
+                            await generateImages(
+                              pages,
+                              fullOutline,
+                              posterTopic,
+                              sessionId,
+                              canvasId
+                            )
+                            // 生成开始后，清除大纲消息中的poster_outline，避免重复显示按钮
+                            // 或者保持显示但禁用按钮（组件内部已处理disabled）
+                            // 这里选择保留显示，以便用户查看历史
+                          } catch (error) {
+                            console.error('海报生成失败:', error)
+                          }
+                        }}
+                        onCancel={() => {
+                          // 移除这条消息或者只是清除outline数据
+                          setMessages(prev => prev.filter(m => m !== message))
+                          setPosterTopic('')
+                          setPosterOutline(null)
+                        }}
+                      />
+                    )}
 
                     {/* Tool calls for assistant messages */}
                     {message.role === 'assistant' &&
@@ -1901,11 +2162,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </ScrollArea>
 
         <div className='p-2 gap-2 bg-background/95 backdrop-blur-sm border-t border-border/50 flex-shrink-0'>
-          <ChatTextarea
-            sessionId={sessionId!}
-            pending={!!pending}
-            messages={messages}
-            onSendMessages={onSendMessages}
+          {/* 🆕 插件生成中状态显示 - 仅在底部显示进度条，不再显示大纲确认卡片 */}
+          {isPluginGenerating && (
+            <div className="p-2 border-t bg-gray-50 dark:bg-gray-900/50 flex items-center justify-center gap-2 text-pink-500 text-sm">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>{pluginProgress}</span>
+            </div>
+          )}
+
+      <ChatTextarea
+            onSend={onSendMessages}
+            pending={pending}
+            onStop={() => {
+              // TODO: Implement stop generation
+            }}
+            selectedPlugin={selectedPlugin}
+            setSelectedPlugin={setSelectedPlugin}
             onCancelChat={handleCancelChat}
             enableDynamicPlaceholder={false} // 🆕 在画布页面禁用动态placeholder效果
           />

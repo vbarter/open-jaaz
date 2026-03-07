@@ -50,3 +50,10 @@ h4 {
 .mdxeditor ol ol {
   margin-left: 1.5rem; /* Indent nested lists */
 }
+
+/* Override rc-textarea default border */
+textarea.rc-textarea {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}

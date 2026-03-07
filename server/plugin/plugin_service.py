@@ -10,13 +10,11 @@ import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import httpx
-import tempfile
 import uuid
 import os
 from pathlib import Path
 import base64
 import asyncio
-from openai import OpenAI
 
 # 导入Supabase服务
 import sys
@@ -24,6 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from superbase import SupabaseService
 from utils.cos_image_service import get_cos_image_service
 from plugin.image_task_manager import task_manager
+from services.config_service import DEFAULT_PROVIDERS_CONFIG
 
 # 配置日志
 logger = logging.getLogger('plugin_service')
@@ -640,92 +639,103 @@ class PluginService:
             }
 
     @classmethod
-    def _sync_call_tuzi_generate(cls, client: OpenAI, model: str, prompt: str, quality: str, response_format: str) -> tuple[str, bool]:
+    async def _call_yunwu_generate(cls, api_key: str, base_url: str, model: str, prompt: str) -> tuple[str, bool]:
         """
-        同步调用TuZi API生成图片（在线程池中执行）
+        调用Yunwu API生成图片
 
         Args:
-            client: OpenAI客户端
+            api_key: API密钥
+            base_url: API基础URL
             model: 模型名称
             prompt: 提示词
-            quality: 质量等级
-            response_format: 响应格式
 
         Returns:
             tuple: (image_url_or_b64, is_b64)
         """
         import re
+        import json
 
-        if quality == "normal":
-            # 使用 images.generate 方法
-            result = client.images.generate(
-                model=model,
-                prompt=prompt,
-                n=1,
-                response_format=response_format
-            )
+        url = f"{base_url.rstrip('/')}/chat/completions"
 
-            if not result.data or len(result.data) == 0:
-                raise Exception("No image data returned from TuZi API")
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
 
-            image_data = result.data[0]
-
-            # 处理响应
-            if hasattr(image_data, 'url') and image_data.url:
-                return image_data.url, False
-            elif hasattr(image_data, 'b64_json') and image_data.b64_json:
-                return image_data.b64_json, True
-            else:
-                raise Exception("Invalid response format from TuZi API")
-        else:
-            # 使用 chat.completions 方法（针对 preview 模型）
-            messages = [
-                {
-                    "role": "system",
-                    "content": [
-                        {
-                            "text": "根据用户提示词，直接绘图",
-                            "type": "text"
-                        }
-                    ]
-                },
+        payload = {
+            "model": model,
+            "max_tokens": 2000,
+            "system": "生成图片",
+            "messages": [
                 {
                     "role": "user",
-                    "content": [
-                        {
-                            "text": prompt,
-                            "type": "text"
-                        }
-                    ]
+                    "content": prompt
                 }
             ]
+        }
 
-            completion = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=2000
-            )
+        logger.info(f"调用Yunwu API: url={url}, model={model}")
 
-            if not completion.choices or len(completion.choices) == 0:
-                raise Exception("No choices in completion response")
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            result = response.json()
 
-            content = completion.choices[0].message.content
+        logger.info(f"Yunwu API响应: {json.dumps(result, ensure_ascii=False)[:500]}...")
 
-            # 从Markdown中提取图片URL
+        if not result.get('choices') or len(result['choices']) == 0:
+            raise Exception("No choices in Yunwu API response")
+
+        # 获取响应内容
+        message = result['choices'][0].get('message', {})
+        content = message.get('content', '')
+
+        # 检查是否有inline_data（base64图片）
+        if isinstance(content, list):
+            for item in content:
+                if isinstance(item, dict):
+                    if item.get('type') == 'image' and item.get('inline_data'):
+                        b64_data = item['inline_data'].get('data', '')
+                        if b64_data:
+                            return b64_data, True
+                    elif item.get('type') == 'text':
+                        text_content = item.get('text', '')
+                        # 从文本中提取URL
+                        match = re.search(r'!\[.*?\]\((.*?)\)', text_content)
+                        if match:
+                            return match.group(1), False
+                        if text_content.startswith('http'):
+                            return text_content.strip(), False
+        elif isinstance(content, str):
+            # 从Markdown中提取图片URL或data URL
             match = re.search(r'!\[.*?\]\((.*?)\)', content)
             if match:
-                return match.group(1), False
-            else:
-                # 尝试直接将内容作为图片URL
-                if content.startswith('http'):
-                    return content.strip(), False
+                extracted_url = match.group(1)
+                # 检查是否是data URL (base64图片)
+                if extracted_url.startswith('data:'):
+                    # 解析data URL: data:image/png;base64,xxxxx
+                    if ';base64,' in extracted_url:
+                        b64_data = extracted_url.split(';base64,', 1)[1]
+                        return b64_data, True
+                    else:
+                        raise Exception("Invalid data URL format in response")
                 else:
-                    raise Exception("No image URL found in response")
+                    return extracted_url, False
+            # 尝试直接将内容作为图片URL或data URL
+            content_stripped = content.strip()
+            if content_stripped.startswith('data:'):
+                if ';base64,' in content_stripped:
+                    b64_data = content_stripped.split(';base64,', 1)[1]
+                    return b64_data, True
+            elif content_stripped.startswith('http'):
+                return content_stripped, False
+
+        raise Exception("No image data found in Yunwu API response")
 
     @classmethod
     async def _generate_image_internal(cls, prompt: str, quality: str = "normal", aspect_ratio: str = "1:1", response_format: str = "url") -> Dict[str, Any]:
         """
-        内部方法：生成图片使用TuZi API（实际执行逻辑）
+        内部方法：生成图片使用Yunwu API（实际执行逻辑）
 
         Args:
             prompt: 生成图片的提示词
@@ -745,21 +755,22 @@ class PluginService:
             # 将aspect_ratio添加到提示词中
             enhanced_prompt = f"{prompt}, aspect_ratio: {aspect_ratio}"
 
-            # 获取API密钥
-            api_key = os.getenv('TUZI_API_KEY')
+            # 获取API密钥和URL (使用 yunwu provider 配置)
+            yunwu_config = DEFAULT_PROVIDERS_CONFIG.get('yunwu', {})
+            api_key = yunwu_config.get('api_key')
+            base_url = yunwu_config.get('url', "https://yunwu.ai/v1")
+
             if not api_key:
-                logger.error("TUZI_API_KEY 环境变量未配置")
+                # 尝试回退到环境变量
+                api_key = os.getenv('YUNWU_API_KEY')
+
+            if not api_key:
+                logger.error("Yunwu API key not found in config or env")
                 return {
                     'success': False,
-                    'message': 'TUZI_API_KEY not configured',
+                    'message': 'Yunwu API key not configured',
                     'data': {}
                 }
-
-            # 初始化OpenAI客户端（配置为TuZi API）
-            client = OpenAI(
-                api_key=api_key,
-                base_url="https://api.tu-zi.com/v1"
-            )
 
             # 质量到模型的映射
             quality_model_map = {
@@ -772,10 +783,12 @@ class PluginService:
             model = quality_model_map.get(quality, "gemini-3-pro-image-preview")
             logger.info(f"使用模型: {model}")
 
-            # 在线程池中执行同步的OpenAI调用，避免阻塞事件循环
-            image_url, is_b64 = await asyncio.to_thread(
-                cls._sync_call_tuzi_generate,
-                client, model, enhanced_prompt, quality, response_format
+            # 调用Yunwu API生成图片
+            image_url, is_b64 = await cls._call_yunwu_generate(
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+                prompt=enhanced_prompt
             )
 
             # 上传到腾讯云COS
@@ -789,7 +802,7 @@ class PluginService:
                 }
 
             # 生成唯一文件名
-            unique_filename = f"tuzi_generated_{uuid.uuid4().hex[:12]}.png"
+            unique_filename = f"yunwu_generated_{uuid.uuid4().hex[:12]}.png"
 
             if is_b64:
                 # Base64数据
@@ -920,41 +933,114 @@ class PluginService:
             }
 
     @classmethod
-    def _sync_call_tuzi_edit(cls, client: OpenAI, model: str, image_file_path: str, prompt: str, response_format: str) -> tuple[str, bool]:
+    async def _call_yunwu_edit(cls, api_key: str, base_url: str, model: str, image_base64: str, prompt: str) -> tuple[str, bool]:
         """
-        同步调用TuZi API编辑图片（在线程池中执行）
+        调用Yunwu API编辑图片
 
         Args:
-            client: OpenAI客户端
+            api_key: API密钥
+            base_url: API基础URL
             model: 模型名称
-            image_file_path: 图片文件路径
+            image_base64: 图片的Base64编码数据
             prompt: 提示词
-            response_format: 响应格式
 
         Returns:
             tuple: (image_url_or_b64, is_b64)
         """
-        with open(image_file_path, 'rb') as image_file:
-            result = client.images.edit(
-                model=model,
-                image=image_file,
-                prompt=prompt,
-                n=1,
-                response_format=response_format
-            )
+        import re
+        import json
 
-        if not result.data or len(result.data) == 0:
-            raise Exception("No image data returned from TuZi API")
+        url = f"{base_url.rstrip('/')}/chat/completions"
 
-        image_data = result.data[0]
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
 
-        # 处理响应
-        if hasattr(image_data, 'url') and image_data.url:
-            return image_data.url, False
-        elif hasattr(image_data, 'b64_json') and image_data.b64_json:
-            return image_data.b64_json, True
-        else:
-            raise Exception("Invalid response format from TuZi API")
+        # 构建包含图片的消息
+        payload = {
+            "model": model,
+            "max_tokens": 2000,
+            "system": "根据用户指令编辑图片",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{image_base64}"
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": prompt
+                        }
+                    ]
+                }
+            ]
+        }
+
+        logger.info(f"调用Yunwu API编辑图片: url={url}, model={model}")
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            result = response.json()
+
+        logger.info(f"Yunwu API编辑响应: {json.dumps(result, ensure_ascii=False)[:500]}...")
+
+        if not result.get('choices') or len(result['choices']) == 0:
+            raise Exception("No choices in Yunwu API response")
+
+        # 获取响应内容
+        message = result['choices'][0].get('message', {})
+        content = message.get('content', '')
+
+        # 检查是否有inline_data（base64图片）
+        if isinstance(content, list):
+            for item in content:
+                if isinstance(item, dict):
+                    if item.get('type') == 'image' and item.get('inline_data'):
+                        b64_data = item['inline_data'].get('data', '')
+                        if b64_data:
+                            return b64_data, True
+                    elif item.get('type') == 'text':
+                        text_content = item.get('text', '')
+                        # 从文本中提取URL或data URL
+                        match = re.search(r'!\[.*?\]\((.*?)\)', text_content)
+                        if match:
+                            extracted_url = match.group(1)
+                            if extracted_url.startswith('data:') and ';base64,' in extracted_url:
+                                b64_data = extracted_url.split(';base64,', 1)[1]
+                                return b64_data, True
+                            return extracted_url, False
+                        if text_content.startswith('http'):
+                            return text_content.strip(), False
+        elif isinstance(content, str):
+            # 从Markdown中提取图片URL或data URL
+            match = re.search(r'!\[.*?\]\((.*?)\)', content)
+            if match:
+                extracted_url = match.group(1)
+                # 检查是否是data URL (base64图片)
+                if extracted_url.startswith('data:'):
+                    if ';base64,' in extracted_url:
+                        b64_data = extracted_url.split(';base64,', 1)[1]
+                        return b64_data, True
+                    else:
+                        raise Exception("Invalid data URL format in response")
+                else:
+                    return extracted_url, False
+            # 尝试直接将内容作为图片URL或data URL
+            content_stripped = content.strip()
+            if content_stripped.startswith('data:'):
+                if ';base64,' in content_stripped:
+                    b64_data = content_stripped.split(';base64,', 1)[1]
+                    return b64_data, True
+            elif content_stripped.startswith('http'):
+                return content_stripped, False
+
+        raise Exception("No image data found in Yunwu API edit response")
 
     @classmethod
     async def _edit_image_internal(cls,
@@ -965,7 +1051,7 @@ class PluginService:
                          aspect_ratio: str = "1:1",
                          response_format: str = "url") -> Dict[str, Any]:
         """
-        内部方法：编辑图片使用TuZi API（实际执行逻辑）
+        内部方法：编辑图片使用Yunwu API（实际执行逻辑）
 
         Args:
             image_url: 要编辑的图片URL（可选）
@@ -981,7 +1067,6 @@ class PluginService:
                 - message (str): 操作消息
                 - data (dict): 包含生成的图片URL（腾讯云COS URL）
         """
-        temp_file_path = None
         try:
             logger.info(f"开始编辑图片: quality={quality}, aspect_ratio={aspect_ratio}, prompt={prompt[:100]}...")
 
@@ -996,21 +1081,22 @@ class PluginService:
                     'data': {}
                 }
 
-            # 获取API密钥
-            api_key = os.getenv('TUZI_API_KEY')
+            # 获取API密钥和URL (使用 yunwu provider 配置)
+            yunwu_config = DEFAULT_PROVIDERS_CONFIG.get('yunwu', {})
+            api_key = yunwu_config.get('api_key')
+            base_url = yunwu_config.get('url', "https://yunwu.ai/v1")
+
             if not api_key:
-                logger.error("TUZI_API_KEY 环境变量未配置")
+                # 尝试回退到环境变量
+                api_key = os.getenv('YUNWU_API_KEY')
+
+            if not api_key:
+                logger.error("Yunwu API key not found in config or env")
                 return {
                     'success': False,
-                    'message': 'TUZI_API_KEY not configured',
+                    'message': 'Yunwu API key not configured',
                     'data': {}
                 }
-
-            # 初始化OpenAI客户端（配置为TuZi API）
-            client = OpenAI(
-                api_key=api_key,
-                base_url="https://api.tu-zi.com/v1"
-            )
 
             # 质量到模型的映射
             quality_model_map = {
@@ -1023,13 +1109,10 @@ class PluginService:
             model = quality_model_map.get(quality, "gemini-3-pro-image-preview")
             logger.info(f"使用模型: {model}")
 
-            # 准备图片数据
+            # 准备图片的base64数据
+            input_image_b64 = None
             if image_base64:
-                # 如果提供了base64数据，保存为临时文件
-                image_bytes = base64.b64decode(image_base64)
-                temp_file_path = os.path.join(tempfile.gettempdir(), f"temp_image_{uuid.uuid4().hex[:8]}.png")
-                with open(temp_file_path, 'wb') as f:
-                    f.write(image_bytes)
+                input_image_b64 = image_base64
             elif image_url:
                 # 检查是否是base64 data URL
                 if image_url.startswith('data:'):
@@ -1038,31 +1121,26 @@ class PluginService:
                     try:
                         # 找到逗号的位置，之后就是base64数据
                         comma_index = image_url.index(',')
-                        base64_data = image_url[comma_index + 1:]
-                        image_bytes = base64.b64decode(base64_data)
-
-                        temp_file_path = os.path.join(tempfile.gettempdir(), f"temp_image_{uuid.uuid4().hex[:8]}.png")
-                        with open(temp_file_path, 'wb') as f:
-                            f.write(image_bytes)
-                    except (ValueError, base64.binascii.Error) as e:
+                        input_image_b64 = image_url[comma_index + 1:]
+                    except ValueError as e:
                         logger.error(f"解析data URL失败: {str(e)}")
                         raise ValueError(f"Invalid data URL format: {str(e)}")
                 else:
-                    # 如果是普通URL，下载图片
+                    # 如果是普通URL，下载图片并转换为base64
                     logger.info(f"下载图片: {image_url}")
                     async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as http_client:
                         response = await http_client.get(image_url)
                         response.raise_for_status()
                         image_bytes = response.content
+                        input_image_b64 = base64.b64encode(image_bytes).decode('utf-8')
 
-                        temp_file_path = os.path.join(tempfile.gettempdir(), f"temp_image_{uuid.uuid4().hex[:8]}.png")
-                        with open(temp_file_path, 'wb') as f:
-                            f.write(image_bytes)
-
-            # 在线程池中执行同步的OpenAI调用，避免阻塞事件循环
-            result_image_url, is_b64 = await asyncio.to_thread(
-                cls._sync_call_tuzi_edit,
-                client, model, temp_file_path, enhanced_prompt, response_format
+            # 调用Yunwu API编辑图片
+            result_image_url, is_b64 = await cls._call_yunwu_edit(
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+                image_base64=input_image_b64,
+                prompt=enhanced_prompt
             )
 
             # 上传到腾讯云COS
@@ -1076,7 +1154,7 @@ class PluginService:
                 }
 
             # 生成唯一文件名
-            unique_filename = f"tuzi_edited_{uuid.uuid4().hex[:12]}.png"
+            unique_filename = f"yunwu_edited_{uuid.uuid4().hex[:12]}.png"
 
             if is_b64:
                 # Base64数据
@@ -1122,14 +1200,6 @@ class PluginService:
                 'message': f'Error: {str(e)}',
                 'data': {}
             }
-        finally:
-            # 清理临时文件
-            if temp_file_path and os.path.exists(temp_file_path):
-                try:
-                    os.remove(temp_file_path)
-                    logger.debug(f"临时文件已删除: {temp_file_path}")
-                except Exception as e:
-                    logger.warning(f"删除临时文件失败: {temp_file_path}, error: {e}")
 
     @classmethod
     async def _execute_edit_image_task(cls, task_id: str, image_url: Optional[str], image_base64: Optional[str],

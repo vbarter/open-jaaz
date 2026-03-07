@@ -90,7 +90,7 @@ export default function AddModelsList({
               <Label>Model Name</Label>
               <Input
                 type="text"
-                placeholder="openai/gpt-4o"
+                placeholder="yunwu/gpt-5.2"
                 value={newModelName}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {

@@ -4,7 +4,9 @@ import type { LLMConfig, ToolCallFunctionName } from '@/types/types'
 // 🚨 Important: Use localhost instead of 127.0.0.1 to avoid cross-origin cookie issues
 // 自动检测环境并使用正确的协议
 export const BASE_API_URL = import.meta.env.PROD
-  ? 'https://www.magicart.cc'
+  ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? `${window.location.protocol}//${window.location.host}`
+    : 'https://www.magicart.cc')
   : 'http://localhost:8000'
 
 export const PROVIDER_NAME_MAPPING: {
@@ -19,6 +21,10 @@ export const PROVIDER_NAME_MAPPING: {
     icon: 'https://registry.npmmirror.com/@lobehub/icons-static-png/latest/files/dark/claude-color.png',
   },
   openai: {
+    name: 'OpenAI',
+    icon: `${BASE_API_URL}/static/llm_icon/openai.png`,
+  },
+  yunwu: {
     name: 'OpenAI',
     icon: `${BASE_API_URL}/static/llm_icon/openai.png`,
   },
@@ -47,6 +53,10 @@ export const PROVIDER_NAME_MAPPING: {
     icon: 'https://framerusercontent.com/images/3cNQMWKzIhIrQ5KErBm7dSmbd2w.png',
   },
   google: {
+    name: 'Google',
+    icon: 'https://www.gstatic.com/aistudio/ai_studio_favicon_2_32x32.png',
+  },
+  'google-text': {
     name: 'Google',
     icon: 'https://www.gstatic.com/aistudio/ai_studio_favicon_2_32x32.png',
   },

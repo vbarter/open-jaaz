@@ -191,8 +191,8 @@ function Canvas() {
                 title: t('newChatWithNumber', { number: 1 }),
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
-                model: textModel?.model || 'gpt-4o',
-                provider: textModel?.provider || 'openai',
+                model: textModel?.model || 'gpt-5.2',
+                provider: textModel?.provider || 'yunwu',
               }
 
               // 立即将URL session添加到sessionList中
@@ -214,8 +214,8 @@ function Canvas() {
                 title: defaultSessionName,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
-                model: textModel?.model || 'gpt-4o',
-                provider: textModel?.provider || 'openai',
+                model: textModel?.model || 'gpt-5.2',
+                provider: textModel?.provider || 'yunwu',
               }
 
               // 立即将默认session添加到sessionList中
@@ -356,8 +356,8 @@ function Canvas() {
       title: newSessionName, // 设置明确的session标题
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      model: textModel?.model || 'gpt-4o',
-      provider: textModel?.provider || 'openai',
+      model: textModel?.model || 'gpt-5.2',
+      provider: textModel?.provider || 'yunwu',
     }
 
     // 立即将新session添加到sessionList中，这样用户就能在History中看到
