@@ -1,6 +1,7 @@
 """
-统一的图片URL转换工具
-优先返回腾讯云直链，回退到本地重定向URL
+统一的图片URL转换工具。
+
+优先返回对象存储直链，回退到本地重定向URL。
 """
 
 from typing import Optional
@@ -32,12 +33,15 @@ class ImageUrlConverter:
         if not filename:
             return ""
             
-        # 如果已经是完整的URL（腾讯云或其他），直接返回
+        # 如果已经是完整的URL（对象存储或其他），直接返回
         if filename.startswith(('http://', 'https://')):
             # 如果是Canvas使用且是跨域URL，转换为代理URL
             if for_canvas and not filename.startswith(BASE_URL):
-                # 如果是腾讯云URL，提取文件名并使用代理
-                if 'cos.' in filename and 'myqcloud.com' in filename:
+                # 如果是云存储 URL，提取文件名并使用代理
+                if (
+                    ('cos.' in filename and 'myqcloud.com' in filename)
+                    or 'r2.cloudflarestorage.com' in filename
+                ):
                     # 从腾讯云URL中提取文件名
                     if '/' in filename:
                         extracted_filename = filename.split('/')[-1].split('?')[0]
@@ -58,15 +62,15 @@ class ImageUrlConverter:
             return proxy_url
             
         try:
-            # 🌐 非Canvas使用：优先尝试获取腾讯云直链（性能最佳）
+            # 🌐 非Canvas使用：优先尝试获取对象存储直链（性能最佳）
             if self.cos_service.available:
                 cos_url = self.cos_service.get_image_url(filename)
                 if cos_url:
-                    logger.debug(f"✨ 使用腾讯云直链: {filename} -> {cos_url}")
+                    logger.debug(f"✨ 使用对象存储直链: {filename} -> {cos_url}")
                     return cos_url
                     
         except Exception as e:
-            logger.warning(f"⚠️ 获取腾讯云URL失败: {filename}, error: {e}")
+            logger.warning(f"⚠️ 获取对象存储URL失败: {filename}, error: {e}")
         
         # 回退到重定向URL（会自动重定向到腾讯云或本地文件）
         if fallback_to_redirect:
@@ -81,13 +85,13 @@ class ImageUrlConverter:
     
     def convert_local_url_to_cos(self, url: str) -> str:
         """
-        将本地API URL转换为腾讯云直链URL
+        将本地API URL转换为对象存储直链URL
         
         Args:
             url: 本地API URL (如 "http://localhost:8000/api/file/im_abc123.png")
             
         Returns:
-            腾讯云直链URL，如果转换失败则返回原URL
+            对象存储直链URL，如果转换失败则返回原URL
         """
         if not url or not isinstance(url, str):
             return url
@@ -113,7 +117,7 @@ class ImageUrlConverter:
     def get_chat_display_url(self, filename: str) -> str:
         """
         获取聊天中显示的图片URL
-        优先使用腾讯云直链，确保聊天中图片加载速度最快
+        优先使用对象存储直链，确保聊天中图片加载速度最快
         """
         return self.get_optimal_image_url(filename, fallback_to_redirect=True)
     
@@ -147,7 +151,7 @@ def get_optimal_image_url(filename: str, fallback_to_redirect: bool = True, for_
     return get_url_converter().get_optimal_image_url(filename, fallback_to_redirect, for_canvas)
 
 def convert_to_cos_url(url: str) -> str:
-    """便捷函数：转换为腾讯云URL"""
+    """便捷函数：转换为对象存储URL"""
     return get_url_converter().convert_local_url_to_cos(url)
 
 def get_chat_image_url(filename: str) -> str:

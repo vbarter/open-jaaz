@@ -5,8 +5,8 @@ import sqlite3
 import json
 import time
 from typing import List, Dict, Any, Optional, AsyncContextManager
-import aiosqlite
 from contextlib import asynccontextmanager
+from .db_runtime import aiosqlite_compat as aiosqlite, get_database_runtime
 from log import get_logger
 
 logger = get_logger(__name__)
@@ -17,6 +17,7 @@ class DatabaseOptimizationService:
     
     def __init__(self, db_path: str, max_connections: int = 10):
         self.db_path = db_path
+        self.runtime = get_database_runtime(db_path)
         self.max_connections = max_connections
         self._connection_pool: List[aiosqlite.Connection] = []
         self._pool_lock = asyncio.Lock()
@@ -31,12 +32,13 @@ class DatabaseOptimizationService:
         """创建新的数据库连接"""
         conn = await aiosqlite.connect(self.db_path)
         conn.row_factory = sqlite3.Row
-        # 启用性能优化设置
-        await conn.execute("PRAGMA journal_mode=WAL")
-        await conn.execute("PRAGMA synchronous=NORMAL")
-        await conn.execute("PRAGMA cache_size=10000")
-        await conn.execute("PRAGMA temp_store=memory")
-        await conn.commit()
+        if self.runtime.provider == "sqlite":
+            # 启用性能优化设置
+            await conn.execute("PRAGMA journal_mode=WAL")
+            await conn.execute("PRAGMA synchronous=NORMAL")
+            await conn.execute("PRAGMA cache_size=10000")
+            await conn.execute("PRAGMA temp_store=memory")
+            await conn.commit()
         self._stats['connections_created'] += 1
         logger.info(f"[debug] 创建新数据库连接，总连接数: {self._stats['connections_created']}")
         return conn

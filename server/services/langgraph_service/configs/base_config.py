@@ -1,4 +1,5 @@
-from typing import Annotated, Optional, Dict, Any, Sequence, List, TypedDict
+from typing import Annotated, Optional, Dict, Any, Sequence, List
+from typing_extensions import TypedDict
 from langgraph.types import Command
 from langgraph.prebuilt import InjectedState
 from langchain_core.messages import ToolMessage

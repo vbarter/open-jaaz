@@ -1,0 +1,40 @@
+{
+  "name": "magicart-backend-proxy",
+  "main": "worker.js",
+  "compatibility_date": "2026-05-04",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "MAGICART_D1",
+      "database_name": "magicart-live-db",
+      "database_id": "b42e2f3c-329d-4f89-9e73-4bdd7ec067ff"
+    }
+  ],
+  "containers": [
+    {
+      "class_name": "MagicArtBackend",
+      "image": "../Dockerfile.cloudflare",
+      "max_instances": 3
+    }
+  ],
+  "vars": {
+    "ENVIRONMENT": "production"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MAGICART_BACKEND",
+        "class_name": "MagicArtBackend"
+      }
+    ]
+  },
+  "observability": {
+    "enabled": true
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["MagicArtBackend"]
+    }
+  ]
+}

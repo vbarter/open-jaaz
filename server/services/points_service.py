@@ -1,7 +1,7 @@
 import sqlite3
-import aiosqlite
 from typing import List, Dict, Any, Optional
 from .config_service import USER_DATA_DIR
+from .db_runtime import aiosqlite_compat as aiosqlite
 from log import get_logger
 import os
 
@@ -42,9 +42,6 @@ class PointsService:
         """
         try:
             async with aiosqlite.connect(self.db_path) as db:
-                # 开始事务
-                await db.execute("BEGIN TRANSACTION")
-                
                 # 获取当前用户积分
                 cursor = await db.execute(
                     "SELECT points FROM tb_user WHERE id = ? AND uuid = ?", 
@@ -54,7 +51,6 @@ class PointsService:
                 
                 if not row:
                     logger.error(f"User not found: {user_id}, {user_uuid}")
-                    await db.execute("ROLLBACK")
                     return False
                 
                 current_points = row[0]
@@ -63,7 +59,6 @@ class PointsService:
                 # 确保积分不会变成负数
                 if new_balance < 0:
                     logger.warning(f"Insufficient points for user {user_id}: current={current_points}, trying to deduct={abs(points)}")
-                    await db.execute("ROLLBACK")
                     return False
                 
                 # 更新用户积分
@@ -80,9 +75,7 @@ class PointsService:
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (user_id, user_uuid, points, transaction_type, description, reference_id, new_balance))
                 
-                # 提交事务
-                await db.execute("COMMIT")
-                
+                await db.commit()
                 logger.info(f"Points updated for user {user_id}: {current_points} + {points} = {new_balance}")
                 return True
                 

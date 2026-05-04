@@ -3,9 +3,9 @@ import json
 import os
 import uuid
 from typing import List, Dict, Any, Optional
-import aiosqlite
 from .config_service import USER_DATA_DIR
 from .migrations.manager import MigrationManager, CURRENT_VERSION
+from .db_runtime import aiosqlite_compat as aiosqlite, get_database_runtime
 from utils.cos_image_service import get_cos_image_service
 from log import get_logger
 
@@ -16,6 +16,7 @@ DB_PATH = os.path.join(USER_DATA_DIR, "localmanus.db")
 class DatabaseService:
     def __init__(self):
         self.db_path = DB_PATH
+        self.runtime = get_database_runtime(self.db_path)
         self._ensure_db_directory()
         self._migration_manager = MigrationManager()
         self._init_db()
@@ -26,7 +27,11 @@ class DatabaseService:
 
     def _init_db(self):
         """Initialize the database with the current schema"""
-        with sqlite3.connect(self.db_path) as conn:
+        if self.runtime.provider == 'd1':
+            logger.info('D1 database provider enabled, skipping local SQLite initialization')
+            return
+
+        with self.runtime.sync_connect() as conn:
             # Create version table if it doesn't exist
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS db_version (

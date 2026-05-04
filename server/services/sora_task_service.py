@@ -4,10 +4,10 @@ Sora任务分发服务
 用于分布式视频生成任务管理
 """
 import sqlite3
-import aiosqlite
 from typing import List, Dict, Any, Optional
 from log import get_logger
 from services.db_service import DB_PATH
+from services.db_runtime import aiosqlite_compat as aiosqlite
 
 logger = get_logger(__name__)
 

@@ -3,7 +3,8 @@ import os
 import traceback
 import aiofiles
 import toml
-from typing import Dict, TypedDict, Literal, Optional
+from typing import Dict, Literal, Optional
+from typing_extensions import TypedDict
 
 # 定义配置文件的类型结构
 

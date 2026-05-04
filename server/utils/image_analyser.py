@@ -304,8 +304,8 @@ class ImageAnalyser:
             else:
                 # 同时使用目标图片和模板
                 logger.info(f"📝 [DEBUG] 使用模板模式")
-                logger.info(f"   - 目标图片 (image): {images["image"]}")
-                logger.info(f"   - 模板图片 (mask): {images["mask"]}")
+                logger.info(f"   - 目标图片 (image): {images['image']}")
+                logger.info(f"   - 模板图片 (mask): {images['mask']}")
                 logger.info(f"   - 提示词 (prompt): {prompt}")
                 # 异步读取文件
                 with open(images["image"], 'rb') as image_file, open(images["mask"], 'rb') as mask_file:

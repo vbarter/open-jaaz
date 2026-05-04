@@ -10,6 +10,7 @@ from utils.auth_utils import get_current_user_optional, CurrentUser, get_user_fr
 from services.video_generation_service import get_video_generation_service
 from services.sora2_service import sora2_service
 from services.sora2_share_service import get_sora2_share_service
+from services.db_runtime import aiosqlite_compat as aiosqlite
 from log import get_logger
 from common import BASE_URL
 import asyncio
@@ -943,7 +944,6 @@ async def get_share_show_video(
     """
     try:
         import sqlite3
-        import aiosqlite
         from services.db_service import DB_PATH
         from services.sora2_share_service import get_sora2_share_service
 
@@ -1091,7 +1091,6 @@ async def record_video_view(
     Returns:
         更新后的浏览量
     """
-    import sqlite3
     from datetime import datetime
 
     try:
@@ -1107,33 +1106,24 @@ async def record_video_view(
 
         # 增加浏览量
         from services.db_service import db_service
-        db_path = db_service.db_path
 
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
-        try:
-            # 更新 tb_sora2 表的 views 字段
-            cursor.execute("""
+        async with aiosqlite.connect(db_service.db_path) as db:
+            await db.execute(
+                """
                 UPDATE tb_sora2
                 SET views = COALESCE(views, 0) + 1,
                     mtime = ?
                 WHERE id = ?
-            """, (datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'), video_id))
-
-            # 获取更新后的浏览量
-            cursor.execute("SELECT views FROM tb_sora2 WHERE id = ?", (video_id,))
-            result = cursor.fetchone()
+                """,
+                (datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ'), video_id),
+            )
+            await db.commit()
+            cursor = await db.execute("SELECT views FROM tb_sora2 WHERE id = ?", (video_id,))
+            result = await cursor.fetchone()
             views = result[0] if result else 0
 
-            conn.commit()
-
-            logger.info(f"✅ 浏览量更新成功 - video_id: {video_id}, views: {views}")
-
-            return RecordViewResponse(success=True, views=views)
-
-        finally:
-            conn.close()
+        logger.info(f"✅ 浏览量更新成功 - video_id: {video_id}, views: {views}")
+        return RecordViewResponse(success=True, views=views)
 
     except HTTPException:
         raise
@@ -1169,7 +1159,6 @@ async def toggle_video_like(
     Returns:
         点赞状态和点赞量
     """
-    import sqlite3
     from datetime import datetime
 
     try:
@@ -1188,77 +1177,65 @@ async def toggle_video_like(
             raise HTTPException(status_code=404, detail=f"视频 #{video_id} 不存在")
 
         from services.db_service import db_service
-        db_path = db_service.db_path
 
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
-        try:
+        async with aiosqlite.connect(db_service.db_path) as db:
             now = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 
-            # 检查用户是否已点赞
-            cursor.execute("""
+            cursor = await db.execute(
+                """
                 SELECT is_liked FROM tb_sora_feedback
                 WHERE video_id = ? AND user_uuid = ?
-            """, (video_id, user_uuid))
-
-            result = cursor.fetchone()
-            likes_delta = 0  # 点赞数变化量: +1 或 -1
+                """,
+                (video_id, user_uuid),
+            )
+            result = await cursor.fetchone()
+            likes_delta = 0
 
             if result is None:
-                # 首次点赞 - 插入新记录
-                cursor.execute("""
+                await db.execute(
+                    """
                     INSERT INTO tb_sora_feedback (video_id, user_uuid, is_liked, ctime, mtime)
                     VALUES (?, ?, 1, ?, ?)
-                """, (video_id, user_uuid, now, now))
+                    """,
+                    (video_id, user_uuid, now, now),
+                )
                 is_liked = True
-                likes_delta = +1  # 新增点赞，likes +1
-
+                likes_delta = 1
             else:
-                # 切换点赞状态
                 current_liked = result[0]
                 new_liked = 0 if current_liked == 1 else 1
-
-                cursor.execute("""
+                await db.execute(
+                    """
                     UPDATE tb_sora_feedback
                     SET is_liked = ?, mtime = ?
                     WHERE video_id = ? AND user_uuid = ?
-                """, (new_liked, now, video_id, user_uuid))
-
+                    """,
+                    (new_liked, now, video_id, user_uuid),
+                )
                 is_liked = new_liked == 1
+                likes_delta = 1 if new_liked == 1 else -1
 
-                if new_liked == 1:
-                    likes_delta = +1  # 从不喜欢变成喜欢，likes +1
-                else:
-                    likes_delta = -1  # 从喜欢变成不喜欢，likes -1
-
-            # 更新 tb_sora2 表的 likes 字段（增量更新）
-            # 策略：likes 有增有减
-            # - 点赞时 +1
-            # - 取消点赞时 -1
-            cursor.execute("""
+            await db.execute(
+                """
                 UPDATE tb_sora2
                 SET likes = MAX(0, COALESCE(likes, 0) + ?),
                     mtime = ?
                 WHERE id = ?
-            """, (likes_delta, now, video_id))
-
-            # 获取更新后的点赞量
-            cursor.execute("SELECT likes FROM tb_sora2 WHERE id = ?", (video_id,))
-            likes_count = cursor.fetchone()[0]
-
-            conn.commit()
-
-            logger.info(f"✅ 点赞状态更新成功 - video_id: {video_id}, is_liked: {is_liked}, likes: {likes_count}")
-
-            return ToggleLikeResponse(
-                success=True,
-                is_liked=is_liked,
-                likes=likes_count
+                """,
+                (likes_delta, now, video_id),
             )
+            await db.commit()
 
-        finally:
-            conn.close()
+            cursor = await db.execute("SELECT likes FROM tb_sora2 WHERE id = ?", (video_id,))
+            likes_row = await cursor.fetchone()
+            likes_count = likes_row[0] if likes_row else 0
+
+        logger.info(f"✅ 点赞状态更新成功 - video_id: {video_id}, is_liked: {is_liked}, likes: {likes_count}")
+        return ToggleLikeResponse(
+            success=True,
+            is_liked=is_liked,
+            likes=likes_count
+        )
 
     except HTTPException:
         raise
@@ -1284,8 +1261,6 @@ async def get_user_likes(
     Returns:
         已点赞的视频ID列表
     """
-    import sqlite3
-
     try:
         # 如果未登录，返回空列表
         if not current_user:
@@ -1305,28 +1280,22 @@ async def get_user_likes(
         logger.info(f"🔍 查询用户点赞 - user: {user_uuid[:8]}..., videos: {len(video_id_list)}")
 
         from services.db_service import db_service
-        db_path = db_service.db_path
 
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
-        try:
-            # 查询用户已点赞的视频
+        async with aiosqlite.connect(db_service.db_path) as db:
             placeholders = ','.join(['?' for _ in video_id_list])
-            cursor.execute(f"""
+            cursor = await db.execute(
+                f"""
                 SELECT video_id FROM tb_sora_feedback
                 WHERE user_uuid = ? AND is_liked = 1
                 AND video_id IN ({placeholders})
-            """, [user_uuid] + video_id_list)
+                """,
+                [user_uuid] + video_id_list,
+            )
+            rows = await cursor.fetchall()
+            liked_ids = [row[0] for row in rows]
 
-            liked_ids = [row[0] for row in cursor.fetchall()]
-
-            logger.info(f"✅ 查询成功 - user: {user_uuid[:8]}..., liked: {len(liked_ids)}/{len(video_id_list)}")
-
-            return UserLikesResponse(liked_video_ids=liked_ids)
-
-        finally:
-            conn.close()
+        logger.info(f"✅ 查询成功 - user: {user_uuid[:8]}..., liked: {len(liked_ids)}/{len(video_id_list)}")
+        return UserLikesResponse(liked_video_ids=liked_ids)
 
     except HTTPException:
         raise

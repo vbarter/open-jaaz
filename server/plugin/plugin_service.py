@@ -3,23 +3,20 @@
 
 """
 Plugin Service
-处理插件相关的业务逻辑，包括与Supabase数据库的交互
+处理插件相关的业务逻辑，包括提示词数据库与媒体处理。
 """
 
 import logging
 from typing import Optional, Dict, Any, List
-from datetime import datetime
 import httpx
 import uuid
 import os
-from pathlib import Path
 import base64
 import asyncio
 
-# 导入Supabase服务
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from superbase import SupabaseService
+from services.prompt_repository import prompt_repository
 from utils.cos_image_service import get_cos_image_service
 from plugin.image_task_manager import task_manager
 from services.config_service import DEFAULT_PROVIDERS_CONFIG
@@ -166,7 +163,7 @@ class PluginService:
                          owner: str,
                          publish_time: Optional[str] = None) -> Dict[str, Any]:
         """
-        添加提示词到Supabase数据库
+        添加提示词到提示词数据库
 
         Args:
             creator: 提示词创建人
@@ -218,18 +215,9 @@ class PluginService:
 
             logger.info(f"准备插入提示词数据: title={title}, creator={creator}, owner={owner}")
 
-            # 定义插入操作
-            def insert_operation(client):
-                result = client.table('tb_ma_template_prompt').insert(prompt_data).execute()
-                return result
-
-            # 执行插入操作（带重试机制）
-            result = SupabaseService.execute_with_retry(insert_operation)
-
-            if result and result.data:
-                inserted_record = result.data[0] if isinstance(result.data, list) else result.data
+            inserted_record = prompt_repository.insert(prompt_data)
+            if inserted_record:
                 logger.info(f"提示词插入成功: id={inserted_record.get('id')}, title={title}")
-
                 return {
                     'success': True,
                     'message': 'add successfully',
@@ -263,19 +251,7 @@ class PluginService:
             Dict 或 None: 提示词数据
         """
         try:
-            def query_operation(client):
-                result = client.table('tb_ma_template_prompt') \
-                    .select('*') \
-                    .eq('id', prompt_id) \
-                    .limit(1) \
-                    .execute()
-                return result
-
-            result = SupabaseService.execute_with_retry(query_operation)
-
-            if result and result.data and len(result.data) > 0:
-                return result.data[0]
-            return None
+            return prompt_repository.get_by_id(prompt_id)
 
         except Exception as e:
             logger.error(f"查询提示词失败: {str(e)}", exc_info=True)
@@ -294,19 +270,7 @@ class PluginService:
             List: 提示词列表
         """
         try:
-            def query_operation(client):
-                result = client.table('tb_ma_template_prompt') \
-                    .select('*') \
-                    .order('id', desc=True) \
-                    .range(offset, offset + limit - 1) \
-                    .execute()
-                return result
-
-            result = SupabaseService.execute_with_retry(query_operation)
-
-            if result and result.data:
-                return result.data
-            return []
+            return prompt_repository.list_prompts(limit=limit, offset=offset)
 
         except Exception as e:
             logger.error(f"查询提示词列表失败: {str(e)}", exc_info=True)
@@ -336,20 +300,8 @@ class PluginService:
 
             # 多查询1条记录来判断是否还有下一页
             fetch_limit = page_size + 1
-
-            def query_operation(client):
-                # 按照 created_at 时间倒序排列（最新的在前面）
-                result = client.table('tb_ma_template_prompt') \
-                    .select('*') \
-                    .order('created_at', desc=True) \
-                    .range(next_offset, next_offset + fetch_limit - 1) \
-                    .execute()
-                return result
-
-            result = SupabaseService.execute_with_retry(query_operation)
-
-            if result and result.data:
-                records = result.data
+            records = prompt_repository.list_prompts(limit=fetch_limit, offset=next_offset)
+            if records:
 
                 # 判断是否还有更多数据
                 has_more = len(records) > page_size
@@ -415,39 +367,17 @@ class PluginService:
         """
         try:
             logger.info("开始统计提示词总记录数")
+            count = prompt_repository.count_prompts()
 
-            def count_operation(client):
-                # 使用 Supabase 的 count 功能
-                result = client.table('tb_ma_template_prompt') \
-                    .select('*', count='exact') \
-                    .limit(0) \
-                    .execute()
-                return result
+            logger.info(f"统计完成: 总共 {count} 条记录")
 
-            result = SupabaseService.execute_with_retry(count_operation)
-
-            if result:
-                # Supabase 的 count 在 result.count 中
-                count = result.count if hasattr(result, 'count') else 0
-
-                logger.info(f"统计完成: 总共 {count} 条记录")
-
-                return {
-                    'success': True,
-                    'message': 'Count successful',
-                    'data': {
-                        'count': count
-                    }
+            return {
+                'success': True,
+                'message': 'Count successful',
+                'data': {
+                    'count': count
                 }
-            else:
-                logger.error("统计失败: 未返回结果")
-                return {
-                    'success': False,
-                    'message': 'Failed to count records',
-                    'data': {
-                        'count': 0
-                    }
-                }
+            }
 
         except Exception as e:
             logger.error(f"统计提示词记录数失败: {str(e)}", exc_info=True)
@@ -488,39 +418,17 @@ class PluginService:
                     }
                 }
 
-            def count_operation(client):
-                # 使用 Supabase 的 count 功能，配合 ilike 进行模糊搜索
-                result = client.table('tb_ma_template_prompt') \
-                    .select('*', count='exact') \
-                    .ilike('prompt', f'%{query}%') \
-                    .limit(0) \
-                    .execute()
-                return result
+            count = prompt_repository.count_search_prompts(query)
 
-            result = SupabaseService.execute_with_retry(count_operation)
+            logger.info(f"搜索统计完成: 查询'{query}'共找到 {count} 条记录")
 
-            if result:
-                # Supabase 的 count 在 result.count 中
-                count = result.count if hasattr(result, 'count') else 0
-
-                logger.info(f"搜索统计完成: 查询'{query}'共找到 {count} 条记录")
-
-                return {
-                    'success': True,
-                    'message': 'Count successful',
-                    'data': {
-                        'count': count
-                    }
+            return {
+                'success': True,
+                'message': 'Count successful',
+                'data': {
+                    'count': count
                 }
-            else:
-                logger.error("搜索统计失败: 未返回结果")
-                return {
-                    'success': False,
-                    'message': 'Failed to count search results',
-                    'data': {
-                        'count': 0
-                    }
-                }
+            }
 
         except Exception as e:
             logger.error(f"统计搜索结果数量失败: {str(e)}", exc_info=True)
@@ -572,21 +480,12 @@ class PluginService:
             # 多查询1条记录来判断是否还有下一页
             fetch_limit = page_size + 1
             offset = next_offset
-
-            def search_operation(client):
-                # 使用 ilike 进行模糊搜索（不区分大小写）
-                result = client.table('tb_ma_template_prompt') \
-                    .select('*') \
-                    .ilike('prompt', f'%{query}%') \
-                    .order('created_at', desc=True) \
-                    .range(offset, offset + fetch_limit - 1) \
-                    .execute()
-                return result
-
-            result = SupabaseService.execute_with_retry(search_operation)
-
-            if result and result.data:
-                records = result.data
+            records = prompt_repository.search_prompts(
+                query=query,
+                limit=fetch_limit,
+                offset=offset,
+            )
+            if records:
 
                 # 判断是否还有更多数据
                 has_more = len(records) > page_size

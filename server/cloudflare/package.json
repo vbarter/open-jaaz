@@ -1,0 +1,11 @@
+{
+  "name": "magicart-cloudflare-proxy",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@cloudflare/containers": "^0.2.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.46.0"
+  }
+}

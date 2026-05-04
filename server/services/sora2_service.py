@@ -3,13 +3,13 @@ Sora2 视频生成记录服务
 处理 tb_sora2 表的数据库操作
 """
 import sqlite3
-import aiosqlite
 import json
 import asyncio
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from log import get_logger
 from services.db_service import DB_PATH
+from services.db_runtime import aiosqlite_compat as aiosqlite
 
 logger = get_logger(__name__)
 

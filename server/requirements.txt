@@ -11,6 +11,8 @@ aiohttp
 gunicorn
 aiosqlite
 requests
+boto3
+cos-python-sdk-v5
 Pillow
 nanoid
 python-multipart

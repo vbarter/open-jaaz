@@ -106,7 +106,7 @@ async def upload_image(
             # img.save(file_path, format=save_format)
             await run_in_threadpool(img.save, file_path, format=save_format)
 
-    # 尝试上传到腾讯云
+    # 尝试上传到对象存储
     cos_service = get_cos_image_service()
     filename_with_ext = f'{file_id}.{extension}'
     content_type = f'image/{extension}' if extension == 'png' else 'image/jpeg'
@@ -119,29 +119,29 @@ async def upload_image(
     )
     
     if cos_url:
-        # 腾讯云上传成功
-        logger.info(f'✅ 图片上传到腾讯云成功: {filename_with_ext} -> {cos_url}')
+        # 对象存储上传成功
+        logger.info(f'✅ 图片上传到对象存储成功: {filename_with_ext} -> {cos_url}')
         logger.info(f'📁 本地文件保留，供图生图等功能使用: {file_path}')
         return {
             'file_id': filename_with_ext,
-            'url': cos_url,  # 返回腾讯云URL（向后兼容）
-            'direct_url': cos_url,  # 腾讯云直链URL
+            'url': cos_url,  # 返回对象存储URL（向后兼容）
+            'direct_url': cos_url,  # 对象存储直链URL
             'proxy_url': f'{BASE_URL}/api/file/{filename_with_ext}',  # 代理URL
             'redirect_url': f'{BASE_URL}/api/file/{filename_with_ext}?redirect=true',  # 重定向URL
             'width': width,
             'height': height,
             'user_email': user_email,
             'user_id': user_id,
-            'storage_type': 'tencent_cloud',  # 标记存储类型
+            'storage_type': cos_service.provider if getattr(cos_service, 'provider', None) else 'cloud',  # 标记存储类型
         }
     else:
-        # 腾讯云不可用，回退到本地存储
-        logger.info(f'📁 腾讯云不可用，使用本地存储: {filename_with_ext}')
+        # 对象存储不可用，回退到本地存储
+        logger.info(f'📁 对象存储不可用，使用本地存储: {filename_with_ext}')
         local_url = f'{BASE_URL}/api/file/{filename_with_ext}'
         return {
             'file_id': filename_with_ext,
             'url': local_url,  # 返回本地URL（向后兼容）
-            'direct_url': None,  # 无腾讯云直链
+            'direct_url': None,  # 无对象存储直链
             'proxy_url': local_url,  # 代理URL（本地文件）
             'redirect_url': local_url,  # 重定向URL（本地文件，无法重定向）
             'width': width,
@@ -200,11 +200,11 @@ def compress_image(img: Image.Image, max_size_mb: float) -> bytes:
 
 
 def upload_to_cloud_background(file_path: str, filename_with_ext: str, content_type: str):
-    """后台任务：同步上传图片到腾讯云"""
+    """后台任务：同步上传图片到对象存储"""
     try:
         cos_service = get_cos_image_service()
         if not cos_service.available:
-            logger.info(f'⚠️ 腾讯云服务不可用，跳过后台上传: {filename_with_ext}')
+            logger.info(f'⚠️ 对象存储服务不可用，跳过后台上传: {filename_with_ext}')
             return
             
         # 在同步函数中运行异步操作
@@ -216,13 +216,13 @@ def upload_to_cloud_background(file_path: str, filename_with_ext: str, content_t
         ))
         
         if cos_url:
-            logger.info(f'✅ 后台上传到腾讯云成功: {filename_with_ext} -> {cos_url}')
+            logger.info(f'✅ 后台上传到对象存储成功: {filename_with_ext} -> {cos_url}')
             logger.info(f'📁 本地文件保留，供图生图等功能使用: {file_path}')
         else:
-            logger.warning(f'⚠️ 后台上传到腾讯云失败: {filename_with_ext}')
+            logger.warning(f'⚠️ 后台上传到对象存储失败: {filename_with_ext}')
             
     except Exception as e:
-        logger.error(f'❌ 后台上传到腾讯云异常: {filename_with_ext}, error: {e}')
+        logger.error(f'❌ 后台上传到对象存储异常: {filename_with_ext}, error: {e}')
 
 
 # 快速图片上传接口 - 立即返回本地文件，后台异步上传到云端
@@ -233,7 +233,7 @@ async def upload_image_fast(
     max_size_mb: float = 50.0,
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional)
 ):
-    """快速图片上传：立即保存到本地并返回，后台异步上传到腾讯云"""
+    """快速图片上传：立即保存到本地并返回，后台异步上传到对象存储"""
     try:
         logger.info(f'⚡ upload_image_fast started, file: {file.filename}')
         logger.info(f'⚡ max_size_mb: {max_size_mb}')
@@ -323,7 +323,7 @@ async def upload_image_fast(
         content_type = f'image/{extension}' if extension == 'png' else 'image/jpeg'
         local_url = f'{BASE_URL}/api/file/{filename_with_ext}'
         
-        # 添加后台任务异步上传到腾讯云
+        # 添加后台任务异步上传到对象存储
         background_tasks.add_task(
             upload_to_cloud_background,
             file_path,
@@ -358,21 +358,21 @@ async def get_file(
     redirect: bool = Query(False, description="是否重定向到腾讯云直链"),
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional)
 ):
-    # 首先尝试从腾讯云获取图片URL
+    # 首先尝试从对象存储获取图片URL
     cos_service = get_cos_image_service()
     cos_url = cos_service.get_image_url(file_id)
     
     if cos_url:
-        # 🔀 重定向模式：直接重定向到腾讯云URL（用于聊天等场景）
+        # 🔀 重定向模式：直接重定向到对象存储URL（用于聊天等场景）
         if redirect:
-            logger.info(f'🔀 重定向到腾讯云: {file_id} -> {cos_url}')
+            logger.info(f'🔀 重定向到对象存储: {file_id} -> {cos_url}')
             from fastapi.responses import RedirectResponse
             return RedirectResponse(url=cos_url, status_code=302)
         
-        # 🖼️ 代理模式：从腾讯云获取图片并返回（用于Canvas避免跨域）
-        logger.info(f'🔧 代理模式：从腾讯云获取图片: {file_id} -> {cos_url}')
+        # 🖼️ 代理模式：从对象存储获取图片并返回（用于Canvas避免跨域）
+        logger.info(f'🔧 代理模式：从对象存储获取图片: {file_id} -> {cos_url}')
         try:
-            # 代理模式：从腾讯云下载图片并返回给前端
+            # 代理模式：从对象存储下载图片并返回给前端
             timeout = httpx.Timeout(30.0)
             async with HttpClient.create(timeout=timeout) as client:
                 response = await client.get(cos_url)
@@ -389,11 +389,11 @@ async def get_file(
                         }
                     )
                 else:
-                    logger.warning(f'⚠️ 腾讯云返回错误状态码 {response.status_code}，回退到本地存储')
+                    logger.warning(f'⚠️ 对象存储返回错误状态码 {response.status_code}，回退到本地存储')
         except Exception as e:
-            logger.warning(f'⚠️ 从腾讯云获取图片失败: {e}，回退到本地存储')
+            logger.warning(f'⚠️ 从对象存储获取图片失败: {e}，回退到本地存储')
     
-    # 向后兼容：如果腾讯云中没有，尝试从本地文件系统获取
+    # 向后兼容：如果对象存储中没有，尝试从本地文件系统获取
     user_email = current_user.email if current_user else None
     user_id = str(current_user.id) if current_user else None
     logger.info(f"[向后兼容] get_file - user_email: {user_email}, user_id: {user_id}")

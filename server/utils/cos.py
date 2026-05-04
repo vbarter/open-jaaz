@@ -1,9 +1,14 @@
 from typing import Optional
-from qcloud_cos import CosConfig
-from qcloud_cos import CosS3Client
 import sys
 import os
 import dotenv
+
+try:
+    from qcloud_cos import CosConfig
+    from qcloud_cos import CosS3Client
+except ImportError:  # pragma: no cover - optional dependency
+    CosConfig = None
+    CosS3Client = None
 
 dotenv.load_dotenv()
 
@@ -12,6 +17,8 @@ class CosUtils:
     腾讯云存储工具
     """
     def __init__(self) -> None:
+        if CosConfig is None or CosS3Client is None:
+            raise RuntimeError("qcloud_cos is not installed")
         secret_id = os.getenv('COS_SECRET_ID')    # 替换为用户的 SecretId
         secret_key = os.getenv('COS_SECRET_KEY')    # 替换为用户的 SecretKey
         self.region = os.getenv('COS_REGION')              # 替换为用户的 region，例如 ap-beijing

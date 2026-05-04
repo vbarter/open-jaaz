@@ -2,10 +2,10 @@
 Sora2 分享服务
 """
 import hashlib
-import aiosqlite
 from datetime import datetime
 from typing import Optional, Dict, Any
 from services.db_service import DB_PATH
+from services.db_runtime import aiosqlite_compat as aiosqlite
 from log import get_logger
 
 logger = get_logger(__name__)

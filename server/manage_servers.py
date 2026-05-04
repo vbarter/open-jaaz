@@ -11,11 +11,11 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from services.sora_task_service import sora_task_service
+from services.db_runtime import aiosqlite_compat as aiosqlite
 
 
 async def list_servers():
     """列出所有服务器"""
-    import aiosqlite
     import sqlite3
 
     async with aiosqlite.connect(sora_task_service.db_path) as db:
@@ -60,8 +60,6 @@ async def add_server(ip: str):
 
 async def enable_server(ip: str):
     """启用服务器"""
-    import aiosqlite
-
     async with aiosqlite.connect(sora_task_service.db_path) as db:
         cursor = await db.execute(
             "SELECT id FROM tb_sora_server WHERE ip = ?",
@@ -88,8 +86,6 @@ async def enable_server(ip: str):
 
 async def disable_server(ip: str):
     """禁用服务器"""
-    import aiosqlite
-
     async with aiosqlite.connect(sora_task_service.db_path) as db:
         cursor = await db.execute(
             "SELECT id FROM tb_sora_server WHERE ip = ?",
@@ -116,8 +112,6 @@ async def disable_server(ip: str):
 
 async def remove_server(ip: str):
     """删除服务器"""
-    import aiosqlite
-
     async with aiosqlite.connect(sora_task_service.db_path) as db:
         cursor = await db.execute(
             "SELECT id FROM tb_sora_server WHERE ip = ?",
